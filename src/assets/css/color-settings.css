@@ -3,7 +3,10 @@
   --primary-color: #0f3aa0;
   --accent-color: #eb6a25;
   --main-bg-color: #1a1a1a;
+  --warn-bg-color: #8b1414;
   --main-text-color: #f2f2f2f0;
+  --warn-text-color: #ffffff;
   --url-text-color: #646cff;
   --button-hover-color: #646cff;
+  --warn-border-color: #cb5353;
 }

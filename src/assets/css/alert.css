@@ -1,14 +1,14 @@
 .alert {
-  background-color: white;
-  color: black;
-  border: 2px solid red;
+  background-color: var(--warn-bg-color);
+  color: var(--warn-text-color);
+  border: 2px solid var(--warn-border-color);
   border-radius: 5px;
   padding: 1em;
   margin: 20px 1em;
 }
 
 .alert h2 {
-  color: red;
+  color: var(--warn-text-color);
   margin: 0;
   display: flex;
   align-items: center;

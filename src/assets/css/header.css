@@ -1,0 +1,24 @@
+@import 'color-settings.css';
+
+header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+
+  font-size: 1.2em;
+  width: fit-content;
+  padding: 0.5em 1em;
+  margin: 10px;
+
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+header img {
+  width: 2.3rem;
+}

@@ -1,0 +1,9 @@
+/* variables.css */
+:root {
+  --primary-color: #0f3aa0;
+  --accent-color: #eb6a25;
+  --main-bg-color: #1a1a1a;
+  --main-text-color: #f2f2f2f0;
+  --url-text-color: #646cff;
+  --button-hover-color: #646cff;
+}

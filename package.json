@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
@@ -14,9 +15,14 @@
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^24.10.1",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.5.0",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.50.1",
     "vite": "^7.2.4"
   }
 }

@@ -17,6 +17,6 @@
 
 h1 {
   width: 100%;
-  color: #fff;
+  color: var(--heading-text-color);
   font-size: 4rem;
 }

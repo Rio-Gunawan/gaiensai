@@ -10,12 +10,12 @@ header {
   width: fit-content;
   padding: 0.5rem 1rem;
 
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--translucent-b-bg-color);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--translucent-w-bg-color);
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
 
   position: fixed;
   top: 10px;
@@ -31,12 +31,12 @@ header img {
   justify-content: center;
   align-items: center;
 
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--translucent-b-bg-color);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--translucent-w-bg-color);
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
 
   position: fixed;
   top: 10px;

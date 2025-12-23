@@ -1,0 +1,16 @@
+.alert {
+  background-color: white;
+  color: black;
+  border: 2px solid red;
+  border-radius: 5px;
+  padding: 1em;
+  margin: 20px 1em;
+}
+
+.alert h2 {
+  color: red;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

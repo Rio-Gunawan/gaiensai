@@ -39,14 +39,9 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   button:hover {
     border-color: var(--button-hover-color);
-  }
-}
-@media (hover: hover) {
-  button:hover {
-    border: 1px solid transparent;
   }
 }
 button:focus,

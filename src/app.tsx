@@ -11,6 +11,9 @@ export const App = () => {
           <h1>外苑祭 2026</h1>
           <p>2026/8/29~30 東京都立青山高校</p>
         </div>
+        <div className='scroll'>
+          <span>Scroll</span>
+        </div>
       </section>
       <Alert>
         <p>

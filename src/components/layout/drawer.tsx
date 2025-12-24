@@ -1,4 +1,4 @@
-import './assets/css/drawer.css';
+import './drawer.css';
 import { MdClose } from 'react-icons/md';
 import { UrlsNav } from './urls-nav';
 

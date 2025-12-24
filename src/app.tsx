@@ -1,7 +1,7 @@
-import { Alert } from './alert';
+import { Alert } from './components/ui/alert';
 import './assets/css/app.css';
-import { Footer } from './footer';
-import { Header } from './header';
+import { Footer } from './components/layout/footer';
+import { Header } from './components/layout/header';
 
 import { BiSolidFoodMenu } from 'react-icons/bi';
 import { PiMicrophoneStageFill } from 'react-icons/pi';

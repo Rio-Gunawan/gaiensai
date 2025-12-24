@@ -1,4 +1,4 @@
-import './assets/css/footer.css';
+import './footer.css';
 import { UrlsNav } from './urls-nav';
 
 export const Footer = () => {

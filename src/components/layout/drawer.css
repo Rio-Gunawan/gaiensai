@@ -1,4 +1,4 @@
-@import 'color-settings.css';
+@import '../../assets/css/color-settings.css';
 
 .drawer-overlay {
   position: fixed;

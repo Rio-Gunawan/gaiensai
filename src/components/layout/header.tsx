@@ -1,5 +1,5 @@
-import iconUrl from './assets/imgs/icon.webp';
-import './assets/css/header.css';
+import iconUrl from '../../assets/imgs/icon.webp';
+import './header.css';
 import { Drawer } from './drawer';
 import { RxHamburgerMenu } from 'react-icons/rx';
 import { useState } from 'preact/hooks';

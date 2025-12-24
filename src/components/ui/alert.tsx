@@ -1,4 +1,4 @@
-import './assets/css/alert.css';
+import './alert.css';
 import { IoWarning } from 'react-icons/io5';
 
 export const Alert = ({ children }: { children: preact.ComponentChildren }) => {

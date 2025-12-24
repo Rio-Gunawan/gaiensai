@@ -1,7 +1,7 @@
 .first-view {
   width: 100%;
   min-height: 100vh;
-  background: url("../imgs/top-image.jpeg")
+  background: url("../imgs/top-image.webp")
     center / cover;
 }
 

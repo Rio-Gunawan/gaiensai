@@ -1,8 +1,7 @@
 .first-view {
   width: 100%;
   min-height: 100vh;
-  background: url("../imgs/top-image.webp")
-    center / cover;
+  background: url('../imgs/top-image.webp') center / cover;
 }
 
 .first-view-content {
@@ -12,7 +11,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
 h1 {
@@ -33,7 +32,7 @@ h1 {
   animation: scroll 2s infinite;
   background-color: var(--heading-text-color);
   bottom: -65px;
-  content: "";
+  content: '';
   height: 50px;
   left: 0;
   margin: auto;
@@ -65,4 +64,54 @@ h1 {
   list-style: none;
   padding: 0;
   margin: 0 0 0 1em;
+}
+
+.button-link {
+  flex: 1;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.5rem;
+  padding: 1.5rem;
+
+  background-color: var(--primary-color);
+  border-radius: 40px;
+  border: 1px solid var(--translucent-w-bg-color);
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
+
+  color: var(--main-text-color);
+  text-decoration: none;
+  font-size: 1.3rem;
+  transition: background-color 0.3s ease;
+}
+
+@media (hover: hover) {
+  .button-link:hover {
+    background-color: var(--button-hover-color);
+  }
+}
+
+.button-link svg {
+  width: 3rem;
+  height: 3rem;
+}
+
+.button-link-section {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.catch-copy {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  margin-left: 0.5em;
+  color: var(--heading-text-color);
+}
+
+.catch-copy span {
+  color: var(--accent-color);
 }

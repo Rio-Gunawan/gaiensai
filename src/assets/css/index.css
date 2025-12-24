@@ -39,7 +39,7 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-@media (pointer: fine) {
+@media (hover: hover) {
   button:hover {
     border-color: var(--button-hover-color);
   }
@@ -47,4 +47,24 @@ button {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+main {
+  padding: 0 1em;
+}
+
+.normal-section {
+  margin: 1em 0;
+  padding: 1em;
+  background-color: var(--normal-section-bg-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
+}
+
+.normal-section h2 {
+  margin: 0 0 0 1em;
+}
+
+.normal-section p {
+  margin: 1em 0 0.5em 0;
 }

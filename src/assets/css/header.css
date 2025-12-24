@@ -20,6 +20,7 @@ header {
   position: fixed;
   top: 10px;
   left: 10px;
+  z-index: 900;
 }
 
 header img {
@@ -43,4 +44,5 @@ header img {
   right: 10px;
   cursor: pointer;
   padding: 1.05rem 1rem;
+  z-index: 990;
 }

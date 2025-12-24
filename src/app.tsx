@@ -83,12 +83,12 @@ export const App = () => {
               ご来場の注意
             </a>
             <a href='#' className='button-link'>
-              <IoMdTrain />
-              アクセス
-            </a>
-            <a href='#' className='button-link'>
               <FaMapLocationDot />
               校内マップ
+            </a>
+            <a href='#' className='button-link'>
+              <IoMdTrain />
+              アクセス
             </a>
             <a href='#' className='button-link'>
               <FaQuestionCircle />

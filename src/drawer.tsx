@@ -1,5 +1,6 @@
 import './assets/css/drawer.css';
 import { MdClose } from 'react-icons/md';
+import { UrlsNav } from './urls-nav';
 
 type Props = {
   isOpen: boolean;
@@ -22,14 +23,7 @@ export const Drawer = ({ isOpen, onClose }: Props) => {
           <MdClose />
         </button>
         <div className='drawer-content'>
-          <nav>
-            <ul>
-              <li>ホーム</li>
-              <li>スケジュール</li>
-              <li>アクセス</li>
-              <li>お問い合わせ</li>
-            </ul>
-          </nav>
+          <UrlsNav />
         </div>
       </aside>
     </>

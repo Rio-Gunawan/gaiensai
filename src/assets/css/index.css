@@ -44,6 +44,11 @@ button {
     border-color: var(--button-hover-color);
   }
 }
+@media (hover: hover) {
+  button:hover {
+    border: 1px solid transparent;
+  }
+}
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;

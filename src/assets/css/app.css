@@ -94,6 +94,12 @@ h1 {
   }
 }
 
+@media (hover: hover) {
+  .button-link:hover {
+    background-color: var(--primary-color);
+  }
+}
+
 .button-link svg {
   width: 3rem;
   height: 3rem;

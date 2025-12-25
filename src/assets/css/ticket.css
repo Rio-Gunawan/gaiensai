@@ -33,13 +33,13 @@
 #about-performance {
   text-align: center;
   font-weight: bold;
-  margin-top: 10px;
+  margin: 10px 0;
   font-size: 3em;
   color: var(--heading-text-color);
 }
 
 #for-whom {
-  text-align: right;
+  text-align: center;
   margin-top: 5px;
   margin-right: 1em;
   font-size: 1.2em;

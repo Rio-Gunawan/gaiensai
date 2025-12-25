@@ -1,18 +1,20 @@
+import { Link } from "wouter-preact";
+
 export const UrlsNav = () => {
   return (
     <nav>
       <ul>
         <li>
-          <a href='#'>ホーム</a>
+          <Link href='/'>ホーム</Link>
         </li>
         <li>
-          <a href='#'>チケット</a>
+          <Link href='/t'>チケット</Link>
         </li>
         <li>
           <a href='#'>パンフレット</a>
         </li>
         <li>
-          <a href='#'>公演一覧</a>
+          <Link href='/performances'>公演一覧</Link>
         </li>
         <li>
           <a href='#'>スケジュール</a>

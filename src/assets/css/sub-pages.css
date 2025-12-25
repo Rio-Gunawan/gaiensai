@@ -1,0 +1,11 @@
+@import '../../assets/css/color-settings.css';
+
+body {
+  padding-top: 4rem;
+}
+
+h1 {
+  font-size: 2.5em;
+  margin-left: 1rem;
+  margin-bottom: 1rem;
+}

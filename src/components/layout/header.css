@@ -17,6 +17,8 @@ header {
   border: 1px solid var(--translucent-w-bg-color);
   box-shadow: 0 4px 8px var(--translucent-b-bg-color);
 
+  color: var(--main-text-color);
+
   position: fixed;
   top: 10px;
   left: 10px;

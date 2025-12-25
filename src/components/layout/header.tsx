@@ -3,16 +3,19 @@ import './header.css';
 import { Drawer } from './drawer';
 import { RxHamburgerMenu } from 'react-icons/rx';
 import { useState } from 'preact/hooks';
+import { Link } from 'wouter-preact';
 
 export const Header = () => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <header>
-        <img alt='アイコン' src={iconUrl} width={64} />
-        外苑祭2026
-      </header>
+      <Link href='/'>
+        <header>
+          <img alt='アイコン' src={iconUrl} width={64} />
+          外苑祭2026
+        </header>
+      </Link>
 
       <button
         className='menu-button'

@@ -1,5 +1,4 @@
 @import '../../assets/css/color-settings.css';
-
 .first-view {
   width: 100%;
   min-height: 100vh;
@@ -16,7 +15,7 @@
   font-size: 1.3rem;
 }
 
-h1 {
+h1.first-view-h1 {
   width: 100%;
   color: var(--heading-text-color);
   font-size: 4rem;
@@ -117,4 +116,9 @@ h1 {
 
 .catch-copy span {
   color: var(--accent-color);
+}
+
+/* App ページでは global の top padding を無効化するためのクラス */
+body.no-top-padding {
+  padding-top: 0 !important;
 }

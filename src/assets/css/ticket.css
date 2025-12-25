@@ -1,0 +1,52 @@
+@import '../../assets/css/color-settings.css';
+
+#qrcode-data {
+  text-align: center;
+  font-size: 1em;
+  color: var(--main-text-color);
+}
+
+.url-container {
+  background-color: var(--url-bg-color);
+  color: var(--url-text-color);
+  overflow: auto;
+  white-space: nowrap;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  font-size: 0.8em;
+  /* 全て選択可能にする */
+  user-select: all;
+}
+
+#copy-url {
+  display: block;
+  margin: 10px auto;
+}
+
+#copy-succeed {
+  text-align: center;
+  color: green;
+  font-weight: bold;
+}
+
+#about-performance {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 10px;
+  font-size: 3em;
+  color: var(--heading-text-color);
+}
+
+#for-whom {
+  text-align: right;
+  margin-top: 5px;
+  margin-right: 1em;
+  font-size: 1.2em;
+  color: var(--text-color);
+}
+
+.notes ul {
+  padding-left: 1em;
+  font-size: 0.9em;
+}

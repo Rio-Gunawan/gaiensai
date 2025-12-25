@@ -1,4 +1,5 @@
 import { Alert } from './components/ui/alert';
+import { useEffect } from 'preact/hooks';
 import './assets/css/app.css';
 import { Footer } from './components/layout/footer';
 import { Header } from './components/layout/header';
@@ -12,12 +13,18 @@ import { FaMapLocationDot } from 'react-icons/fa6';
 import { FaQuestionCircle } from 'react-icons/fa';
 
 export const App = () => {
+  useEffect(() => {
+    document.body.classList.add('no-top-padding');
+    return () => {
+      document.body.classList.remove('no-top-padding');
+    };
+  }, []);
   return (
     <>
       <Header />
       <section className='first-view'>
         <div className='first-view-content'>
-          <h1>外苑祭 2026</h1>
+          <h1 className='first-view-h1'>外苑祭 2026</h1>
           <p>2026/8/29~30 東京都立青山高校</p>
         </div>
         <div className='scroll'>

@@ -1,7 +1,7 @@
 @import '../../assets/css/color-settings.css';
 
 footer {
-  background-color: var(--footer-background-color);
+  background-color: var(--footer-bg-color);
   color: var(--footer-text-color);
   text-align: center;
   padding: 1rem 0;

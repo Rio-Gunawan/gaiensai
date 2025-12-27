@@ -19,6 +19,7 @@ h1.first-view-h1 {
   width: 100%;
   color: var(--heading-text-color);
   font-size: 4rem;
+  margin: 0;
 }
 
 /* スクロールダウンの位置 */

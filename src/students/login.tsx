@@ -3,6 +3,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { supabase } from '../lib/supabase';
 import {} from '@supabase/supabase-js';
 import './login.css';
+import lineImageUrl from '../assets/imgs/line.webp';
 
 type Session = {
   user: {
@@ -237,7 +238,7 @@ export function Login() {
         className='login-button line-button'
         disabled={loading}
       >
-        <img src='/src/assets/imgs/line.webp' alt='LINE' />{' '}
+        <img src={lineImageUrl} alt='LINE' />{' '}
         <span>LINEでログイン</span>
       </button>
 

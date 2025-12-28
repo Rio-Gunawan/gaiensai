@@ -11,10 +11,16 @@
   padding: 1em;
 }
 
-.login-container h2 {
+.login-container h2{
   width: 100%;
   margin: 0;
   margin-bottom: 10px;
+}
+
+.login-container h3{
+  width: 100%;
+  margin: 0;
+  margin-top: 20px;
 }
 
 .login-form {
@@ -148,4 +154,35 @@
 .gsi-material-button:not(:disabled):hover .gsi-material-button-state {
   background-color: white;
   opacity: 8%;
+}
+
+/* LINEボタンのスタイル */
+.line-button {
+  background-color: #06C755;
+  border: 1px solid #06C755;
+  color: white;
+  padding: 0 0.5em;
+  border-radius: 100px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  transition: opacity 0.3s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .line-button:hover {
+    opacity: 0.9;
+    border-color: #06C755;
+  }
+}
+
+.line-button img {
+  width: 2em;
+  height: auto;
+}
+
+.line-button span {
+  flex: 1;
+  padding: 0.5em 0;
 }

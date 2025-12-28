@@ -4,6 +4,7 @@ import { App } from './app.tsx';
 import { Ticket } from './ticket.tsx';
 import { Performances } from './performances.tsx';
 import { Students } from "./students/student.tsx";
+import { LineCallback } from './auth/line.tsx';
 import { Route, Switch } from 'wouter-preact';
 
 render(
@@ -12,6 +13,7 @@ render(
     <Route path='/t' component={Ticket} />
     <Route path='/performances' component={Performances} />
     <Route path='/students' component={Students} />
+    <Route path='/auth/line/callback' component={LineCallback} />
     <Route>404 Not Found</Route>
   </Switch>,
   document.getElementById('app')!

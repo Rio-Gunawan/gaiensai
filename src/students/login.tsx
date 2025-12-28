@@ -95,6 +95,26 @@ export function Login() {
     setLoading(false);
   };
 
+  const handleLineLogin = () => {
+    const state = crypto.randomUUID(); // CSRF対策
+    sessionStorage.setItem('line_oauth_state', state); // stateをセッションストレージに保存
+
+    const scope = 'profile openid email';
+    const responseType = 'code';
+
+    const params = new URLSearchParams({
+      response_type: responseType,
+      client_id: import.meta.env.VITE_PUBLIC_LINE_CHANNEL_ID!,
+      redirect_uri: import.meta.env.VITE_PUBLIC_LINE_REDIRECT_URI!,
+      scope: scope,
+      state: state,
+    });
+
+    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
+
+    window.location.href = lineAuthUrl;
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -212,6 +232,16 @@ export function Login() {
           <span style='display: none;'>Googleで続行</span>
         </div>
       </button>
+      <button onClick={handleLineLogin} className='login-button line-button'><img src='/src/assets/imgs/line.webp' alt='LINE' /> <span>LINEでログイン</span></button>
+
+      <h3>メールアドレスの取得目的について</h3>
+      <p>
+        本サービスでは、なりすましによる不正チケット取得を防止するために、メールアドレスによる認証を行なっております。
+        また、チケットを取得した際やキャンセル待ちの通知を送信するために、メールアドレスを取得させていただきます。
+        以上の目的以外でメールアドレスを使用することはありません。
+        <br />
+        以上の取得の目的に同意の上、お進みください。ご理解とご協力をお願いします。
+      </p>
     </div>
   );
 }

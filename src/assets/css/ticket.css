@@ -46,7 +46,7 @@
   color: var(--text-color);
 }
 
-.notes ul {
+.notes {
   padding-left: 1em;
   font-size: 0.9em;
 }

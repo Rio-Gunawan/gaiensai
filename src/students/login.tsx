@@ -95,20 +95,6 @@ export function Login() {
     setLoading(false);
   };
 
-  const handleXLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'x',
-      options: {
-        redirectTo: window.location.href,
-      },
-    });
-    if (error) {
-      alert(error.message);
-    }
-    setLoading(false);
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -226,7 +212,6 @@ export function Login() {
           <span style='display: none;'>Googleで続行</span>
         </div>
       </button>
-      <button className='login-button' onClick={handleXLogin}>Xでログイン</button>
     </div>
   );
 }

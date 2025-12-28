@@ -15,10 +15,7 @@ export const Drawer = ({ isOpen, onClose }: Props) => {
         onClick={onClose}
         aria-hidden={!isOpen}
       />
-      <aside
-        className={`drawer-panel ${isOpen ? 'open' : ''}`}
-        aria-hidden={!isOpen}
-      >
+      <aside className={`drawer-panel ${isOpen ? 'open' : ''}`} inert={!isOpen}>
         <button className='drawer-close' onClick={onClose} aria-label='閉じる'>
           <MdClose />
         </button>

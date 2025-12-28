@@ -232,7 +232,14 @@ export function Login() {
           <span style='display: none;'>Googleで続行</span>
         </div>
       </button>
-      <button onClick={handleLineLogin} className='login-button line-button'><img src='/src/assets/imgs/line.webp' alt='LINE' /> <span>LINEでログイン</span></button>
+      <button
+        onClick={handleLineLogin}
+        className='login-button line-button'
+        disabled={loading}
+      >
+        <img src='/src/assets/imgs/line.webp' alt='LINE' />{' '}
+        <span>LINEでログイン</span>
+      </button>
 
       <h3>メールアドレスの取得目的について</h3>
       <p>

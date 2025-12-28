@@ -186,3 +186,7 @@
   flex: 1;
   padding: 0.5em 0;
 }
+
+.line-button:disabled {
+  opacity: 0.1;
+}

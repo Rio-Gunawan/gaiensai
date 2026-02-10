@@ -125,9 +125,9 @@ export function Login() {
   if (verifying) {
     return (
       <div>
-        <h1>Authentication</h1>
-        <p>Confirming your magic link...</p>
-        <p>Loading...</p>
+        <h2>認証</h2>
+        <p>マジックリンクの確認中...</p>
+        <p>しばらくお待ちください。</p>
       </div>
     );
   }
@@ -136,8 +136,8 @@ export function Login() {
   if (authError) {
     return (
       <div>
-        <h1>Authentication</h1>
-        <p>✗ Authentication failed</p>
+        <h2>認証エラー</h2>
+        <p>✗ 認証に失敗しました</p>
         <p>{authError}</p>
         <button
           onClick={() => {
@@ -155,9 +155,9 @@ export function Login() {
   if (authSuccess && !session) {
     return (
       <div>
-        <h1>Authentication</h1>
-        <p>✓ Authentication successful!</p>
-        <p>Loading your account...</p>
+        <h2>認証</h2>
+        <p>認証に成功しました！</p>
+        <p>アカウントを読み込み中...</p>
       </div>
     );
   }
@@ -166,9 +166,9 @@ export function Login() {
   if (session) {
     return (
       <div>
-        <h2>Welcome!</h2>
-        <p>You are logged in as: {session.user.email}</p>
-        <button onClick={handleLogout}>Sign Out</button>
+        <h2>ようこそ</h2>
+        <p>ログインしました: {session.user.email}</p>
+        <button onClick={handleLogout}>ログアウト</button>
       </div>
     );
   }

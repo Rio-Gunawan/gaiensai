@@ -18,18 +18,17 @@ export default defineConfig([
       "no-console": "warn",
       "no-debugger": "warn",
 
+      // TypeScriptと重複する機能をオフ
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-undef": "off",
+
       // コード品質
       "no-var": "error",
       "prefer-const": "warn",
       "eqeqeq": ["error", "always"],
       "curly": ["error", "all"],
 
-      // 未使用変数は警告（先頭に _ があるものは無視）
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
-      ],
-
+      // Preactを使用するのでこれはオフに。
       "react/react-in-jsx-scope": "off",
     },
   },

@@ -18,7 +18,7 @@ export const LineCallback = () => {
       const storedState = sessionStorage.getItem('line_oauth_state');
       if (!code || !state || state !== storedState) {
         // エラー処理
-        setLocation('/login?error=invalid_state');
+        setLocation('/students?error=invalid_state');
         return;
       }
       sessionStorage.removeItem('line_oauth_state');

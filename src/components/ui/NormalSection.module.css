@@ -1,0 +1,22 @@
+.normalSection {
+  margin: 1em;
+  padding: 1em;
+  background-color: var(--normal-section-bg-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
+}
+
+.normalSection h2 {
+  margin: 0.5em;
+  margin-top: 0;
+  border-left: 5px solid var(--primary-color);
+  padding-left: 0.5em;
+}
+
+.normalSection h3 {
+  margin: 0.5em;
+}
+
+.normalSection p {
+  margin: 1em 0 0.5em 0;
+}

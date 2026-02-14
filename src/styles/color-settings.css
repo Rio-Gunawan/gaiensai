@@ -1,0 +1,28 @@
+:root {
+  --primary-color: #0f3aa0;
+  --accent-color: #eb6a25;
+
+  --main-bg-color: #1a1a1a;
+  --error-bg-color: #8b1414;
+  --warn-bg-color: rgba(215, 184, 83, 0.3);
+  --info-bg-color: rgba(0, 56, 120, 0.7);
+  --translucent-b-bg-color: rgba(0, 0, 0, 0.2);
+  --translucent-w-bg-color: rgba(255, 255, 255, 0.2);
+  --overlay-bg-color: rgba(0, 0, 0, 0.5);
+  --drawer-bg-color: rgba(0, 0, 0, 0.46);
+  --normal-section-bg-color: #272727;
+  --footer-bg-color: #121212;
+  --url-bg-color: #2e2e2e;
+
+  --main-text-color: #f2f2f2f0;
+  --heading-text-color: #ffffff;
+  --alert-text-color: #ffffff;
+  --url-text-color: #646cff;
+  --footer-text-color: #888888;
+
+  --button-hover-color: #424bfe;
+
+  --error-border-color: #cb5353;
+  --warn-border-color: #959300;
+  --info-border-color: #003878;
+}

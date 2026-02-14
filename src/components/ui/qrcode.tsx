@@ -6,7 +6,7 @@ type Props = {
   size?: number;
 };
 
-export function QRCode({ value, size = 240 }: Props) {
+function QRCode({ value, size = 240 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -29,3 +29,5 @@ export function QRCode({ value, size = 240 }: Props) {
 
   return <div ref={ref} aria-hidden='true' />;
 }
+
+export default QRCode;

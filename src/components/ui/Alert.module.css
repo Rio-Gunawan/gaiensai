@@ -1,0 +1,35 @@
+.alert {
+  color: var(--alert-text-color);
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 5px;
+  padding: 1em;
+  margin: 20px 1em;
+}
+
+.alert h2 {
+  color: var(--alert-text-color);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alert p {
+  margin: 1em 0 0 0 ;
+}
+
+.error {
+  background-color: var(--error-bg-color);
+  border-color: var(--error-border-color);
+}
+
+.warning {
+  background-color: var(--warn-bg-color);
+  border-color: var(--warn-border-color);
+}
+
+.info {
+  background-color: var(--info-bg-color);
+  border-color: var(--info-border-color);
+}

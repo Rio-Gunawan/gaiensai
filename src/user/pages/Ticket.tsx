@@ -9,7 +9,7 @@ export const Ticket = () => {
   return (
     <>
       <h1 className={pageStyles.pageTitle}>チケットを表示</h1>
-      <Alert>
+      <Alert type='warning'>
         <p>必ずスクリーンショットで保存してください。</p>
       </Alert>
       <QRCode value='3pQe75Y' size={Math.min(window.innerWidth * 0.8, 350)} />

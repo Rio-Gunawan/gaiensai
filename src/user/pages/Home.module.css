@@ -1,0 +1,415 @@
+.firstView {
+  margin: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #2d202d;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.firstViewText {
+  position: relative;
+  transform: scale(0.8);
+  transform-origin: center;
+  animation: firstViewTextZoom 10s linear forwards;
+  z-index: 99;
+}
+
+@keyframes firstViewTextZoom {
+  0% {
+    opacity: 0.1;
+    transform: scale(0.8);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.firstViewH1 {
+  font-family: '游明朝', 'Yu Mincho', YuMincho, 'Hiragino Mincho Pro', serif;
+  width: 100%;
+  color: var(--heading-text-color);
+  font-size: clamp(3.7rem, 8vw, 7rem);
+  margin: 0;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 12px 28px rgb(0 0 0 / 36%);
+}
+
+.firstViewCatchCopy {
+  font-size: 2em;
+  font-family: '游明朝', 'Yu Mincho', YuMincho, 'Hiragino Mincho Pro', serif;
+  margin-top: 1rem;
+  margin-bottom: 1em;
+}
+
+.firstViewContent {
+  background-image: repeating-conic-gradient(
+    from 135deg,
+    #2d202d 4deg,
+    #710a46
+  );
+  width: 100%;
+  flex: 1;
+  position: relative;
+  text-align: center;
+  font-size: 1.1rem;
+  isolation: isolate;
+}
+
+.firstViewDetail {
+  position: relative;
+  z-index: 2;
+  margin-top: 0.9rem;
+  letter-spacing: 0.08em;
+  font-size: 1.5rem;
+}
+
+.firstViewDate {
+  font-size: 1.5em;
+}
+
+.firstViewDetail p {
+  margin: 0;
+}
+
+@media (max-width: 999px) {
+  .firstView > img {
+    width: 100%;
+  }
+  .firstViewContent {
+    background-image: repeating-conic-gradient(
+      from 305deg,
+      #2d202d 4deg,
+      #830c3c
+    );
+    padding: 2rem 0;
+  }
+  .firstViewDetail {
+    margin: 1rem;
+  }
+}
+@media (min-width: 1000px) {
+  .firstView {
+    flex-direction: row;
+  }
+  .firstView > img {
+    height: 100vh;
+  }
+
+  .firstViewContent {
+    min-height: 100vh;
+    display: grid;
+    align-content: center;
+  }
+
+  .firstViewCatchCopy {
+    font-size: 2.7rem;
+  }
+
+  .firstViewDetail {
+    font-size: 2rem;
+  }
+}
+
+.heroShapes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.heroShape {
+  position: absolute;
+  display: block;
+  transform-origin: center;
+  filter: drop-shadow(0 0 22px rgb(246 227 174 / 20%));
+}
+
+.meshWave {
+  width: min(75vw, 30rem);
+  top: -0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0.72;
+  animation: floatUpDown 8s ease-in-out infinite;
+}
+
+.ringOrbit {
+  display: none;
+  width: min(52vw, 21rem);
+  top: 0.6rem;
+  right: 8%;
+  opacity: 0.5;
+  animation: slowRotate 18s linear infinite;
+}
+
+.capsuleFlow {
+  width: min(68vw, 24rem);
+  bottom: 0.6rem;
+  left: 2%;
+  opacity: 0.58;
+  animation: flowSlide 9s ease-in-out infinite;
+}
+
+.diamondStack {
+  width: min(36vw, 12rem);
+  top: 48%;
+  left: 16%;
+  opacity: 0.58;
+  animation: diamondPulse 4.8s ease-in-out infinite;
+}
+
+.sparkBurst {
+  width: min(26vw, 8rem);
+  top: 20%;
+  right: 6%;
+  opacity: 0.75;
+  animation: blinkTwirl 5s ease-in-out infinite;
+}
+
+@media (max-width: 999px) {
+  .meshWave {
+    display: none;
+  }
+
+  .ringOrbit {
+    display: block;
+    top: 10%;
+    right: -8%;
+    opacity: 0.36;
+  }
+
+  .sparkBurst {
+    display: none;
+  }
+
+  .diamondStack {
+    display: none;
+  }
+
+  .capsuleFlow {
+    width: min(90vw, 24rem);
+    left: -16%;
+    bottom: 0;
+  }
+}
+
+@keyframes slowRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes floatUpDown {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(-10px);
+  }
+  50% {
+    transform: translateX(-50%) translateY(10px);
+  }
+}
+
+@keyframes flowSlide {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(22px);
+  }
+}
+
+@keyframes diamondPulse {
+  0%,
+  100% {
+    transform: scale(0.96) rotate(-6deg);
+  }
+  50% {
+    transform: scale(1.06) rotate(4deg);
+  }
+}
+
+@keyframes blinkTwirl {
+  0%,
+  100% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.52;
+  }
+  50% {
+    transform: scale(1.12) rotate(16deg);
+    opacity: 0.9;
+  }
+}
+
+/* スクロールダウンの位置 */
+.scroll {
+  position: absolute;
+  right: 1em;
+  bottom: calc(1em + 65px);
+  writing-mode: vertical-rl;
+}
+/* 線のアニメーション部分 */
+.scroll::before {
+  animation: scroll 2s infinite;
+  background-color: var(--heading-text-color);
+  bottom: -65px;
+  content: '';
+  height: 50px;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  width: 1px;
+}
+/* 線のアニメーション */
+@keyframes scroll {
+  0% {
+    transform: scale(1, 0);
+    transform-origin: 0 0;
+  }
+  50% {
+    transform: scale(1, 1);
+    transform-origin: 0 0;
+  }
+  51% {
+    transform: scale(1, 1);
+    transform-origin: 0 100%;
+  }
+  100% {
+    transform: scale(1, 0);
+    transform-origin: 0 100%;
+  }
+}
+
+.ticketSectionUl {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 1em;
+}
+
+.buttonLink {
+  flex: 1;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.5rem;
+  padding: 1.5rem;
+
+  background-image: linear-gradient(
+    157deg,
+    var(--button-hover-color),
+    var(--primary-color) 80%
+  );
+  border-radius: 40px;
+  border: 1px solid var(--translucent-w-bg-color);
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
+
+  color: var(--main-text-color);
+  text-decoration: none;
+  text-align: center;
+  font-size: 1.3rem;
+}
+
+.buttonLink svg {
+  width: 3rem;
+  height: 3rem;
+}
+
+.buttonLinkSection {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.catchCopy {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  margin-left: 0.5em;
+  color: var(--heading-text-color);
+}
+
+.catchCopy span {
+  color: var(--accent-color);
+}
+
+.scrollSection {
+  opacity: 0;
+  transform: translateY(34px);
+  filter: blur(2px);
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.9s ease;
+}
+
+.scrollSection :is(h2, h3, p, li, a) {
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(18px);
+  opacity: 0;
+  transition:
+    clip-path 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.55s ease;
+}
+
+.scrollSection.isVisible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a) {
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a):nth-child(1) {
+  transition-delay: 120ms;
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a):nth-child(2) {
+  transition-delay: 200ms;
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a):nth-child(3) {
+  transition-delay: 280ms;
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a):nth-child(4) {
+  transition-delay: 360ms;
+}
+
+.scrollSection.isVisible :is(h2, h3, p, li, a):nth-child(5) {
+  transition-delay: 440ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrollSection {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+
+  .scrollSection :is(h2, h3, p, li, a) {
+    clip-path: none;
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+}

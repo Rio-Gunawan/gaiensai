@@ -1,0 +1,9 @@
+.normalH2 {
+  margin-left: 0.5em;
+  border-left: 5px solid var(--primary-color);
+  padding-left: 0.5em;
+}
+
+.normalH3 {
+  margin: 0.5em 0 0 0.5em;
+}

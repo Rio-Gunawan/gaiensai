@@ -1,0 +1,9 @@
+:global(body) {
+  padding-top: 4rem;
+}
+
+.pageTitle {
+  font-size: 2.5em;
+  margin-left: 1rem;
+  margin-bottom: 1rem;
+}

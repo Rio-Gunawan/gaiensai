@@ -1,14 +1,42 @@
-import './alert.css';
-import { IoWarning } from 'react-icons/io5';
+import styles from './Alert.module.css';
+import { IoWarning, IoInformationCircle, IoAlertCircle } from 'react-icons/io5';
 
-export const Alert = ({ children }: { children: preact.ComponentChildren }) => {
+type AlertProps = {
+  children: preact.ComponentChildren;
+  className?: string;
+  type?: 'warning' | 'error' | 'info';
+};
+
+const Alert = ({
+  children,
+  className,
+  type = 'warning',
+  ...props
+}: AlertProps) => {
+  const classes = className
+    ? `${styles.alert} ${styles[type]} ${className}`
+    : `${styles.alert} ${styles[type]}`;
+
+  let Icon = IoWarning;
+  let title = '注意';
+
+  if (type === 'info') {
+    Icon = IoInformationCircle;
+    title = 'お知らせ';
+  } else if (type === 'error') {
+    Icon = IoAlertCircle;
+    title = 'エラー';
+  }
+
   return (
-    <div className='alert'>
+    <div className={classes} {...props}>
       <h2>
-        <IoWarning />
-        注意
+        <Icon />
+        {title}
       </h2>
       {children}
     </div>
   );
 };
+
+export default Alert;

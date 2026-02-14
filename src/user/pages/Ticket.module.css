@@ -1,0 +1,50 @@
+.qrcodeData {
+  text-align: center;
+  font-size: 1em;
+  color: var(--main-text-color);
+}
+
+.urlContainer {
+  background-color: var(--url-bg-color);
+  color: var(--url-text-color);
+  overflow: auto;
+  white-space: nowrap;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  font-size: 0.8em;
+  /* 全て選択可能にする */
+  user-select: all;
+}
+
+.copyUrl {
+  display: block;
+  margin: 10px auto;
+}
+
+.copySucceed {
+  text-align: center;
+  color: green;
+  font-weight: bold;
+}
+
+.aboutPerformance {
+  text-align: center;
+  font-weight: bold;
+  margin: 10px 0;
+  font-size: 3em;
+  color: var(--heading-text-color);
+}
+
+.forWhom {
+  text-align: center;
+  margin-top: 5px;
+  margin-right: 1em;
+  font-size: 1.2em;
+  color: var(--main-text-color);
+}
+
+.notes {
+  padding-left: 1em;
+  font-size: 0.9em;
+}

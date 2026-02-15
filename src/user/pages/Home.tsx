@@ -117,7 +117,7 @@ const Home = () => {
   return (
     <>
       <section className={styles.firstView}>
-        <img src={poster} alt='外苑祭ポスター' fetchPriority='high' />
+        <img src={poster} alt='外苑祭ポスター' fetchPriority='high' width={1000} />
         <div className={styles.firstViewContent}>
           <div className={styles.heroShapes} aria-hidden='true'>
             <img
@@ -242,7 +242,7 @@ const Home = () => {
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>外苑祭とは</h2>
         <div className={sharedStyles.imgBox}>
-          <img src={gaiensai_about} width={800} />
+          <img src={gaiensai_about} width={800} alt='外苑祭の表彰式の風景' />
           <div>
             <h3 className={styles.catchCopy}>
               <span>全クラスが演劇</span>を上演する、 ちょっと変わった文化祭。

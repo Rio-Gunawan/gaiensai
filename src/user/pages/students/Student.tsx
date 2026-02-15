@@ -1,14 +1,32 @@
-import styles from '../../../styles/sub-pages.module.css';
-import Login from './Login';
+import { navigate } from 'wouter-preact/use-browser-location';
+import type { Session } from '../../../types/types';
+import { useEffect } from 'preact/hooks';
+import { supabase } from '../../../lib/supabase';
 
 const Student = () => {
-  return (
-    <>
-      <h1 className={styles.pageTitle}>生徒用ページ</h1>
-      <Login />
-      <p></p>
-    </>
-  );
+  useEffect(() => {
+    const redirectBySession = (session: Session) => {
+      if (session) {
+        navigate('/students/dashboard');
+      } else {
+        navigate('/students/login');
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      redirectBySession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      redirectBySession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return null;
 };
 
 export default Student;

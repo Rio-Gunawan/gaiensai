@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       },
     );
   } catch (e) {
-    console.log(e);
+    console.error(e);
     return new Response(
       JSON.stringify({
         error: e,

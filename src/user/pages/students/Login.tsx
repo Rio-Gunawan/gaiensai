@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
-import {} from '@supabase/supabase-js';
-import styles from './Login.module.css';
+
 import lineImageUrl from '../../../assets/line.webp';
+import styles from './Login.module.css';
 
 type Session = {
   user: {
@@ -77,7 +77,7 @@ function Login() {
       alert(error.message);
     } else {
       alert(
-        'ログイン用メールを送信しました。メール内のURLをクリックしてログインしてください。'
+        'ログイン用メールを送信しました。メール内のURLをクリックしてログインしてください。',
       );
     }
     setLoading(false);
@@ -244,8 +244,7 @@ function Login() {
         className={`${styles.loginButton} ${styles.lineButton}`}
         disabled={loading}
       >
-        <img src={lineImageUrl} alt='LINE' />{' '}
-        <span>LINEでログイン</span>
+        <img src={lineImageUrl} alt='LINE' /> <span>LINEでログイン</span>
       </button>
 
       <h3>メールアドレスの取得目的について</h3>

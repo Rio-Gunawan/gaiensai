@@ -1,36 +1,36 @@
 import Alert from '../../components/ui/Alert';
-import NormalSection from '../../components/ui/NormalSection';
 import Gallery from '../../components/ui/Gallery';
+import NormalSection from '../../components/ui/NormalSection';
 
-import styles from './Home.module.css';
 import sharedStyles from '../../styles/shared.module.css';
+import styles from './Home.module.css';
 
-import poster from '../../assets/poster.webp';
-import ringOrbit from '../../assets/hero/ring-orbit.svg';
-import meshWave from '../../assets/hero/mesh-wave.svg';
-import diamondStack from '../../assets/hero/diamond-stack.svg';
-import sparkBurst from '../../assets/hero/spark-burst.svg';
-import capsuleFlow from '../../assets/hero/capsule-flow.svg';
-import hexGrid from '../../assets/decor/hex-grid.svg';
 import dotConstellation from '../../assets/decor/dot-constellation.svg';
-import zigzagBand from '../../assets/decor/zigzag-band.svg';
+import hexGrid from '../../assets/decor/hex-grid.svg';
 import triangleMix from '../../assets/decor/triangle-mix.svg';
+import zigzagBand from '../../assets/decor/zigzag-band.svg';
 import gaiensai_about from '../../assets/gaiensai_about.webp';
-import prepare1 from '../../assets/prepare/prepare1.webp';
-import prepare2 from '../../assets/prepare/prepare2.webp';
-import prepare3 from '../../assets/prepare/prepare3.webp';
-import prepare4 from '../../assets/prepare/prepare4.webp';
-import prepare5 from '../../assets/prepare/prepare5.webp';
-import outer1 from '../../assets/outer/outer1.webp';
-import outer2 from '../../assets/outer/outer2.webp';
-import outer3 from '../../assets/outer/outer3.webp';
-import outer4 from '../../assets/outer/outer4.webp';
-import outer5 from '../../assets/outer/outer5.webp';
+import capsuleFlow from '../../assets/hero/capsule-flow.svg';
+import diamondStack from '../../assets/hero/diamond-stack.svg';
+import meshWave from '../../assets/hero/mesh-wave.svg';
+import ringOrbit from '../../assets/hero/ring-orbit.svg';
+import sparkBurst from '../../assets/hero/spark-burst.svg';
 import inner1 from '../../assets/inner/inner1.webp';
 import inner2 from '../../assets/inner/inner2.webp';
 import inner3 from '../../assets/inner/inner3.webp';
 import inner4 from '../../assets/inner/inner4.webp';
 import inner5 from '../../assets/inner/inner5.webp';
+import outer1 from '../../assets/outer/outer1.webp';
+import outer2 from '../../assets/outer/outer2.webp';
+import outer3 from '../../assets/outer/outer3.webp';
+import outer4 from '../../assets/outer/outer4.webp';
+import outer5 from '../../assets/outer/outer5.webp';
+import poster from '../../assets/poster.webp';
+import prepare1 from '../../assets/prepare/prepare1.webp';
+import prepare2 from '../../assets/prepare/prepare2.webp';
+import prepare3 from '../../assets/prepare/prepare3.webp';
+import prepare4 from '../../assets/prepare/prepare4.webp';
+import prepare5 from '../../assets/prepare/prepare5.webp';
 import sign1 from '../../assets/sign/sign1.webp';
 import sign2 from '../../assets/sign/sign2.webp';
 import sign3 from '../../assets/sign/sign3.webp';
@@ -42,12 +42,11 @@ import { Link } from 'wouter-preact';
 import type { GalleryImage } from '../../types/types';
 
 import { BiSolidFoodMenu } from 'react-icons/bi';
-import { PiMicrophoneStageFill } from 'react-icons/pi';
-import { GrSchedulePlay } from 'react-icons/gr';
-import { IoIosWarning } from 'react-icons/io';
-import { IoMdTrain } from 'react-icons/io';
-import { FaMapLocationDot } from 'react-icons/fa6';
 import { FaQuestionCircle } from 'react-icons/fa';
+import { FaMapLocationDot } from 'react-icons/fa6';
+import { GrSchedulePlay } from 'react-icons/gr';
+import { IoIosWarning, IoMdTrain } from 'react-icons/io';
+import { PiMicrophoneStageFill } from 'react-icons/pi';
 
 const prepareGallery: GalleryImage[] = [
   { src: prepare1, alt: '舞台準備の様子1', width: 300 },

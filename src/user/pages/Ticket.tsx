@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
-import pageStyles from '../../styles/sub-pages.module.css';
-import styles from './Ticket.module.css';
 import Alert from '../../components/ui/Alert';
 import QRCode from '../../components/ui/QRCode';
+
+import pageStyles from '../../styles/sub-pages.module.css';
+import styles from './Ticket.module.css';
 
 const Ticket = () => {
   const [showCopySucceed, setShowCopySucceed] = useState(false);

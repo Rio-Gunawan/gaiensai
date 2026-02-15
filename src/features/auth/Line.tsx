@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { useLocation } from 'wouter-preact';
 import { supabase } from '../../lib/supabase';
 
-export const LineCallback = () => {
+const LineCallback = () => {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
@@ -57,3 +57,5 @@ export const LineCallback = () => {
 
   return <section>LINE認証中...</section>;
 };
+
+export default LineCallback;

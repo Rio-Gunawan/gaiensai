@@ -1,7 +1,7 @@
-import { Login } from './Login';
+import Login from './Login';
 import styles from '../../../styles/sub-pages.module.css';
 
-export const Student = () => {
+const Student = () => {
   return (
     <>
       <h1 className={styles.pageTitle}>生徒用ページ</h1>
@@ -10,3 +10,5 @@ export const Student = () => {
     </>
   );
 };
+
+export default Student;

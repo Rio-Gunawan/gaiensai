@@ -81,7 +81,7 @@ const innerGallery: GalleryImage[] = [
   { src: inner5, alt: '内装ディテール5', width: 300 },
 ];
 
-export const Home = () => {
+const Home = () => {
   useEffect(() => {
     const sections = document.querySelectorAll<HTMLElement>(
       '[data-scroll-section]',
@@ -324,3 +324,5 @@ export const Home = () => {
     </>
   );
 };
+
+export default Home;

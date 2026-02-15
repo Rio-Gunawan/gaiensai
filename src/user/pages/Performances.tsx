@@ -1,5 +1,6 @@
 import styles from '../../styles/sub-pages.module.css';
-export const Performances = () => {
+
+const Performances = () => {
   return (
     <>
       <main>
@@ -11,3 +12,5 @@ export const Performances = () => {
     </>
   );
 };
+
+export default Performances;

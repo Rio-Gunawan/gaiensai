@@ -4,7 +4,7 @@ import styles from './Ticket.module.css';
 import Alert from '../../components/ui/Alert';
 import QRCode from '../../components/ui/QRCode';
 
-export const Ticket = () => {
+const Ticket = () => {
   const [showCopySucceed, setShowCopySucceed] = useState(false);
   return (
     <>
@@ -58,3 +58,5 @@ export const Ticket = () => {
     </>
   );
 };
+
+export default Ticket;

@@ -10,7 +10,7 @@ type Session = {
   };
 } | null;
 
-export function Login() {
+function Login() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [session, setSession] = useState<Session>(null);
@@ -259,3 +259,5 @@ export function Login() {
     </div>
   );
 }
+
+export default Login;

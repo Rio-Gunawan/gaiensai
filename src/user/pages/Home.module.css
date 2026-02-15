@@ -468,7 +468,7 @@
 .catchCopy span {
   color: var(--accent-color);
 }
-/* 
+
 .scrollSection {
   opacity: 0;
   transform: translateY(34px);
@@ -565,4 +565,4 @@
   .decorZigzag {
     width: min(18rem, 74vw);
   }
-} */
+}

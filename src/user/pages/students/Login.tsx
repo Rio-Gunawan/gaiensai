@@ -23,6 +23,8 @@ export function Login() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
 
+  setAuthError(params.get('error') || null);
+
   useEffect(() => {
     // Check if we have token_hash in URL (magic link callback)
     const params = new URLSearchParams(window.location.search);
@@ -96,7 +98,7 @@ export function Login() {
   };
 
   const handleLineLogin = () => {
-    const state = crypto.randomUUID(); // CSRF対策
+    const state = 'crypto.randomUUID()'; // CSRF対策
     localStorage.removeItem('line_oauth_state');
     localStorage.setItem('line_oauth_state', state); // stateをローカルストレージに保存(LINEでは新しいタブを開いてしまう可能性があるため)
 
@@ -134,20 +136,24 @@ export function Login() {
 
   // Show auth error
   if (authError) {
+    let message = authError;
+    if (authError === 'invalid_state') {
+      message = '途中でセッションが切断されました。再度ログインしてください。';
+    }
     return (
-      <div>
+      <section>
         <h2>認証エラー</h2>
-        <p>✗ 認証に失敗しました</p>
-        <p>{authError}</p>
+        <p>認証に失敗しました</p>
+        <p>エラーメッセージ: {message}</p>
         <button
           onClick={() => {
             setAuthError(null);
-            window.history.replaceState({}, document.title, '/');
+            window.history.replaceState({}, document.title, '/students');
           }}
         >
-          Return to login
+          ログインページに戻る
         </button>
-      </div>
+      </section>
     );
   }
 

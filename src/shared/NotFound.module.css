@@ -1,0 +1,45 @@
+.card {
+  padding: 3rem 2.25rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  background: var(--normal-section-bg-color);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.15);
+}
+
+.status {
+  font-size: clamp(3.5rem, 6vw, 5.5rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.5rem;
+}
+
+.heading {
+  font-size: clamp(2.1rem, 3vw, 2.75rem);
+  margin: 0.25rem 0 1rem;
+}
+
+.description {
+  margin: 0.5rem 0;
+  color: var(--footer-text-color);
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.returnLink {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.9rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  background: var(--primary-color);
+  color: var(--main-text-color);
+  transition: background 0.2s ease;
+}
+
+@media (hover:hover ) {
+  .returnLink:hover {
+    background: var(--button-hover-color);
+  }
+}

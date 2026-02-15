@@ -7,3 +7,21 @@
 .normalH3 {
   margin: 0.5em 0 0 0.5em;
 }
+
+.imgBox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.imgBox img {
+  width: 100%;
+  max-width: 500px;
+}
+
+@media (max-width: 999px) {
+  .imgBox {
+    flex-direction: column;
+  }
+}

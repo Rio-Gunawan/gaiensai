@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import Performances from './pages/Performances';
 import Student from './pages/students/Student';
 import Ticket from './pages/Ticket';
-// import NotFound from '../shared/NotFound';
+import NotFound from '../shared/NotFound';
 
 import '../styles/color-settings.css';
 import '../styles/index.css';
@@ -37,7 +37,7 @@ const App = () => {
           <Route path='/performances' component={Performances} />
           <Route path='/students' component={Student} />
           <Route path='/auth/line/callback' component={LineCallback} />
-          {/* <Route component={NotFound} /> */}
+          <Route component={NotFound} />
         </Switch>
       </div>
     </MainLayout>

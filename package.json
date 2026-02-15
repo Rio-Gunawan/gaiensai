@@ -21,8 +21,6 @@
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^24.10.1",
     "eslint": "^9.39.2",
-    "eslint-config-prettier": "^10.1.0",
-    "eslint-plugin-import": "^2.33.1",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.5.0",
     "supabase": "^2.70.5",

@@ -97,9 +97,7 @@ export function Login() {
 
   const handleLineLogin = () => {
     const state = crypto.randomUUID(); // CSRF対策
-    alert(state);
     sessionStorage.setItem('line_oauth_state', state); // stateをセッションストレージに保存
-    alert(sessionStorage.getItem('line_oauth_state'));
 
     const scope = 'profile openid email';
     const responseType = 'code';
@@ -111,8 +109,6 @@ export function Login() {
       scope: scope,
       state: state,
     });
-
-    alert(params.toString());
 
     const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
 

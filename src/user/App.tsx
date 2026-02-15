@@ -16,6 +16,7 @@ import subPageStyles from '../styles/sub-pages.module.css';
 import Login from './pages/students/Login';
 import Dashboard from './pages/students/Dashboard';
 import InitialRegistration from './pages/students/InitialRegistration';
+import Issue from './pages/students/Issue';
 
 const ScrollToTop = () => {
   const [location] = useLocation();
@@ -44,6 +45,7 @@ const App = () => {
             component={InitialRegistration}
           />
           <Route path='/students/dashboard' component={Dashboard} />
+          <Route path='/students/issue' component={Issue} />
           <Route component={NotFound} />
         </Switch>
       </StudentLayout>

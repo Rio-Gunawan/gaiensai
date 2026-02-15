@@ -1,16 +1,17 @@
 import { useEffect } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter-preact';
 
+import LineCallback from '../features/auth/Line';
 import MainLayout from '../layout/MainLayout';
-import { Home } from './pages/Home';
-import { LineCallback } from '../features/auth/Line';
-import { Performances } from './pages/Performances';
-import { Student } from './pages/students/Student';
-import { Ticket } from './pages/Ticket';
-import subPageStyles from '../styles/sub-pages.module.css';
+import Home from './pages/Home';
+import Performances from './pages/Performances';
+import Student from './pages/students/Student';
+import Ticket from './pages/Ticket';
+// import NotFound from '../shared/NotFound';
 
-import '../styles/index.css';
 import '../styles/color-settings.css';
+import '../styles/index.css';
+import subPageStyles from '../styles/sub-pages.module.css';
 
 const ScrollToTop = () => {
   const [location] = useLocation();
@@ -36,7 +37,7 @@ const App = () => {
           <Route path='/performances' component={Performances} />
           <Route path='/students' component={Student} />
           <Route path='/auth/line/callback' component={LineCallback} />
-          <Route>404 Not Found</Route>
+          {/* <Route component={NotFound} /> */}
         </Switch>
       </div>
     </MainLayout>

@@ -7,3 +7,9 @@ export type GalleryImage = {
 export type GalleryProps = {
   images: GalleryImage[];
 };
+
+export type Session = {
+  user: {
+    email?: string;
+  };
+} | null;

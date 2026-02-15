@@ -3,6 +3,7 @@ import { Route, Switch, useLocation } from 'wouter-preact';
 
 import LineCallback from '../features/auth/Line';
 import MainLayout from '../layout/MainLayout';
+import StudentLayout from '../layout/StudentLayout';
 import NotFound from '../shared/NotFound';
 import Home from './pages/Home';
 import Performances from './pages/Performances';
@@ -12,6 +13,8 @@ import Ticket from './pages/Ticket';
 import '../styles/color-settings.css';
 import '../styles/index.css';
 import subPageStyles from '../styles/sub-pages.module.css';
+import Login from './pages/students/Login';
+import Dashboard from './pages/students/Dashboard';
 
 const ScrollToTop = () => {
   const [location] = useLocation();
@@ -26,6 +29,21 @@ const ScrollToTop = () => {
 const App = () => {
   const [location] = useLocation();
   const isHome = location === '/';
+  const isStudentPage = location.startsWith('/students');
+
+  if (isStudentPage) {
+    return (
+      <StudentLayout>
+        <ScrollToTop />
+        <Switch>
+          <Route path='/students' component={Student} />
+          <Route path='/students/login' component={Login} />
+          <Route path='/students/dashboard' component={Dashboard} />
+          <Route component={NotFound} />
+        </Switch>
+      </StudentLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -35,7 +53,6 @@ const App = () => {
           <Route path='/' component={Home} />
           <Route path='/t' component={Ticket} />
           <Route path='/performances' component={Performances} />
-          <Route path='/students' component={Student} />
           <Route path='/auth/line/callback' component={LineCallback} />
           <Route component={NotFound} />
         </Switch>

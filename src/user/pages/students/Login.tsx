@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
+import { navigate } from 'wouter-preact/use-browser-location';
 
 import lineImageUrl from '../../../assets/line.webp';
 import styles from './Login.module.css';
 
-type Session = {
-  user: {
-    email?: string;
-  };
-} | null;
+import type { Session } from '../../../types/types';
 
 function Login() {
   const [loading, setLoading] = useState(false);
@@ -16,19 +13,19 @@ function Login() {
   const [session, setSession] = useState<Session>(null);
 
   // Check URL params on initial render
-  const params = new URLSearchParams(window.location.search);
-  const hasTokenHash = params.get('token_hash');
+  const initialParams = new URLSearchParams(window.location.search);
+  const hasTokenHash = initialParams.get('token_hash');
 
   const [verifying, setVerifying] = useState(!!hasTokenHash);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
 
-  setAuthError(params.get('error') || null);
-
   useEffect(() => {
+    const currentParams = new URLSearchParams(window.location.search);
+    setAuthError(currentParams.get('error') || null);
+
     // Check if we have token_hash in URL (magic link callback)
-    const params = new URLSearchParams(window.location.search);
-    const token_hash = params.get('token_hash');
+    const token_hash = currentParams.get('token_hash');
 
     if (token_hash) {
       // Verify the OTP token
@@ -63,6 +60,12 @@ function Login() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) {
+      navigate('/students/dashboard');
+    }
+  }, [session]);
 
   const handleLogin = async (event: Event) => {
     event.preventDefault();
@@ -118,11 +121,6 @@ function Login() {
     window.location.href = lineAuthUrl;
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-  };
-
   // Show verification state
   if (verifying) {
     return (
@@ -170,13 +168,7 @@ function Login() {
 
   // If user is logged in, show welcome screen
   if (session) {
-    return (
-      <div>
-        <h2>ようこそ</h2>
-        <p>ログインしました: {session.user.email}</p>
-        <button onClick={handleLogout}>ログアウト</button>
-      </div>
-    );
+    return null;
   }
 
   // Show login form

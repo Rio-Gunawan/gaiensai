@@ -1,5 +1,5 @@
-import Login from './Login';
 import styles from '../../../styles/sub-pages.module.css';
+import Login from './Login';
 
 const Student = () => {
   return (

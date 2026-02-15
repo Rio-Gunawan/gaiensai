@@ -1,5 +1,6 @@
-import { MdClose } from 'react-icons/md';
 import GlobalNav from './GlobalNav';
+
+import { MdClose } from 'react-icons/md';
 import styles from './Drawer.module.css';
 
 type Props = {

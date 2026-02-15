@@ -3,11 +3,11 @@ import { Route, Switch, useLocation } from 'wouter-preact';
 
 import LineCallback from '../features/auth/Line';
 import MainLayout from '../layout/MainLayout';
+import NotFound from '../shared/NotFound';
 import Home from './pages/Home';
 import Performances from './pages/Performances';
 import Student from './pages/students/Student';
 import Ticket from './pages/Ticket';
-import NotFound from '../shared/NotFound';
 
 import '../styles/color-settings.css';
 import '../styles/index.css';

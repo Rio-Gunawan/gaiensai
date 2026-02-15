@@ -1,12 +1,20 @@
+import { useEffect, useState } from 'preact/hooks';
+import { RxHamburgerMenu } from 'react-icons/rx';
+import { Link, useLocation } from 'wouter-preact';
+
+import Drawer from './Drawer';
+
 import iconUrl from '../assets/icon.webp';
 import styles from './Header.module.css';
-import Drawer from './Drawer';
-import { RxHamburgerMenu } from 'react-icons/rx';
-import { useState } from 'preact/hooks';
-import { Link } from 'wouter-preact';
 
 const Header = () => {
   const [open, setOpen] = useState(false);
+
+  const [location] = useLocation();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location]);
 
   return (
     <>

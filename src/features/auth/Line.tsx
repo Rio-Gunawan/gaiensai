@@ -15,8 +15,8 @@ export const LineCallback = () => {
       const state = params.get('state');
 
       // stateを検証してCSRF攻撃を防ぐ
-      const storedState = sessionStorage.getItem('line_oauth_state');
-      sessionStorage.removeItem('line_oauth_state');
+      const storedState = localStorage.getItem('line_oauth_state');
+      localStorage.removeItem('line_oauth_state');
       if (!code || !state || state !== storedState) {
         // エラー処理
         setLocation('/students?error=invalid_state');

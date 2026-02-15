@@ -97,7 +97,8 @@ export function Login() {
 
   const handleLineLogin = () => {
     const state = crypto.randomUUID(); // CSRF対策
-    sessionStorage.setItem('line_oauth_state', state); // stateをセッションストレージに保存
+    localStorage.removeItem('line_oauth_state');
+    localStorage.setItem('line_oauth_state', state); // stateをセッションストレージに保存
 
     const scope = 'profile openid email';
     const responseType = 'code';

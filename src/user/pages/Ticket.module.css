@@ -24,7 +24,7 @@
 
 .copySucceed {
   text-align: center;
-  color: green;
+  color: var(--success-color);
   font-weight: bold;
 }
 

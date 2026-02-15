@@ -2,7 +2,7 @@
   margin: 0;
   width: 100%;
   min-height: 100vh;
-  background-color: #2d202d;
+  background-color: var(--home-hero-bg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
   margin: 0;
   position: relative;
   z-index: 2;
-  text-shadow: 0 12px 28px rgb(0 0 0 / 36%);
+  text-shadow: 0 12px 28px var(--home-text-shadow);
 }
 
 .firstViewCatchCopy {
@@ -52,8 +52,8 @@
 .firstViewContent {
   background-image: repeating-conic-gradient(
     from 135deg,
-    #2d202d 4deg,
-    #710a46
+    var(--home-hero-bg) 4deg,
+    var(--home-hero-gradient-purple)
   );
   width: 100%;
   flex: 1;
@@ -86,8 +86,8 @@
   .firstViewContent {
     background-image: repeating-conic-gradient(
       from 305deg,
-      #2d202d 4deg,
-      #830c3c
+      var(--home-hero-bg) 4deg,
+      var(--home-hero-gradient-crimson)
     );
     padding: 2rem 0;
   }
@@ -129,7 +129,7 @@
   position: absolute;
   display: block;
   transform-origin: center;
-  filter: drop-shadow(0 0 22px rgb(246 227 174 / 20%));
+  filter: drop-shadow(0 0 22px var(--home-hero-glow));
 }
 
 .meshWave {
@@ -346,11 +346,11 @@
   border-radius: 34px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 88% 10%, rgba(244, 125, 125, 0.08), transparent 42%),
-    radial-gradient(circle at 12% 92%, rgba(242, 211, 162, 0.09), transparent 38%);
+    radial-gradient(circle at 88% 10%, var(--home-decor-peach), transparent 42%),
+    radial-gradient(circle at 12% 92%, var(--home-decor-gold), transparent 38%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 10px 26px rgb(0 0 0 / 22%);
+    inset 0 1px 0 var(--home-button-inset),
+    0 10px 26px var(--home-shadow-strong);
 }
 
 .visitorSection {
@@ -359,8 +359,8 @@
   border-radius: 32px;
   padding: 0.5rem 1rem 0.5rem;
   background:
-    radial-gradient(circle at 88% 10%, rgb(244 208 125 / 8%), transparent 42%),
-    radial-gradient(circle at 12% 92%, rgb(142 230 211 / 9%), transparent 38%);
+    radial-gradient(circle at 88% 10%, var(--visitor-decor-peach), transparent 42%),
+    radial-gradient(circle at 12% 92%, var(--visitor-decor-teal), transparent 38%);
 }
 
 .sectionDecor {
@@ -374,7 +374,7 @@
   position: absolute;
   display: block;
   opacity: 0.32;
-  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 16%));
+  filter: drop-shadow(0 6px 14px var(--home-shadow-medium));
 }
 
 .decorHex {

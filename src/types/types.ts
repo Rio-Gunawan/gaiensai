@@ -14,3 +14,9 @@ export type Session = {
     email?: string | null;
   };
 } | null;
+
+export type UserData = {
+  email: string;
+  name: string;
+  affiliation: number;
+} | null

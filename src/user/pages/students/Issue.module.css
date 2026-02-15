@@ -1,0 +1,94 @@
+.issuePage {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.issueForm {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: var(--normal-section-bg-color);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+}
+
+.formLabel {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--heading-text-color);
+  font-weight: 600;
+}
+
+.select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: var(--main-text-color);
+  padding: 0.72rem 0.8rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.previewHeading {
+  margin: 0;
+  color: rgba(242, 242, 242, 0.8);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.previewList {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+}
+
+.previewList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: var(--main-text-color);
+}
+
+.previewList li strong {
+  color: var(--heading-text-color);
+  font-size: 1rem;
+}
+
+.generateButton {
+  border: none;
+  border-radius: 999px;
+  padding: 0.78rem 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.generateButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.generateButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  filter: grayscale(0.15);
+}
+
+@media (max-width: 640px) {
+  .issueForm {
+    padding: 1rem;
+  }
+}

@@ -182,7 +182,7 @@ const InitialRegistration = () => {
 
   return (
     <section className={styles.registrationContainer}>
-      <h2>初回登録</h2>
+      <h1>初回登録</h1>
       <p className={styles.description}>
         初回は、氏名と所属情報の入力が必要です。
       </p>

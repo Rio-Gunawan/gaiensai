@@ -7,7 +7,7 @@ import Drawer from './Drawer';
 import iconUrl from '../assets/icon.webp';
 import styles from './Header.module.css';
 
-const Header = () => {
+const Header = ({linkTo = '/', children}: {linkTo?: string, children?: React.ReactNode}) => {
   const [open, setOpen] = useState(false);
 
   const [location] = useLocation();
@@ -18,10 +18,11 @@ const Header = () => {
 
   return (
     <>
-      <Link href='/'>
+      <Link href={linkTo}>
         <header className={styles.header}>
           <img alt='アイコン' src={iconUrl} width={64} />
           外苑祭2025
+          {children}
         </header>
       </Link>
 

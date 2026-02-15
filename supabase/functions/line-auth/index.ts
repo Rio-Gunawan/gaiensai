@@ -61,10 +61,15 @@ Deno.serve(async (req) => {
     }
 
     // 2. IDトークンからユーザー情報を取得
-    const { email, sub: lineUserId } = decodeJwtPayload(lineTokens.id_token);
-    if (!email) {
-      throw new Error('Email is not available from LINE.');
+    const { email: lineEmail, sub: lineUserId } = decodeJwtPayload(
+      lineTokens.id_token,
+    );
+    let email = lineEmail;
+    if (!lineEmail) {
+      email = lineUserId + '@gaiensai.aoko.ed.jp';
     }
+
+    email = email.toLowerCase();
 
     // 3. Supabase Adminクライアントでユーザーを検索または作成
     const supabaseAdmin = createClient(

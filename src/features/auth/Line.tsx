@@ -55,5 +55,5 @@ export const LineCallback = () => {
     handleAuthCallback();
   }, [location, setLocation]);
 
-  return <div>LINE認証中...</div>;
+  return <section>LINE認証中...</section>;
 };

@@ -117,7 +117,7 @@ const Home = () => {
   return (
     <>
       <section className={styles.firstView}>
-        <img src={poster} alt='外苑祭ポスター' fetchPriority='high' width={1000} />
+        <img src={poster} alt='外苑祭ポスター' fetchPriority='high' />
         <div className={styles.firstViewContent}>
           <div className={styles.heroShapes} aria-hidden='true'>
             <img

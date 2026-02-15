@@ -25,4 +25,41 @@
   --error-border-color: #cb5353;
   --warn-border-color: #959300;
   --info-border-color: #003878;
+
+  /* helpers */
+  --white: #ffffff;
+  --black: #000000;
+  --text-color: var(--main-text-color);
+  --success-color: #008000;
+  --drawer-overlay-clear: rgba(0, 0, 0, 0);
+
+  /* Home page accents */
+  --home-hero-bg: #2d202d;
+  --home-hero-gradient-purple: #710a46;
+  --home-hero-gradient-crimson: #830c3c;
+  --home-text-shadow: rgba(0, 0, 0, 0.36);
+  --home-hero-glow: rgba(246, 227, 174, 0.2);
+  --home-decor-peach: rgba(244, 125, 125, 0.08);
+  --home-decor-gold: rgba(242, 211, 162, 0.09);
+  --home-button-inset: rgba(255, 255, 255, 0.08);
+  --home-shadow-strong: rgba(0, 0, 0, 0.22);
+  --home-shadow-medium: rgba(0, 0, 0, 0.16);
+  --visitor-decor-peach: rgba(244, 208, 125, 0.08);
+  --visitor-decor-teal: rgba(142, 230, 211, 0.09);
+
+  /* Login form palette */
+  --login-input-border: #747775;
+  --login-input-text: #e3e3e3;
+  --login-btn-bg: #131314;
+  --login-btn-border: #8e918f;
+  --login-btn-disabled-bg: rgba(19, 19, 20, 0.38);
+  --login-btn-disabled-border: rgba(142, 145, 143, 0.12);
+  --login-btn-disabled-state: rgba(227, 227, 227, 0.12);
+  --login-shadow-dark: rgba(60, 64, 67, 0.3);
+  --login-shadow-soft: rgba(60, 64, 67, 0.15);
+  --line-button-bg: #06c755;
+
+  /* NotFound surface helpers */
+  --card-border-color: rgba(15, 23, 42, 0.08);
+  --card-shadow-color: rgba(15, 23, 42, 0.15);
 }

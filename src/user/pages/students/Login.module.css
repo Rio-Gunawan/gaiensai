@@ -35,12 +35,12 @@
   height: 40px;
   margin: 5px auto;
   padding: 0 10px;
-  border: 1px solid #747775;
+  border: 1px solid var(--login-input-border);
   border-radius: 5px;
   font-size: 14px;
   font-family: sans-serif;
   background-color: var(--url-bg-color);
-  color: #e3e3e3;
+  color: var(--login-input-text);
 }
 
 .gsiMaterialButton {
@@ -50,14 +50,14 @@
   user-select: none;
   -webkit-appearance: none;
   appearance: none;
-  background-color: #131314;
+  background-color: var(--login-btn-bg);
   background-image: none;
-  border: 1px solid #747775;
+  border: 1px solid var(--login-btn-border);
   -webkit-border-radius: 20px;
   border-radius: 20px;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
-  color: #e3e3e3;
+  color: var(--login-input-text);
   cursor: pointer;
   font-family: 'Roboto', arial, sans-serif;
   font-size: 14px;
@@ -75,7 +75,7 @@
   width: 100%;
   max-width: 400px;
   min-width: min-content;
-  border-color: #8e918f;
+  border-color: var(--login-btn-border);
 }
 
 .gsiMaterialButton .gsiMaterialButtonIcon {
@@ -122,12 +122,12 @@
 
 .gsiMaterialButton:disabled {
   cursor: default;
-  background-color: #13131461;
-  border-color: #8e918f1f;
+  background-color: var(--login-btn-disabled-bg);
+  border-color: var(--login-btn-disabled-border);
 }
 
 .gsiMaterialButton:disabled .gsiMaterialButtonState {
-  background-color: #e3e3e31f;
+  background-color: var(--login-btn-disabled-state);
 }
 
 .gsiMaterialButton:disabled .gsiMaterialButtonContents {
@@ -140,25 +140,29 @@
 
 .gsiMaterialButton:not(:disabled):active .gsiMaterialButtonState,
 .gsiMaterialButton:not(:disabled):focus .gsiMaterialButtonState {
-  background-color: white;
+  background-color: var(--white);
   opacity: 12%;
 }
 
 .gsiMaterialButton:not(:disabled):hover {
-  -webkit-box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
-  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
+  -webkit-box-shadow:
+    0 1px 2px 0 var(--login-shadow-dark),
+    0 1px 3px 1px var(--login-shadow-soft);
+  box-shadow:
+    0 1px 2px 0 var(--login-shadow-dark),
+    0 1px 3px 1px var(--login-shadow-soft);
 }
 
 .gsiMaterialButton:not(:disabled):hover .gsiMaterialButtonState {
-  background-color: white;
+  background-color: var(--white);
   opacity: 8%;
 }
 
 /* LINEボタンのスタイル */
 .lineButton {
-  background-color: #06C755;
-  border: 1px solid #06C755;
-  color: white;
+  background-color: var(--line-button-bg);
+  border: 1px solid var(--line-button-bg);
+  color: var(--white);
   padding: 0 0.5em;
   border-radius: 100px;
   cursor: pointer;
@@ -171,7 +175,7 @@
 @media (hover: hover) and (pointer: fine) {
   .lineButton:hover {
     opacity: 0.9;
-    border-color: #06C755;
+    border-color: var(--line-button-bg);
   }
 }
 

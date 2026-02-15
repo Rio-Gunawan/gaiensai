@@ -13,15 +13,17 @@ export const LineCallback = () => {
       const params = new URLSearchParams(search);
       const code = params.get('code');
       const state = params.get('state');
+      alert(state);
 
       // stateを検証してCSRF攻撃を防ぐ
       const storedState = sessionStorage.getItem('line_oauth_state');
+      alert(storedState);
+      sessionStorage.removeItem('line_oauth_state');
       if (!code || !state || state !== storedState) {
         // エラー処理
         setLocation('/students?error=invalid_state');
         return;
       }
-      sessionStorage.removeItem('line_oauth_state');
 
       try {
         // 認証コードをEdge Functionに渡す

@@ -299,6 +299,8 @@
 }
 
 .buttonLink {
+  position: relative;
+  z-index: 2;
   flex: 1;
   min-width: 10rem;
   display: flex;
@@ -330,9 +332,130 @@
 }
 
 .buttonLinkSection {
+  position: relative;
+  z-index: 2;
   display: flex;
   gap: 1em;
   flex-wrap: wrap;
+}
+
+.buttonLinkWrap {
+  position: relative;
+  margin: 1.5rem 1rem;
+  padding: 0.5rem 1rem 1.4rem;
+  border-radius: 34px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(244, 125, 125, 0.08), transparent 42%),
+    radial-gradient(circle at 12% 92%, rgba(242, 211, 162, 0.09), transparent 38%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 10px 26px rgb(0 0 0 / 22%);
+}
+
+.visitorSection {
+  position: relative;
+  overflow: hidden;
+  border-radius: 32px;
+  padding: 0.5rem 1rem 0.5rem;
+  background:
+    radial-gradient(circle at 88% 10%, rgb(244 208 125 / 8%), transparent 42%),
+    radial-gradient(circle at 12% 92%, rgb(142 230 211 / 9%), transparent 38%);
+}
+
+.sectionDecor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.decorItem {
+  position: absolute;
+  display: block;
+  opacity: 0.32;
+  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 16%));
+}
+
+.decorHex {
+  width: min(21rem, 38vw);
+  left: -3rem;
+  top: -1.6rem;
+  animation: driftLeftRight 12s ease-in-out infinite;
+}
+
+.decorDots {
+  width: min(17rem, 30vw);
+  right: -2rem;
+  top: 0.4rem;
+  animation: driftUpDown 10s ease-in-out infinite;
+}
+
+.decorZigzag {
+  width: min(20rem, 40vw);
+  left: 48%;
+  bottom: -1rem;
+  transform: translateX(-50%);
+  opacity: 0.4;
+}
+
+.decorTriangle {
+  width: min(11rem, 22vw);
+  right: 10%;
+  bottom: -2.4rem;
+  opacity: 0.34;
+  animation: rotateSway 14s ease-in-out infinite;
+}
+
+.decorHexBottom {
+  width: min(17rem, 30vw);
+  right: -2.6rem;
+  top: -1.2rem;
+  opacity: 0.28;
+}
+
+.decorDotsBottom {
+  width: min(15rem, 27vw);
+  left: -2.5rem;
+  bottom: -2.3rem;
+  opacity: 0.25;
+}
+
+.decorTriangleBottom {
+  width: min(10rem, 20vw);
+  left: 58%;
+  top: -1.6rem;
+  opacity: 0.3;
+}
+
+@keyframes driftLeftRight {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(9px);
+  }
+}
+
+@keyframes driftUpDown {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes rotateSway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
 }
 
 .catchCopy {
@@ -345,7 +468,7 @@
 .catchCopy span {
   color: var(--accent-color);
 }
-
+/* 
 .scrollSection {
   opacity: 0;
   transform: translateY(34px);
@@ -412,4 +535,34 @@
     opacity: 1;
     transition: none;
   }
+
+  .decorItem {
+    animation: none;
+  }
 }
+
+@media (max-width: 999px) {
+  .buttonLinkWrap {
+    padding: 0.5rem 0.6rem 0.9rem;
+    border-radius: 24px;
+  }
+
+  .decorHex,
+  .decorHexBottom {
+    width: min(15rem, 56vw);
+  }
+
+  .decorDots,
+  .decorDotsBottom {
+    width: min(13rem, 50vw);
+  }
+
+  .decorTriangle,
+  .decorTriangleBottom {
+    width: min(9rem, 34vw);
+  }
+
+  .decorZigzag {
+    width: min(18rem, 74vw);
+  }
+} */

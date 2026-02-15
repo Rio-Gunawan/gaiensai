@@ -1,13 +1,21 @@
 import Alert from '../../components/ui/Alert';
+import NormalSection from '../../components/ui/NormalSection';
+import Gallery from '../../components/ui/Gallery';
+
 import styles from './Home.module.css';
 import sharedStyles from '../../styles/shared.module.css';
+
 import poster from '../../assets/poster.webp';
-import { useEffect } from 'preact/hooks';
 import ringOrbit from '../../assets/hero/ring-orbit.svg';
 import meshWave from '../../assets/hero/mesh-wave.svg';
 import diamondStack from '../../assets/hero/diamond-stack.svg';
 import sparkBurst from '../../assets/hero/spark-burst.svg';
 import capsuleFlow from '../../assets/hero/capsule-flow.svg';
+import hexGrid from '../../assets/decor/hex-grid.svg';
+import dotConstellation from '../../assets/decor/dot-constellation.svg';
+import zigzagBand from '../../assets/decor/zigzag-band.svg';
+import triangleMix from '../../assets/decor/triangle-mix.svg';
+import gaiensai_about from '../../assets/gaiensai_about.webp';
 import prepare1 from '../../assets/prepare/prepare1.webp';
 import prepare2 from '../../assets/prepare/prepare2.webp';
 import prepare3 from '../../assets/prepare/prepare3.webp';
@@ -29,6 +37,10 @@ import sign3 from '../../assets/sign/sign3.webp';
 import sign4 from '../../assets/sign/sign4.webp';
 import sign5 from '../../assets/sign/sign5.webp';
 
+import { useEffect } from 'preact/hooks';
+import { Link } from 'wouter-preact';
+import type { GalleryImage } from '../../types/types';
+
 import { BiSolidFoodMenu } from 'react-icons/bi';
 import { PiMicrophoneStageFill } from 'react-icons/pi';
 import { GrSchedulePlay } from 'react-icons/gr';
@@ -36,40 +48,37 @@ import { IoIosWarning } from 'react-icons/io';
 import { IoMdTrain } from 'react-icons/io';
 import { FaMapLocationDot } from 'react-icons/fa6';
 import { FaQuestionCircle } from 'react-icons/fa';
-import NormalSection from '../../components/ui/NormalSection';
-import Gallery from '../../components/ui/Gallery';
-import type { GalleryImage } from '../../components/ui/Gallery';
 
 const prepareGallery: GalleryImage[] = [
-  { src: prepare1, alt: '舞台準備の様子1' },
-  { src: prepare2, alt: '舞台準備の様子2' },
-  { src: prepare3, alt: '舞台準備の様子3' },
-  { src: prepare4, alt: '舞台準備の様子4' },
-  { src: prepare5, alt: '舞台準備の様子5' },
+  { src: prepare1, alt: '舞台準備の様子1', width: 300 },
+  { src: prepare2, alt: '舞台準備の様子2', width: 300 },
+  { src: prepare3, alt: '舞台準備の様子3', width: 300 },
+  { src: prepare4, alt: '舞台準備の様子4', width: 300 },
+  { src: prepare5, alt: '舞台準備の様子5', width: 300 },
 ];
 
 const signGallery: GalleryImage[] = [
-  { src: sign1, alt: '立て看板のディテール1' },
-  { src: sign2, alt: '立て看板のディテール2' },
-  { src: sign3, alt: '立て看板のディテール3' },
-  { src: sign4, alt: '立て看板のディテール4' },
-  { src: sign5, alt: '立て看板のディテール5' },
+  { src: sign1, alt: '立て看板のディテール1', width: 300 },
+  { src: sign2, alt: '立て看板のディテール2', width: 300 },
+  { src: sign3, alt: '立て看板のディテール3', width: 300 },
+  { src: sign4, alt: '立て看板のディテール4', width: 300 },
+  { src: sign5, alt: '立て看板のディテール5', width: 300 },
 ];
 
 const outerGallery: GalleryImage[] = [
-  { src: outer1, alt: '外装パネル1' },
-  { src: outer2, alt: '外装パネル2' },
-  { src: outer3, alt: '外装パネル3' },
-  { src: outer4, alt: '外装パネル4' },
-  { src: outer5, alt: '外装パネル5' },
+  { src: outer1, alt: '外装パネル1', width: 300 },
+  { src: outer2, alt: '外装パネル2', width: 300 },
+  { src: outer3, alt: '外装パネル3', width: 300 },
+  { src: outer4, alt: '外装パネル4', width: 300 },
+  { src: outer5, alt: '外装パネル5', width: 300 },
 ];
 
 const innerGallery: GalleryImage[] = [
-  { src: inner1, alt: '内装ディテール1' },
-  { src: inner2, alt: '内装ディテール2' },
-  { src: inner3, alt: '内装ディテール3' },
-  { src: inner4, alt: '内装ディテール4' },
-  { src: inner5, alt: '内装ディテール5' },
+  { src: inner1, alt: '内装ディテール1', width: 300 },
+  { src: inner2, alt: '内装ディテール2', width: 300 },
+  { src: inner3, alt: '内装ディテール3', width: 300 },
+  { src: inner4, alt: '内装ディテール4', width: 300 },
+  { src: inner5, alt: '内装ディテール5', width: 300 },
 ];
 
 export const Home = () => {
@@ -109,7 +118,7 @@ export const Home = () => {
   return (
     <>
       <section className={styles.firstView}>
-        <img src={poster} alt='外苑祭ポスター' />
+        <img src={poster} alt='外苑祭ポスター' fetchPriority='high' />
         <div className={styles.firstViewContent}>
           <div className={styles.heroShapes} aria-hidden='true'>
             <img
@@ -166,48 +175,85 @@ export const Home = () => {
         </p>
       </Alert>
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
+        <h2>生徒用ページ</h2>
+        <p>
+          青高生の皆さんは、<Link to='/students'>こちら</Link>
+          からダッシュボードにアクセスしてください。
+        </p>
+      </NormalSection>
+      <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>チケット</h2>
         <p>
           招待券は、お使いのデバイスで表示したことのあるもののみ表示できます。まだ閲覧していない場合は、招待URLよりアクセスしてください。
         </p>
         <ul className={styles.ticketSectionUl}>
           <li>
-            <a href='#'>招待券</a>
+            <Link to='/t'>招待券</Link>
           </li>
           <li>
-            <a href='#'>中学生券</a>
+            <Link to='/t'>中学生券</Link>
           </li>
           <li>
-            <a href='#'>当日券</a>
+            <Link to='/t'>当日券</Link>
           </li>
         </ul>
       </NormalSection>
       <section
-        className={`${styles.buttonLinkSection} ${styles.scrollSection}`}
+        className={`${styles.buttonLinkWrap} ${styles.scrollSection}`}
         data-scroll-section=''
       >
-        <a href='#' className={styles.buttonLink}>
-          <BiSolidFoodMenu />
-          デジタルパンフレット
-        </a>
-        <a href='#' className={styles.buttonLink}>
-          <PiMicrophoneStageFill />
-          公演一覧
-        </a>
-        <a href='#' className={styles.buttonLink}>
-          <GrSchedulePlay />
-          スケジュール
-        </a>
+        <h2 className={sharedStyles.normalH2}>ご案内</h2>
+        <div className={styles.sectionDecor} aria-hidden='true'>
+          <img
+            src={hexGrid}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorHex}`}
+          />
+          <img
+            src={dotConstellation}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorDots}`}
+          />
+          <img
+            src={zigzagBand}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorZigzag}`}
+          />
+          <img
+            src={triangleMix}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorTriangle}`}
+          />
+        </div>
+        <div className={styles.buttonLinkSection}>
+          <a href='#' className={styles.buttonLink}>
+            <BiSolidFoodMenu />
+            デジタルパンフレット
+          </a>
+          <Link to='/performances' className={styles.buttonLink}>
+            <PiMicrophoneStageFill />
+            公演一覧
+          </Link>
+          <a href='#' className={styles.buttonLink}>
+            <GrSchedulePlay />
+            スケジュール
+          </a>
+        </div>
       </section>
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>外苑祭とは</h2>
-        <h3 className={styles.catchCopy}>
-          <span>全クラスが演劇</span>を上演する、 ちょっと変わった文化祭。
-        </h3>
-        <p>
-          外苑祭とは、青山高校の生徒が主体となって企画・運営する文化祭です。毎年8月下旬に開催され、5000人以上が来場する伝統行事です。
-          全21クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
-        </p>
+        <div className={sharedStyles.imgBox}>
+          <img src={gaiensai_about} width={800} />
+          <div>
+            <h3 className={styles.catchCopy}>
+              <span>全クラスが演劇</span>を上演する、 ちょっと変わった文化祭。
+            </h3>
+            <p>
+              外苑祭とは、青山高校の生徒が主体となって企画・運営する文化祭です。毎年8月下旬に開催され、5000人以上が来場する伝統行事です。
+              全21クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
+            </p>
+          </div>
+        </div>
       </NormalSection>
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>見どころ</h2>
@@ -231,7 +277,27 @@ export const Home = () => {
           劇に直結する内装です。どのように台本の雰囲気を出すか、それぞれが考えて装飾がなされています。演技だけでなく、内装の違いにも個性が現れています。
         </p>
       </NormalSection>
-      <section className={styles.scrollSection} data-scroll-section=''>
+      <section
+        className={`${styles.scrollSection} ${styles.visitorSection}`}
+        data-scroll-section=''
+      >
+        <div className={styles.sectionDecor} aria-hidden='true'>
+          <img
+            src={hexGrid}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorHexBottom}`}
+          />
+          <img
+            src={dotConstellation}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorDotsBottom}`}
+          />
+          <img
+            src={triangleMix}
+            alt=''
+            className={`${styles.decorItem} ${styles.decorTriangleBottom}`}
+          />
+        </div>
         <h2 className={sharedStyles.normalH2}>ご来場の皆様へ</h2>
         <div className={styles.buttonLinkSection}>
           <a href='#' className={styles.buttonLink}>
@@ -242,7 +308,10 @@ export const Home = () => {
             <FaMapLocationDot />
             校内マップ
           </a>
-          <a href='#' className={styles.buttonLink}>
+          <a
+            href='https://www.metro.ed.jp/aoyama-h/access/access.html'
+            className={styles.buttonLink}
+          >
             <IoMdTrain />
             アクセス
           </a>

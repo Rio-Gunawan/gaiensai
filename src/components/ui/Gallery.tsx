@@ -1,14 +1,5 @@
 import styles from './Gallery.module.css';
-
-export type GalleryImage = {
-  src: string;
-  alt: string;
-};
-
-export type GalleryProps = {
-  images: GalleryImage[];
-};
-
+import type { GalleryProps } from '../../types/types';
 const Gallery = ({ images }: GalleryProps) => {
   return (
     <div className={styles.gallery} aria-label='写真ギャラリー'>
@@ -19,6 +10,7 @@ const Gallery = ({ images }: GalleryProps) => {
               className={styles.image}
               src={image.src}
               alt={image.alt}
+              width={image.width}
               loading='lazy'
               decoding='async'
             />

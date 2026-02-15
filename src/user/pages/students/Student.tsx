@@ -5,22 +5,40 @@ import { supabase } from '../../../lib/supabase';
 
 const Student = () => {
   useEffect(() => {
-    const redirectBySession = (session: Session) => {
+    const redirectBySession = async (session: Session) => {
       if (session) {
-        navigate('/students/dashboard');
-      } else {
-        navigate('/students/login');
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          alert('ユーザープロフィールを取得するのに失敗しました。:' +  error);
+          navigate('/students/login');
+          return;
+        }
+
+        if (data) {
+          navigate('/students/dashboard');
+          return;
+        }
+
+        navigate('/students/initial-registration');
+        return;
       }
+
+      navigate('/students/login');
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      redirectBySession(session);
+      void redirectBySession(session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      redirectBySession(session);
+      void redirectBySession(session);
     });
 
     return () => subscription.unsubscribe();

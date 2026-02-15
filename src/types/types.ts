@@ -10,6 +10,7 @@ export type GalleryProps = {
 
 export type Session = {
   user: {
-    email?: string;
+    id: string;
+    email?: string | null;
   };
 } | null;

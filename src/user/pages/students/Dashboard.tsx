@@ -8,13 +8,35 @@ const Dashboard = () => {
   const [session, setSession] = useState<Session>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const verifySession = async (session: Session) => {
       if (!session) {
         navigate('/students/login');
         return;
       }
 
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to verify users profile:', error);
+        navigate('/students/login');
+        return;
+      }
+
+      if (!data) {
+        navigate('/students/initial-registration');
+        return;
+      }
+
       setSession(session);
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      void verifySession(session);
     });
 
     const {
@@ -26,7 +48,7 @@ const Dashboard = () => {
         return;
       }
 
-      setSession(session);
+      void verifySession(session);
     });
 
     return () => subscription.unsubscribe();

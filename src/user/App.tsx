@@ -15,6 +15,7 @@ import '../styles/index.css';
 import subPageStyles from '../styles/sub-pages.module.css';
 import Login from './pages/students/Login';
 import Dashboard from './pages/students/Dashboard';
+import InitialRegistration from './pages/students/InitialRegistration';
 
 const ScrollToTop = () => {
   const [location] = useLocation();
@@ -38,6 +39,10 @@ const App = () => {
         <Switch>
           <Route path='/students' component={Student} />
           <Route path='/students/login' component={Login} />
+          <Route
+            path='/students/initial-registration'
+            component={InitialRegistration}
+          />
           <Route path='/students/dashboard' component={Dashboard} />
           <Route component={NotFound} />
         </Switch>

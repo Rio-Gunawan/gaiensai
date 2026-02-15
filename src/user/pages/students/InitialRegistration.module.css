@@ -1,0 +1,75 @@
+.description {
+  margin: 8px 0 20px;
+  color: var(--main-text-color);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.legend {
+  margin-bottom: 0.5rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldset .label {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+
+.input {
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px;
+  padding: 0.7rem;
+}
+
+.fieldset .input {
+  flex: 1;
+  text-align: right;
+}
+
+.error {
+  margin: 0;
+  color: var(--error-text-color);
+}
+
+.deleteButton {
+  padding: 0;
+  margin: 0.5rem 0;
+  background: none;
+  color: var(--error-text-color);
+  font-weight: bold;
+  border: none;
+  transition: none;
+}
+
+.deleteButton:hover {
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.info {
+  margin: 0;
+  margin-top: 1rem;
+}

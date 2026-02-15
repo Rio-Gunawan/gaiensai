@@ -1,0 +1,48 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.modal {
+  width: min(100%, 420px);
+  border-radius: 12px;
+  padding: 1.2rem;
+  background: var(--main-bg-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modalCancelButton {
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  background: transparent;
+}
+
+.modalActionButton {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.modalActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

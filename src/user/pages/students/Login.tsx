@@ -63,7 +63,7 @@ function Login() {
 
   useEffect(() => {
     if (session) {
-      navigate('/students/dashboard');
+      navigate('/students');
     }
   }, [session]);
 

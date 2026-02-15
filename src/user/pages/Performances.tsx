@@ -4,7 +4,9 @@ export const Performances = () => {
     <>
       <main>
         <h1 className={styles.pageTitle}>公演一覧</h1>
-        <p>This is the performances page content.</p>
+        <section>
+          <p>This is the performances page content.</p>
+        </section>
       </main>
     </>
   );

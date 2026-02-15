@@ -6,7 +6,7 @@ const Footer = () => {
   return (
     <footer className={styles.footer}>
       <GlobalNav />
-      <p>最終更新日: 2026/2/14</p>
+      <p>最終更新日: 2026/2/15</p>
       <p>© 2026 外苑祭総務</p>
     </footer>
   );

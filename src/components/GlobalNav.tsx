@@ -8,6 +8,9 @@ const GlobalNav = () => {
           <Link href='/'>ホーム</Link>
         </li>
         <li>
+          <Link href='/students'>生徒用ページ</Link>
+        </li>
+        <li>
           <Link href='/t'>チケット</Link>
         </li>
         <li>

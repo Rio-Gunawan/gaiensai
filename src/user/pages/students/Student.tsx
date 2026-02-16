@@ -3,6 +3,9 @@ import type { Session } from '../../../types/types';
 import { useEffect } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
 
+import styles from '../../../styles/sub-pages.module.css';
+import { Link } from 'wouter-preact';
+
 const Student = () => {
   useEffect(() => {
     const redirectBySession = async (session: Session) => {
@@ -44,7 +47,23 @@ const Student = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  return null;
+  return (
+    <section>
+      <h1 style={styles.pageTitle}>生徒用ページ</h1>
+      <h2>読み込み中...</h2>
+      <p>
+        しばらく待ってもページが遷移しない場合は、
+        <Link to='/students/login'>こちら</Link>
+        から再度ログインをお試しください。
+      </p>
+      <p>
+        すでにログイン済みなのにこのページから遷移しない場合は、
+        <Link to='/students/dashboard'>こちら</Link>
+        から直接ダッシュボードページにアクセスしてください。
+      </p>
+      <p>不明点がありましたら、お気軽に外苑祭総務へお問い合わせください。</p>
+    </section>
+  );
 };
 
 export default Student;

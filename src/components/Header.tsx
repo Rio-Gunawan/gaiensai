@@ -6,9 +6,11 @@ import Drawer from './Drawer';
 
 import iconUrl from '../assets/icon.webp';
 import styles from './Header.module.css';
+import { useEventConfig } from '../hooks/useEventConfig';
 
 const Header = ({linkTo = '/', children}: {linkTo?: string, children?: React.ReactNode}) => {
   const [open, setOpen] = useState(false);
+  const { config } = useEventConfig();
 
   const [location] = useLocation();
 
@@ -21,7 +23,8 @@ const Header = ({linkTo = '/', children}: {linkTo?: string, children?: React.Rea
       <Link href={linkTo}>
         <header className={styles.header}>
           <img alt='アイコン' src={iconUrl} width={64} />
-          外苑祭2025
+          {config.name}
+          {config.year}
           {children}
         </header>
       </Link>

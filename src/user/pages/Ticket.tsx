@@ -1,12 +1,16 @@
 import { useState } from 'preact/hooks';
 import Alert from '../../components/ui/Alert';
 import QRCode from '../../components/ui/QRCode';
+import { useEventConfig } from '../../hooks/useEventConfig';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
 
 const Ticket = () => {
+  const { config } = useEventConfig();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
+  const ticketPath = '/t/3pQe75Y';
+  const ticketUrl = `https://${config.site_url}${ticketPath}`;
   return (
     <>
       <h1 className={pageStyles.pageTitle}>チケットを表示</h1>
@@ -19,7 +23,7 @@ const Ticket = () => {
         <h2 className={styles.aboutPerformance}>1-1 第1公演</h2>
         <p className={styles.forWhom}>2年7組14番 ご本人様</p>
         <p className={styles.urlContainer}>
-          <a>https://gaiensai.pages.dev/t/3pQe75Y</a>
+          <a href={ticketPath}>{ticketUrl}</a>
         </p>
         <button
           className={styles.copyUrl}

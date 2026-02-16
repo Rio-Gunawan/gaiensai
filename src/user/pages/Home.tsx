@@ -37,9 +37,10 @@ import sign3 from '../../assets/sign/sign3.webp';
 import sign4 from '../../assets/sign/sign4.webp';
 import sign5 from '../../assets/sign/sign5.webp';
 
-import { useEffect } from 'preact/hooks';
+import { useEffect, useMemo } from 'preact/hooks';
 import { Link } from 'wouter-preact';
 import type { GalleryImage } from '../../types/types';
+import { useEventConfig } from '../../hooks/useEventConfig';
 
 import { BiSolidFoodMenu } from 'react-icons/bi';
 import { FaQuestionCircle } from 'react-icons/fa';
@@ -81,6 +82,30 @@ const innerGallery: GalleryImage[] = [
 ];
 
 const Home = () => {
+  const { config } = useEventConfig();
+
+  const formattedDateText = useMemo(() => {
+    if (config.date.length === 0) {
+      return '';
+    }
+
+    const toParts = (dateText: string) => {
+      const [year, month, day] = dateText.split('-').map((value) => Number(value));
+      return { year, month, day };
+    };
+
+    const first = toParts(config.date[0]);
+    const last = toParts(config.date[config.date.length - 1]);
+
+    if (first.year === last.year && first.month === last.month) {
+      return `${first.year}/${first.month}/${first.day}~${last.day}`;
+    }
+
+    return `${first.year}/${first.month}/${first.day}~${last.year}/${last.month}/${last.day}`;
+  }, [config.date]);
+
+  const totalClassCount = config.grade_number * config.class_number;
+
   useEffect(() => {
     const sections = document.querySelectorAll<HTMLElement>(
       '[data-scroll-section]',
@@ -147,11 +172,13 @@ const Home = () => {
             />
           </div>
           <div className={styles.firstViewText}>
-            <h1 className={styles.firstViewH1}>外苑祭 2025</h1>
-            <p className={styles.firstViewCatchCopy}>熱狂が、幕を開ける。</p>
+            <h1 className={styles.firstViewH1}>
+              {config.name} {config.year}
+            </h1>
+            <p className={styles.firstViewCatchCopy}>{config.catchCopy}</p>
             <div className={styles.firstViewDetail}>
-              <p className={styles.firstViewDate}>2025/8/30~31</p>
-              <p className={styles.firstViewPlace}>東京都立青山高校</p>
+              <p className={styles.firstViewDate}>{formattedDateText}</p>
+              <p className={styles.firstViewPlace}>{config.school}</p>
             </div>
           </div>
         </div>
@@ -249,7 +276,7 @@ const Home = () => {
             </h3>
             <p>
               外苑祭とは、青山高校の生徒が主体となって企画・運営する文化祭です。毎年8月下旬に開催され、5000人以上が来場する伝統行事です。
-              全21クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
+              全{totalClassCount}クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
             </p>
           </div>
         </div>

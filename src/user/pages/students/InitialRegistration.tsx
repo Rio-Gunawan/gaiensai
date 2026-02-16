@@ -4,8 +4,10 @@ import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
 import type { Session } from '../../../types/types';
 import Modal from '../../../components/ui/Modal';
+import { useEventConfig } from '../../../hooks/useEventConfig';
 
 const InitialRegistration = () => {
+  const { config } = useEventConfig();
   const [session, setSession] = useState<Session>(null);
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
@@ -66,22 +68,34 @@ const InitialRegistration = () => {
     const parsedClass = Number(studentClass);
     const parsedNumber = Number(number);
 
-    if (!Number.isInteger(parsedGrade) || parsedGrade < 1 || parsedGrade > 3) {
-      setErrorMessage('学年は 1〜3 の整数で入力してください。');
+    if (
+      !Number.isInteger(parsedGrade) ||
+      parsedGrade < 1 ||
+      parsedGrade > config.grade_number
+    ) {
+      setErrorMessage(`学年は 1〜${config.grade_number} の整数で入力してください。`);
       return;
     }
 
-    if (!Number.isInteger(parsedClass) || parsedClass < 1 || parsedClass > 20) {
-      setErrorMessage('クラスは 1〜7 の整数で入力してください。');
+    if (
+      !Number.isInteger(parsedClass) ||
+      parsedClass < 1 ||
+      parsedClass > config.class_number
+    ) {
+      setErrorMessage(
+        `クラスは 1〜${config.class_number} の整数で入力してください。`,
+      );
       return;
     }
 
     if (
       !Number.isInteger(parsedNumber) ||
       parsedNumber < 1 ||
-      parsedNumber > 60
+      parsedNumber > config.max_attendance_number
     ) {
-      setErrorMessage('番号は 1〜42 の整数で入力してください。');
+      setErrorMessage(
+        `番号は 1〜${config.max_attendance_number} の整数で入力してください。`,
+      );
       return;
     }
 
@@ -178,7 +192,7 @@ const InitialRegistration = () => {
               className={styles.input}
               type='number'
               min='1'
-              max='3'
+              max={String(config.grade_number)}
               required={true}
               value={grade}
               onChange={(e) => setGrade(e.currentTarget.value)}
@@ -191,7 +205,7 @@ const InitialRegistration = () => {
               className={styles.input}
               type='number'
               min='1'
-              max='7'
+              max={String(config.class_number)}
               required={true}
               value={studentClass}
               onChange={(e) => setStudentClass(e.currentTarget.value)}
@@ -204,7 +218,7 @@ const InitialRegistration = () => {
               className={styles.input}
               type='number'
               min='1'
-              max='42'
+              max={String(config.max_attendance_number)}
               required={true}
               value={number}
               onChange={(e) => setNumber(e.currentTarget.value)}

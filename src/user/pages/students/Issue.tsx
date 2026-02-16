@@ -1,6 +1,7 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import styles from './Issue.module.css';
 import subPageStyles from '../../../styles/sub-pages.module.css';
+import { useEventConfig } from '../../../hooks/useEventConfig';
 
 type IssueFormState = {
   relation: string;
@@ -16,24 +17,35 @@ const relationOptions = [
   { value: 'other', label: 'その他' },
 ];
 
-const performanceOptions = Array.from({ length: 3 }, (_, gradeIndex) =>
-  Array.from({ length: 7 }, (_, classIndex) => ({
-    value: `${gradeIndex + 1}-${classIndex + 1}`,
-    label: `${gradeIndex + 1}-${classIndex + 1}`,
-  })),
-).flat();
-
-const timesOptions = Array.from({ length: 8 }, (_, i) => ({
-  value: String(i + 1),
-  label: `${Math.floor(i / 4) + 1}日目 第${i % 4 + 1}公演`,
-}));
-
 const Issue = () => {
+  const { config, maxPerformances } = useEventConfig();
   const [formState, setFormState] = useState<IssueFormState>({
     relation: '',
     performance: '',
     times: '',
   });
+
+  const performanceOptions = useMemo(
+    () =>
+      Array.from({ length: config.grade_number }, (_, gradeIndex) =>
+        Array.from({ length: config.class_number }, (_, classIndex) => ({
+          value: `${gradeIndex + 1}-${classIndex + 1}`,
+          label: `${gradeIndex + 1}-${classIndex + 1}`,
+        })),
+      ).flat(),
+    [config.class_number, config.grade_number],
+  );
+
+  const timesOptions = useMemo(
+    () =>
+      Array.from({ length: maxPerformances }, (_, i) => ({
+        value: String(i + 1),
+        label: `${Math.floor(i / config.performances_per_day) + 1}日目 第${
+          (i % config.performances_per_day) + 1
+        }公演`,
+      })),
+    [config.performances_per_day, maxPerformances],
+  );
 
   const canSubmit = Boolean(
     formState.relation && formState.performance && formState.times,

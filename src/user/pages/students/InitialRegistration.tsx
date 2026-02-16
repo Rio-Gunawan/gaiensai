@@ -85,68 +85,37 @@ const InitialRegistration = () => {
       return;
     }
 
-    const normalizedTeacherName = teacherName
-      .replace(/\s+/g, '')
-      .replace('崎', '﨑')
-      .trim();
-    if (!normalizedTeacherName) {
+    if (!teacherName.trim()) {
       setErrorMessage('担任の先生の名前を入力してください。');
       return;
     }
 
-    const { data: teacher, error: teacherError } = await supabase
-      .from('teachers')
-      .select('name')
-      .eq('grade', parsedGrade)
-      .eq('classId', parsedClass)
-      .maybeSingle();
-
-    if (teacherError) {
-      setErrorMessage(
-        '担任情報の確認に失敗しました。時間をおいて再度お試しください。',
-      );
-      return;
-    }
-
-    if (!teacher) {
-      setErrorMessage(
-        '該当する学年・クラスの担任情報が見つかりません。入力内容をご確認ください。',
-      );
-      return;
-    }
-
-    const normalizedRegisteredTeacherName = teacher.name
-      .replace(/\s+/g, '')
-      .replace('崎', '﨑')
-      .trim();
-    if (normalizedTeacherName !== normalizedRegisteredTeacherName) {
-      setErrorMessage(
-        '担任の先生の名前が一致しません。学年・クラス・担任名をご確認ください。',
-      );
-      return;
-    }
-
-    if (!session.user.email) {
-      setErrorMessage(
-        'メールアドレス情報を取得できませんでした。別のログイン方法をお試しください。',
-      );
-      return;
-    }
-
-    const affiliation = parsedGrade * 1000 + parsedClass * 100 + parsedNumber;
-
     setLoading(true);
-    const { error } = await supabase.from('users').insert({
-      id: session.user.id,
-      email: session.user.email,
-      name: name.trim(),
-      affiliation,
-      role: 'student',
+
+    // サーバーサイド関数 (RPC) を呼び出して登録
+    // 担任名の照合とユーザー登録をトランザクション内で安全に実行します
+    const { error } = await supabase.rpc('register_student', {
+      student_name: name.trim(),
+      grade_no: parsedGrade,
+      class_no: parsedClass,
+      student_no: parsedNumber,
+      teacher_name_input: teacherName,
     });
 
     setLoading(false);
 
     if (error) {
+      // RPC内で発生したエラーメッセージを表示
+      if (
+        error.message.includes('担任') ||
+        error.message.includes('一致しません')
+      ) {
+        setErrorMessage(
+          '担任の先生の名前が一致しません。学年・クラス・担任名をご確認ください。',
+        );
+        return;
+      }
+
       if (error.code === '23505') {
         setErrorMessage(
           '同じ学年・クラス・番号のユーザーが既に登録されています。入力内容が正しい場合は、お手数ですが、外苑祭総務へお問い合わせください。',

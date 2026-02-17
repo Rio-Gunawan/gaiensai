@@ -83,9 +83,12 @@ function Login() {
           'For security purposes, you can only request this after',
         )
       ) {
-        alert('セキュリティ保護のため、一時的にメール送信を制限しています。しばらく待ってからお試しください。');
+        alert(
+          'セキュリティ保護のため、一時的にメール送信を制限しています。しばらく待ってからお試しください。',
+        );
+      } else {
+        alert(error.message);
       }
-      alert(error.message);
     } else {
       alert(
         'ログイン用メールを送信しました。メール内のURLをクリックしてログインしてください。',
@@ -146,21 +149,24 @@ function Login() {
     if (authError === 'invalid_state') {
       message = '途中でセッションが切断されました。再度ログインしてください。';
     }
-    return (
-      <section>
-        <h1 className={subPageStyles.pageTitle}>認証エラー</h1>
-        <p>認証に失敗しました</p>
-        <p>エラーメッセージ: {message}</p>
-        <button
-          onClick={() => {
-            setAuthError(null);
-            window.history.replaceState({}, document.title, '/students');
-          }}
-        >
-          ログインページに戻る
-        </button>
-      </section>
-    );
+    if (authError === 'Email link is invalid or has expired') {
+      message = 'メールのURLが無効です。メールの有効期限が切れている、あるいは最新のものではない可能性があります。再度ログインしてください。';
+    }
+      return (
+        <section>
+          <h1 className={subPageStyles.pageTitle}>認証エラー</h1>
+          <p>認証に失敗しました</p>
+          <p>エラーメッセージ: {message}</p>
+          <button
+            onClick={() => {
+              setAuthError(null);
+              window.history.replaceState({}, document.title, '/students');
+            }}
+          >
+            ログインページに戻る
+          </button>
+        </section>
+      );
   }
 
   // Show auth success (briefly before session loads)

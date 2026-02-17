@@ -78,6 +78,13 @@ function Login() {
       },
     });
     if (error) {
+      if (
+        error.message.includes(
+          'For security purposes, you can only request this after',
+        )
+      ) {
+        alert('セキュリティ保護のため、一時的にメール送信を制限しています。しばらく待ってからお試しください。');
+      }
       alert(error.message);
     } else {
       alert(

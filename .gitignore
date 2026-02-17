@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# seed.sqlには個人情報があるので非公開
+supabase/seed.sql

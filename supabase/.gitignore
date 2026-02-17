@@ -8,3 +8,6 @@
 .env.*.local
 
 .env
+
+# seedは個人情報の観点から非公開
+seed.sql

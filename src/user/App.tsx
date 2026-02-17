@@ -7,16 +7,13 @@ import StudentLayout from '../layout/StudentLayout';
 import NotFound from '../shared/NotFound';
 import Home from './pages/Home';
 import Performances from './pages/Performances';
-import Student from './pages/students/Student';
 import Ticket from './pages/Ticket';
 
 import '../styles/color-settings.css';
 import '../styles/index.css';
 import subPageStyles from '../styles/sub-pages.module.css';
 import Login from './pages/students/Login';
-import Dashboard from './pages/students/Dashboard';
-import InitialRegistration from './pages/students/InitialRegistration';
-import Issue from './pages/students/Issue';
+import Students from './pages/students/Students';
 
 const ScrollToTop = () => {
   const [location] = useLocation();
@@ -38,14 +35,9 @@ const App = () => {
       <StudentLayout>
         <ScrollToTop />
         <Switch>
-          <Route path='/students' component={Student} />
           <Route path='/students/login' component={Login} />
-          <Route
-            path='/students/initial-registration'
-            component={InitialRegistration}
-          />
-          <Route path='/students/dashboard' component={Dashboard} />
-          <Route path='/students/issue' component={Issue} />
+          <Route path='/students/:rest*' component={Students} />
+          <Route path='/students' component={Students} />
           <Route component={NotFound} />
         </Switch>
       </StudentLayout>

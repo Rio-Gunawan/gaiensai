@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { navigate } from 'wouter-preact/use-browser-location';
 import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
-import type { Session } from '../../../types/types';
 import Modal from '../../../components/ui/Modal';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 
-const InitialRegistration = () => {
+type InitialRegistrationProps = {
+  onRegistered: () => Promise<boolean>;
+};
+
+const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const { config } = useEventConfig();
-  const [session, setSession] = useState<Session>(null);
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
   const [studentClass, setStudentClass] = useState('');
@@ -18,51 +20,9 @@ const InitialRegistration = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkSessionAndRegistration = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        navigate('/students/login');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        setErrorMessage(
-          'ユーザー情報の確認に失敗しました。時間をおいて再度お試しください。',
-        );
-        return;
-      }
-
-      if (data) {
-        navigate('/students/dashboard');
-        return;
-      }
-
-      setSession(session);
-    };
-
-    void checkSessionAndRegistration();
-  }, []);
-
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
     setErrorMessage(null);
-
-    if (!session) {
-      setErrorMessage(
-        'ログイン情報の取得に失敗しました。再ログインしてください。',
-      );
-      return;
-    }
 
     const parsedGrade = Number(grade);
     const parsedClass = Number(studentClass);
@@ -141,6 +101,14 @@ const InitialRegistration = () => {
       return;
     }
 
+    const didRefreshProfile = await onRegistered();
+    if (!didRefreshProfile) {
+      setErrorMessage(
+        '登録情報の反映確認に失敗しました。時間をおいて再度お試しください。',
+      );
+      return;
+    }
+
     navigate('/students/dashboard');
   };
 
@@ -158,10 +126,6 @@ const InitialRegistration = () => {
       window.location.href = '/';
     }
   };
-
-  if (!session) {
-    return null;
-  }
 
   return (
     <section className={styles.registrationContainer}>
@@ -194,6 +158,7 @@ const InitialRegistration = () => {
               min='1'
               max={String(config.grade_number)}
               required={true}
+              autoComplete='off'
               value={grade}
               onChange={(e) => setGrade(e.currentTarget.value)}
             />
@@ -207,6 +172,7 @@ const InitialRegistration = () => {
               min='1'
               max={String(config.class_number)}
               required={true}
+              autoComplete='off'
               value={studentClass}
               onChange={(e) => setStudentClass(e.currentTarget.value)}
             />
@@ -220,6 +186,7 @@ const InitialRegistration = () => {
               min='1'
               max={String(config.max_attendance_number)}
               required={true}
+              autoComplete='off'
               value={number}
               onChange={(e) => setNumber(e.currentTarget.value)}
             />
@@ -238,6 +205,7 @@ const InitialRegistration = () => {
             value={teacherName}
             placeholder='例: 青山花子'
             required={true}
+            autoComplete='off'
             maxLength={50}
             onChange={(e) => setTeacherName(e.currentTarget.value)}
           />

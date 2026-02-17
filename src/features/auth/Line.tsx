@@ -45,8 +45,7 @@ const LineCallback = () => {
         // ログイン後、ホームページなどにリダイレクト
         setLocation('/students');
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('LINE Auth Callback Error:', error as Error);
+        alert('LINE認証で、情報は取得できましたが、ログイン・登録に失敗しました。エラーメッセージ:' +  (error as Error).message);
         setLocation(`/students?error=${encodeURIComponent((error as Error).message)}`);
       }
     };

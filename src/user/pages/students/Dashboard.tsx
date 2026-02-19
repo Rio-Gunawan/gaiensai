@@ -8,6 +8,7 @@ import sharedStyles from '../../../styles/shared.module.css';
 import styles from './Dashboard.module.css';
 import { Link } from 'wouter-preact';
 import { IoMdAdd } from 'react-icons/io';
+import PerformancesTable from '../../../components/PerformancesTable';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -40,7 +41,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
       </NormalSection>
       <NormalSection>
         <h2>公演空き状況</h2>
-        <p>ここに公演空き状況が表示されます。</p>
+        <h3>予約可能なチケットの残り枚数</h3>
+        <PerformancesTable />
       </NormalSection>
       <section>
         <button onClick={handleLogout} className={styles.logoutBtn}>ログアウト</button>

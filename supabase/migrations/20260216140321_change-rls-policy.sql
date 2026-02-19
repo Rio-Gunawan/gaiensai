@@ -6,7 +6,13 @@ drop policy "Enable read access for all users" on "public"."users";
 
 alter table "public"."teachers" drop constraint "teachers_id_key";
 
-drop index if exists "public"."teachers_id_key";
+do $$
+begin
+  if to_regclass('public.teachers_id_key') is not null then
+    execute 'drop index "public"."teachers_id_key"';
+  end if;
+end
+$$;
 
 set check_function_bodies = off;
 
@@ -69,6 +75,5 @@ using ((( SELECT auth.uid() AS uid) IN ( SELECT users.id
   for select
   to authenticated
 using ((( SELECT auth.uid() AS uid) = id));
-
 
 

@@ -18,7 +18,7 @@ const relationOptions = [
 ];
 
 const Issue = () => {
-  const { config, maxPerformances } = useEventConfig();
+  const { config } = useEventConfig();
   const [formState, setFormState] = useState<IssueFormState>({
     relation: '',
     performance: '',
@@ -34,17 +34,6 @@ const Issue = () => {
         })),
       ).flat(),
     [config.class_number, config.grade_number],
-  );
-
-  const timesOptions = useMemo(
-    () =>
-      Array.from({ length: maxPerformances }, (_, i) => ({
-        value: String(i + 1),
-        label: `${Math.floor(i / config.performances_per_day) + 1}日目 第${
-          (i % config.performances_per_day) + 1
-        }公演`,
-      })),
-    [config.performances_per_day, maxPerformances],
   );
 
   const canSubmit = Boolean(
@@ -127,11 +116,6 @@ const Issue = () => {
             <option value='' disabled={true}>
               選択してください
             </option>
-            {timesOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label}
-              </option>
-            ))}
           </select>
         </label>
 

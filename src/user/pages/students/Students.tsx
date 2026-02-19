@@ -118,7 +118,7 @@ const Students = () => {
         <h2>読み込み中...</h2>
         <p>
           しばらく待ってもページが遷移しない場合は、
-          <Link to='/students/login'>ログインページ</Link>
+          <Link to='/students/login'>ログインページ</Link>または
           <Link to='/students/dashboard'>ダッシュボード</Link>
           のいずれかに直接アクセスしてみてください。
         </p>

@@ -37,8 +37,8 @@ grade_number: 3
 class_number: 7
 # 出席番号の最大値(基本42)
 max_attendance_number: 42
-# 一日あたりの公演数(基本4)
-performances_per_day: 4
+# 一日あたりの公演数(基本4) 2026/2/18: この設定は使わないことを検討中
+# performances_per_day: 4
 # 最終更新日(適宜更新してください)
 last_update: 2026-02-17
 

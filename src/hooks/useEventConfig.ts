@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { EventConfig } from '../types/types';
 
 const STORAGE_KEY = 'event_config';
@@ -17,7 +17,7 @@ const defaultConfig: EventConfig = {
   grade_number: 3,
   class_number: 7,
   max_attendance_number: 42,
-  performances_per_day: 4,
+  // performances_per_day: 4,
   last_update: null,
 };
 
@@ -107,10 +107,10 @@ const parseConfigYaml = (yamlText: string): Partial<EventConfig> => {
       typeof parsed.max_attendance_number === 'number'
         ? parsed.max_attendance_number
         : defaultConfig.max_attendance_number,
-    performances_per_day:
-      typeof parsed.performances_per_day === 'number'
-        ? parsed.performances_per_day
-        : defaultConfig.performances_per_day,
+    // performances_per_day:
+    //   typeof parsed.performances_per_day === 'number'
+    //     ? parsed.performances_per_day
+    //     : defaultConfig.performances_per_day,
     last_update:
       typeof parsed.last_update === 'string'
         ? parsed.last_update
@@ -176,10 +176,10 @@ export const useEventConfig = () => {
     void load();
   }, []);
 
-  const maxPerformances = useMemo(
-    () => config.date_length * config.performances_per_day,
-    [config.date_length, config.performances_per_day],
-  );
+  // const maxPerformances = useMemo(
+  //   () => config.date_length * config.performances_per_day,
+  //   [config.date_length, config.performances_per_day],
+  // );
 
-  return { config, loading, maxPerformances };
+  return { config, loading/*, maxPerformances*/ };
 };

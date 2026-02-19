@@ -1,6 +1,12 @@
 alter table "public"."performances" drop constraint "performances_pkey";
 
-drop index if exists "public"."performances_pkey";
+do $$
+begin
+  if to_regclass('public.performances_pkey') is not null then
+    execute 'drop index "public"."performances_pkey"';
+  end if;
+end
+$$;
 
 
   create table "public"."performances_schedule" (
@@ -414,6 +420,5 @@ using (true);
   for select
   to authenticated
 using ((( SELECT auth.uid() AS uid) = user_id));
-
 
 

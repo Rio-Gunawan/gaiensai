@@ -34,6 +34,17 @@ export type EventConfig = {
   grade_number: number;
   class_number: number;
   max_attendance_number: number;
-  performances_per_day: number;
+  // performances_per_day: number;
   last_update: string | null;
+};
+
+export type Performance = {
+  id: number;
+  year: number;
+  class_id: number;
+  class_name: string;
+  title: string;
+  description: string;
+  total_capacity: number;
+  total_remaining: number;
 };

@@ -62,7 +62,7 @@ const PerformancesTable = ({
           .select('id, class_name, total_capacity, junior_capacity')
           .order('id', { ascending: true }),
         supabase
-          .from('class_performances_schedule')
+          .from('performances_schedule')
           .select('id, round_name')
           .order('id', { ascending: true }),
       ]);

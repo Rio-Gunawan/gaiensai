@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
           .eq('id', classTicket.class_id)
           .maybeSingle(),
         supabase
-          .from('class_performances_schedule')
+          .from('performances_schedule')
           .select('round_name')
           .eq('id', classTicket.round_id)
           .maybeSingle(),

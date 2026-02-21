@@ -102,7 +102,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
           : Promise.resolve({ data: [], error: null }),
         roundIds.length > 0
           ? supabase
-              .from('class_performances_schedule')
+              .from('performances_schedule')
               .select('id, round_name')
               .in('id', roundIds)
           : Promise.resolve({ data: [], error: null }),

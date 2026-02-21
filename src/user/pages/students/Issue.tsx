@@ -103,7 +103,7 @@ const Issue = () => {
           .eq('id', performanceId)
           .maybeSingle(),
         supabase
-          .from('class_performances_schedule')
+          .from('performances_schedule')
           .select('id, round_name')
           .eq('id', scheduleId)
           .maybeSingle(),

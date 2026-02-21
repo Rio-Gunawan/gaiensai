@@ -142,7 +142,7 @@ const Ticket = () => {
           .eq('id', decoded.performanceId)
           .maybeSingle(),
         supabase
-          .from('class_performances_schedule')
+          .from('performances_schedule')
           .select('round_name, start_at')
           .eq('id', decoded.scheduleId)
           .maybeSingle(),

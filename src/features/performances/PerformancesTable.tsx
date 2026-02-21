@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import styles from './PerformancesTable.module.css';
 import { RiCircleLine, RiCloseLargeLine, RiTriangleLine } from 'react-icons/ri';
+import { navigate } from 'wouter-preact/use-browser-location';
+
+import type { AvailableSeatSelection } from '../../types/types';
 
 type PerformanceRow = {
   id: number;
@@ -20,7 +23,17 @@ type RemainingSeatsRpcResult = {
   remaining_junior: number;
 };
 
-const PerformancesTable = () => {
+type PerformancesTableProps = {
+  enableIssueJump?: boolean;
+  onAvailableCellClick?: (selection: AvailableSeatSelection) => void;
+  selectedCellKey?: string;
+};
+
+const PerformancesTable = ({
+  enableIssueJump = false,
+  onAvailableCellClick,
+  selectedCellKey,
+}: PerformancesTableProps) => {
   const [performances, setPerformances] = useState<PerformanceRow[]>([]);
   const [schedules, setSchedules] = useState<PerformanceSchedule[]>([]);
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<
@@ -45,11 +58,11 @@ const PerformancesTable = () => {
         { data: scheduleData, error: scheduleError },
       ] = await Promise.all([
         supabase
-          .from('performances')
+          .from('class_performances')
           .select('id, class_name, total_capacity, junior_capacity')
           .order('id', { ascending: true }),
         supabase
-          .from('performances_schedule')
+          .from('class_performances_schedule')
           .select('id, round_name')
           .order('id', { ascending: true }),
       ]);
@@ -174,6 +187,21 @@ const PerformancesTable = () => {
       case 'cross':
         return styles.statusCross;
     }
+  };
+
+  const handleAvailableCellClick = (selection: AvailableSeatSelection): void => {
+    onAvailableCellClick?.(selection);
+
+    if (!enableIssueJump) {
+      return;
+    }
+
+    const searchParams = new URLSearchParams({
+      performanceId: String(selection.performanceId),
+      scheduleId: String(selection.scheduleId),
+    });
+
+    navigate(`/students/issue?${searchParams.toString()}`);
   };
 
   if (loading) {
@@ -304,11 +332,57 @@ const PerformancesTable = () => {
                   const key = `${performance.id}-${schedule.id}`;
                   const remaining = remainingSeatMap.get(key) ?? 0;
                   const status = statusByKey.get(key) ?? 'cross';
+                  const canIssue = remaining > 0;
+                  const canJump = canIssue && enableIssueJump;
+                  const isInteractive = canIssue && (enableIssueJump || Boolean(onAvailableCellClick));
+                  const isSelected = selectedCellKey === key;
 
                   return (
                     <td
-                      className={`${styles.td} ${getStatusClass(status)}`}
+                      className={`${styles.td} ${getStatusClass(status)} ${
+                        canJump ? styles.jumpableCell : ''
+                      } ${isInteractive ? styles.interactiveCell : ''} ${
+                        isSelected ? styles.selectedCell : ''
+                      }`}
                       key={`${schedule.id}-${performance.id}`}
+                      onClick={() => {
+                        if (!canIssue) {
+                          return;
+                        }
+
+                        handleAvailableCellClick({
+                          performanceId: performance.id,
+                          performanceName: performance.class_name,
+                          scheduleId: schedule.id,
+                          scheduleName: schedule.round_name,
+                          remaining,
+                        });
+                      }}
+                      onKeyDown={(event) => {
+                        if (!isInteractive) {
+                          return;
+                        }
+
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        handleAvailableCellClick({
+                          performanceId: performance.id,
+                          performanceName: performance.class_name,
+                          scheduleId: schedule.id,
+                          scheduleName: schedule.round_name,
+                          remaining,
+                        });
+                      }}
+                      tabIndex={isInteractive ? 0 : undefined}
+                      role={isInteractive ? 'button' : undefined}
+                      aria-label={
+                        isInteractive
+                          ? `${performance.class_name} ${schedule.round_name} 残り${remaining}席`
+                          : undefined
+                      }
                     >
                       <div className={styles.mark}>{getMark(status)}</div>
                       <div className={styles.remaining}>残り{remaining}席</div>

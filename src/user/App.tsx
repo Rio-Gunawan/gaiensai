@@ -37,6 +37,7 @@ const App = () => {
         <Switch>
           <Route path='/students/login' component={Login} />
           <Route path='/students/:rest*' component={Students} />
+          <Route path='/students/issue/:rest*' component={Students} />
           <Route path='/students' component={Students} />
           <Route component={NotFound} />
         </Switch>
@@ -50,7 +51,7 @@ const App = () => {
       <div className={isHome ? '' : subPageStyles.subPageShell}>
         <Switch>
           <Route path='/' component={Home} />
-          <Route path='/t' component={Ticket} />
+          <Route path='/t/:id' component={Ticket} />
           <Route path='/performances' component={Performances} />
           <Route path='/auth/line/callback' component={LineCallback} />
           <Route component={NotFound} />

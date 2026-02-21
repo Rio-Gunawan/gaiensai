@@ -1,35 +1,174 @@
 .issuePage {
   display: grid;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
-.issueForm {
+/* 戻るボタン */
+
+.topActions {
+  display: flex;
+  justify-content: flex-start;
+  margin: 1.2rem 1rem 0;
+}
+
+.topBackButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  padding-left: 0.5rem;
+}
+
+.topBackButton svg {
+  font-size: 1.1rem;
+}
+
+/* ページタイトル */
+
+.pageTitle {
+  margin: 0;
+  font-size: 2.5em;
+  margin-left: 1rem;
+}
+
+/* メイン画面の外枠 */
+
+.sliderViewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* パネル部分 */
+
+.stepPanel {
+  width: 100%;
+}
+
+.panelVisible {
+  display: block;
+}
+
+.panelHidden {
+  display: none;
+}
+
+.panelLeaving {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
+
+.panelEnterFromRight {
+  animation: panel-enter-from-right 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.panelEnterFromLeft {
+  animation: panel-enter-from-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.panelExitToLeft {
+  animation: panel-exit-to-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.panelExitToRight {
+  animation: panel-exit-to-right 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+}
+
+/* チケットタイプ選択パネル */
+
+.ticketTypeGrid {
+  margin-top: 0.7rem;
   display: grid;
+  grid-template-columns: repeat(4, minmax(auto, 1fr));
   gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 16px;
-  background: var(--normal-section-bg-color);
-  backdrop-filter: blur(2px);
-  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 900px) {
+  .ticketTypeGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .ticketTypeGrid {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+
+.ticketTypeButton {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--main-text-color);
+  padding: 0.9rem 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.ticketTypeButton:has(input[type='radio']:disabled) {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.ticketTypeButtonSelected {
+  border-color: rgba(255, 255, 255, 0.72);
+  background: var(--primary-color);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.selectedText {
+  margin: 1rem 0 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--accent-color);
+  text-align: center;
+}
+
+/* 間柄・枚数パネル */
+
+.formRow {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.7rem 0;
 }
 
 .formLabel {
-  display: grid;
-  gap: 0.45rem;
   color: var(--heading-text-color);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .select {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid var(--select-border-color);
   border-radius: 10px;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: var(--select-bg-color);
   color: var(--main-text-color);
-  padding: 0.72rem 0.8rem;
+  padding: 0.8rem;
   font-size: 1rem;
   cursor: pointer;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .select:focus-visible {
@@ -38,8 +177,8 @@
 }
 
 .previewHeading {
-  margin: 0;
-  color: rgba(242, 242, 242, 0.8);
+  margin: 0.35rem 0 0;
+  color: var(--heading-text-color);
   font-size: 0.86rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -47,7 +186,7 @@
 
 .previewList {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.5rem;
   list-style: none;
   margin: 0.7rem 0 0;
   padding: 0;
@@ -66,19 +205,81 @@
   font-size: 1rem;
 }
 
-.generateButton {
-  border: none;
+/* 次へボタンとプログレスバー */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.9rem 1em;
+  justify-content: space-between;
+}
+
+.actions .generateButton {
+  margin-left: auto;
+}
+
+.progressSection {
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progressBar {
+  flex: 1;
+  height: 8px;
   border-radius: 999px;
-  padding: 0.78rem 1rem;
+  background: var(--translucent-w-bg-color);
+  overflow: hidden;
+}
+
+.progressBar::-webkit-progress-value {
+  background: var(--primary-color);
+  border-radius: 999px;
+}
+
+.progressBar::-moz-progress-bar {
+  background: var(--primary-color);
+  border-radius: 999px;
+}
+
+.stepIndicator {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--main-text-color);
+}
+
+.backButton {
+  border: 1px solid var(--select-border-color);
+  background: var(--main-bg-color);
+}
+
+.nextButton:disabled,
+.backButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.generateButton {
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.18s ease, filter 0.18s ease;
+  background: var(--accent-color);
+  color: var(--main-text-color);
+  border: none;
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
 }
 
-.generateButton:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(1.03);
+@media (hover: hover) and (pointer: fine) {
+  .generateButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+    border: none;
+  }
 }
 
 .generateButton:disabled {
@@ -87,8 +288,174 @@
   filter: grayscale(0.15);
 }
 
-@media (max-width: 640px) {
-  .issueForm {
-    padding: 1rem;
+/* 発券後のチケット一覧 */
+
+.issuedSection {
+  margin: 0 1rem 1rem;
+}
+
+.issuedTitle {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+.issuedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.ticketCard {
+  position: relative;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--select-border-color);
+  background-color: var(--normal-section-bg-color);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ticketHeader {
+  border-bottom: 1px solid var(--select-border-color);
+  padding-bottom: 1rem;
+}
+
+.ticketClass {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--heading-text-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.ticketTitle {
+  flex: 1;
+  font-size: 0.7em;
+}
+
+.ticketSchedule {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.ticketMeta {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ticketMetaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ticketMetaLabel {
+  font-size: 0.85rem;
+  color: var(--main-text-color);
+  opacity: 0.7;
+}
+
+.ticketMetaValue {
+  font-weight: 700;
+  color: var(--main-text-color);
+}
+
+.ticketLinkButton {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.9rem;
+  background-color: var(--select-bg-color);
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ticketLinkButton:hover {
+    background-color: var(--accent-color);
+    color: var(--main-bg-color);
+  }
+}
+
+.buttonLink {
+  margin: 0 1em;
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+
+  background: var(--primary-color);
+  border-radius: 20px;
+  border: 1px solid var(--translucent-w-bg-color);
+  box-shadow: 0 4px 8px var(--translucent-b-bg-color);
+
+  color: var(--main-text-color);
+  text-decoration: none;
+  text-align: center;
+  font-size: 1.3rem;
+  transition: background 0.2s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .buttonLink:hover {
+    background: var(--button-hover-color);
+  }
+}
+
+/* ページ遷移のアニメーション */
+
+@media (prefers-reduced-motion: reduce) {
+  .panelEnterFromRight,
+  .panelEnterFromLeft,
+  .panelExitToLeft,
+  .panelExitToRight {
+    animation: none;
+  }
+}
+
+@keyframes panel-enter-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes panel-enter-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes panel-exit-to-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes panel-exit-to-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
   }
 }

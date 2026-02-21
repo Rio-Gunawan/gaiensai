@@ -1,0 +1,144 @@
+.issuedSection {
+  margin: 0 1rem 1rem;
+}
+
+.issuedSectionEmbedded {
+  margin: 0;
+}
+
+.issuedTitle {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+.issuedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.issuedGridCollapsed {
+  grid-template-columns: 1fr;
+}
+
+.collapsible {
+  position: relative;
+  overflow: hidden;
+}
+
+.collapsibleCollapsed {
+  transition: max-height 0.2s ease;
+}
+
+.fadeMask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7rem;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    var(--normal-section-bg-color) 80%
+  );
+  pointer-events: none;
+}
+
+.ticketCard {
+  position: relative;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--select-border-color);
+  background-color: var(--normal-section-bg-color);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ticketHeader {
+  border-bottom: 1px solid var(--select-border-color);
+  padding-bottom: 1rem;
+}
+
+.ticketClass {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--heading-text-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.ticketTitle {
+  flex: 1;
+  font-size: 0.7em;
+}
+
+.ticketSchedule {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.ticketMeta {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ticketMetaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ticketMetaLabel {
+  font-size: 0.85rem;
+  color: var(--main-text-color);
+  opacity: 0.8;
+}
+
+.ticketMetaValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--heading-text-color);
+}
+
+.ticketLinkButton {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.9rem;
+  background-color: var(--select-bg-color);
+  border: 1px solid var(--accent-color);
+  color: var(--main-text-color);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  transition: background-color 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ticketLinkButton:hover {
+    background-color: var(--accent-color);
+  }
+}
+
+.emptyState {
+  margin: 0;
+}
+
+.showMoreButton {
+  margin-top: 0.8rem;
+  width: 100%;
+  border: 1px solid var(--select-border-color);
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: var(--main-text-color);
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}

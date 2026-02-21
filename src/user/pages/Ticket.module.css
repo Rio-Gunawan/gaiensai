@@ -1,50 +1,116 @@
-.qrcodeData {
+.ticketContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2rem 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.ticketHeader {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin: 0;
+}
+
+.performanceName {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--heading-text-color);
+  line-height: 1.2;
+}
+
+.performanceRound {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.performanceTitle {
+  margin: 0.5rem 0 0;
+  font-size: 1.2rem;
+  color: var(--heading-text-color);
+  opacity: 0.9;
+}
+
+.qrSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ticketCode {
+  font-family: monospace;
+  margin: 0;
+  letter-spacing: 0.05em;
   text-align: center;
-  font-size: 1em;
+  word-break: break-all;
+  margin-bottom: 0.5rem;
+}
+
+.ticketDetails {
+  display: grid;
+  gap: 0.8rem;
+  border-top: 1px dashed var(--select-border-color);
+  padding: 1rem;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.detailLabel {
+  font-size: 0.9rem;
   color: var(--main-text-color);
+  opacity: 0.7;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.detailValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--main-text-color);
+  text-align: right;
+  line-height: 1.4;
+}
+
+.notes {
+  padding-left: 1.2em;
+  font-size: 0.9em;
+  color: var(--main-text-color);
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+.actionSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .urlContainer {
   background-color: var(--url-bg-color);
   color: var(--url-text-color);
-  overflow: auto;
-  white-space: nowrap;
   padding: 10px;
+  word-break: break-all;
   border-radius: 5px;
   margin-top: 10px;
   font-size: 0.8em;
   /* 全て選択可能にする */
   user-select: all;
-}
-
-.copyUrl {
-  display: block;
-  margin: 10px auto;
+  font-family: monospace;
 }
 
 .copySucceed {
-  text-align: center;
   color: var(--success-color);
-  font-weight: bold;
-}
-
-.aboutPerformance {
-  text-align: center;
-  font-weight: bold;
-  margin: 10px 0;
-  font-size: 3em;
-  color: var(--heading-text-color);
-}
-
-.forWhom {
-  text-align: center;
-  margin-top: 5px;
-  margin-right: 1em;
-  font-size: 1.2em;
-  color: var(--main-text-color);
-}
-
-.notes {
-  padding-left: 1em;
-  font-size: 0.9em;
+  font-size: 0.9rem;
+  margin: 0;
+  transition: opacity 0.3s;
 }

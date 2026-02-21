@@ -394,3 +394,6 @@ verify_jwt = false
 
 [functions.line-auth]
 verify_jwt = false
+
+[functions.issue-tickets]
+verify_jwt = false

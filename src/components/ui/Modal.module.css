@@ -9,7 +9,7 @@
 }
 
 .modal {
-  width: min(100%, 420px);
+  width: min(90%, 420px);
   border-radius: 12px;
   padding: 1.2rem;
   background: var(--main-bg-color);

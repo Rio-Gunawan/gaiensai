@@ -13,6 +13,7 @@
   --normal-section-bg-color: #272727;
   --footer-bg-color: #121212;
   --url-bg-color: #2e2e2e;
+  --select-bg-color: rgba(0, 0, 0, 0.3);
 
   --main-text-color: #f2f2f2f0;
   --heading-text-color: #ffffff;
@@ -27,6 +28,7 @@
   --error-border-color: #cb5353;
   --warn-border-color: #959300;
   --info-border-color: #003878;
+  --select-border-color: rgba(255, 255, 255, 0.24);
 
   /* helpers */
   --white: #ffffff;

@@ -9,6 +9,7 @@ import NotFound from '../../../shared/NotFound';
 import Dashboard from './Dashboard';
 import InitialRegistration from './InitialRegistration';
 import Issue from './Issue';
+import IssueResult from './IssueResult';
 
 import styles from '../../../styles/sub-pages.module.css';
 
@@ -146,13 +147,14 @@ const Students = () => {
 
   return (
     <Switch>
+      <Route path='/students/issue/result' component={IssueResult} />
+      <Route path='/students/issue' component={Issue} />
       <Route path='/students/dashboard'>
         {() => <Dashboard userData={registeredUserData} />}
       </Route>
       <Route path='/students'>
         {() => <Dashboard userData={registeredUserData} />}
       </Route>
-      <Route path='/students/issue' component={Issue} />
       <Route component={NotFound} />
     </Switch>
   );

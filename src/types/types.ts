@@ -48,3 +48,11 @@ export type Performance = {
   total_capacity: number;
   total_remaining: number;
 };
+
+export type AvailableSeatSelection = {
+  performanceId: number;
+  performanceName: string;
+  scheduleId: number;
+  scheduleName: string;
+  remaining: number;
+};

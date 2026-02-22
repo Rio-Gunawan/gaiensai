@@ -15,6 +15,7 @@ type IssueTicketsRequest = {
   scheduleId: number;
   issueCount: number;
 };
+const ADMISSION_ONLY_TICKET_TYPE_ID = 4;
 
 class HttpError extends Error {
   status: number;
@@ -99,11 +100,25 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
   if (
     ticketTypeId < 1 ||
     relationshipId < 1 ||
-    performanceId < 1 ||
-    scheduleId < 1 ||
     issueCount < 1
   ) {
     throw new HttpError(400, 'Request includes invalid numeric ranges');
+  }
+
+  const isAdmissionOnly = ticketTypeId === ADMISSION_ONLY_TICKET_TYPE_ID;
+
+  if (isAdmissionOnly) {
+    if (performanceId !== 0 || scheduleId !== 0) {
+      throw new HttpError(
+        400,
+        'Admission-only ticket requires performanceId=0 and scheduleId=0',
+      );
+    }
+  } else if (performanceId < 1 || scheduleId < 1) {
+    throw new HttpError(
+      400,
+      'performanceId and scheduleId must be positive for this ticket type',
+    );
   }
 
   if (ticketTypeId > 9 || relationshipId > 9) {

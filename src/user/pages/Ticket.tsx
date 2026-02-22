@@ -71,12 +71,15 @@ const parseFromCode = (code: string): DecodedTicketSeed | null => {
     const relationshipId = Number(padded.slice(5, 6));
     const performanceId = Number(padded.slice(6, 8));
     const scheduleId = Number(padded.slice(8, 10));
+    const hasPerformanceSchedule = performanceId > 0 && scheduleId > 0;
+    const isAdmissionOnlySeed = performanceId === 0 && scheduleId === 0;
 
     if (
       ticketTypeId <= 0 ||
       relationshipId <= 0 ||
-      performanceId <= 0 ||
-      scheduleId <= 0
+      performanceId < 0 ||
+      scheduleId < 0 ||
+      (!hasPerformanceSchedule && !isAdmissionOnlySeed)
     ) {
       continue;
     }
@@ -92,6 +95,28 @@ const parseFromCode = (code: string): DecodedTicketSeed | null => {
   }
 
   return null;
+};
+
+const formatDateText = (date: string[]) => {
+  if (date.length === 0) {
+    return '';
+  }
+
+  const toParts = (dateText: string) => {
+    const [year, month, day] = dateText
+      .split('-')
+      .map((value) => Number(value));
+    return { year, month, day };
+  };
+
+  const first = toParts(date[0]);
+  const last = toParts(date[date.length - 1]);
+
+  if (first.year === last.year && first.month === last.month) {
+    return `${first.year}/${first.month}/${first.day}~${last.day}`;
+  }
+
+  return `${first.year}/${first.month}/${first.day}~${last.year}/${last.month}/${last.day}`;
 };
 
 const Ticket = () => {
@@ -129,23 +154,7 @@ const Ticket = () => {
       setLoading(true);
       setErrorMessage(null);
 
-      const [
-        performanceRes,
-        scheduleRes,
-        ticketTypeRes,
-        relationshipRes,
-        configRes,
-      ] = await Promise.all([
-        supabase
-          .from('class_performances')
-          .select('class_name, title')
-          .eq('id', decoded.performanceId)
-          .maybeSingle(),
-        supabase
-          .from('performances_schedule')
-          .select('round_name, start_at')
-          .eq('id', decoded.scheduleId)
-          .maybeSingle(),
+      const [ticketTypeRes, relationshipRes] = await Promise.all([
         supabase
           .from('ticket_types')
           .select('name')
@@ -156,61 +165,102 @@ const Ticket = () => {
           .select('name')
           .eq('id', decoded.relationshipId)
           .maybeSingle(),
-        supabase
-          .from('configs')
-          .select('show_length')
-          .order('id', { ascending: true })
-          .limit(1)
-          .maybeSingle(),
       ]);
 
-      if (
-        performanceRes.error ||
-        scheduleRes.error ||
-        ticketTypeRes.error ||
-        relationshipRes.error ||
-        configRes.error
-      ) {
+      if (ticketTypeRes.error || relationshipRes.error) {
         setErrorMessage('チケット情報の取得に失敗しました。');
         setLoading(false);
         return;
       }
 
-      const startAt = scheduleRes.data?.start_at
-        ? new Date(scheduleRes.data.start_at)
-        : null;
-      const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
-      const endAt =
-        startAt && Number.isFinite(showLengthMinutes)
-          ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
-          : null;
+      const isAdmissionOnly =
+        decoded.performanceId === 0 && decoded.scheduleId === 0;
 
-      setTicket({
-        ...decoded,
-        code,
-        signature,
-        performanceName: performanceRes.data?.class_name ?? '-',
-        performanceTitle: performanceRes.data?.title ?? null,
-        scheduleName: scheduleRes.data?.round_name ?? '-',
-        scheduleTime: startAt
+      let performanceName = '-';
+      let performanceTitle: string | null = null;
+      let scheduleName = '-';
+      let scheduleDate = '-';
+      let scheduleTime = '-';
+      let scheduleEndTime = '-';
+
+      if (isAdmissionOnly) {
+        performanceName = '入場専用券';
+        scheduleName = '';
+        const eventDates = (config.date ?? []).filter(
+          (date) => typeof date === 'string' && date.length > 0,
+        );
+        scheduleDate = formatDateText(eventDates);
+        scheduleTime = '';
+        scheduleEndTime = '';
+      } else {
+        const [performanceRes, scheduleRes, configRes] = await Promise.all([
+          supabase
+            .from('class_performances')
+            .select('class_name, title')
+            .eq('id', decoded.performanceId)
+            .maybeSingle(),
+          supabase
+            .from('performances_schedule')
+            .select('round_name, start_at')
+            .eq('id', decoded.scheduleId)
+            .maybeSingle(),
+          supabase
+            .from('configs')
+            .select('show_length')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+
+        if (performanceRes.error || scheduleRes.error || configRes.error) {
+          setErrorMessage('チケット情報の取得に失敗しました。');
+          setLoading(false);
+          return;
+        }
+
+        const startAt = scheduleRes.data?.start_at
+          ? new Date(scheduleRes.data.start_at)
+          : null;
+        const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
+        const endAt =
+          startAt && Number.isFinite(showLengthMinutes)
+            ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+            : null;
+
+        performanceName = performanceRes.data?.class_name ?? '-';
+        performanceTitle = performanceRes.data?.title ?? null;
+        scheduleName = scheduleRes.data?.round_name ?? '-';
+        scheduleTime = startAt
           ? startAt.toLocaleTimeString('ja-JP', {
               hour: '2-digit',
               minute: '2-digit',
             })
-          : '-',
-        scheduleEndTime: endAt
+          : '-';
+        scheduleEndTime = endAt
           ? endAt.toLocaleTimeString('ja-JP', {
               hour: '2-digit',
               minute: '2-digit',
             })
-          : '-',
-        scheduleDate: startAt
+          : '-';
+        scheduleDate = startAt
           ? startAt.toLocaleDateString('ja-JP', {
               year: 'numeric',
               month: '2-digit',
               day: '2-digit',
             })
-          : '-',
+          : '-';
+      }
+
+      setTicket({
+        ...decoded,
+        code,
+        signature,
+        performanceName,
+        performanceTitle,
+        scheduleName,
+        scheduleDate,
+        scheduleTime,
+        scheduleEndTime,
         ticketTypeLabel: ticketTypeRes.data?.name ?? '-',
         relationshipName: relationshipRes.data?.name ?? '-',
       });
@@ -218,7 +268,7 @@ const Ticket = () => {
     };
 
     void loadTicket();
-  }, [code, signature]);
+  }, [code, signature, config.date]);
 
   const ticketUrl = `https://${config.site_url}/t/${token}`;
 
@@ -238,9 +288,11 @@ const Ticket = () => {
             <span className={styles.performanceName}>
               {ticket.performanceName}
             </span>
-            <span className={styles.performanceRound}>
-              {ticket.scheduleName}
-            </span>
+            {ticket.scheduleName && (
+              <span className={styles.performanceRound}>
+                {ticket.scheduleName}
+              </span>
+            )}
           </h2>
           {ticket.performanceTitle && (
             <p className={styles.performanceTitle}>
@@ -261,8 +313,12 @@ const Ticket = () => {
               <span className={styles.detailLabel}>日時</span>
               <span className={styles.detailValue}>
                 {ticket.scheduleDate}
-                <br />
-                {ticket.scheduleTime} - {ticket.scheduleEndTime}
+                {ticket.scheduleTime && ticket.scheduleEndTime && (
+                  <>
+                    <br />
+                    {ticket.scheduleTime} - {ticket.scheduleEndTime}
+                  </>
+                )}
               </span>
             </div>
             <div className={styles.detailRow}>
@@ -313,9 +369,7 @@ const Ticket = () => {
           <li>
             他の人に共有する場合は、QRコードのスクリーンショットまたはURLを送信してください。
           </li>
-          <li>
-            この券で、校内入場や展示部活を見ることも可能です。
-          </li>
+          <li>この券で、校内入場や展示部活を見ることも可能です。</li>
           <li>
             このQRコード1枚につき、一人まで入場可能です。ただし、他の座席を使用しない場合は乳児と同伴可能です。
           </li>

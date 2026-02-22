@@ -84,45 +84,59 @@ const IssuedTicketCardList = ({
               isCollapsible && !expanded ? styles.issuedGridCollapsed : ''
             }`}
           >
-            {tickets.map((ticket, index) => (
-              <article
-                className={styles.ticketCard}
-                key={ticket.code}
-                ref={(element) => {
-                  cardRefs.current[index] = element;
-                }}
-              >
-                <div className={styles.ticketHeader}>
-                  <h3 className={styles.ticketClass}>
-                    {ticket.performanceName}
-                    {ticket.performanceTitle && (
-                      <span className={styles.ticketTitle}>
-                        「{ticket.performanceTitle}」
+            {tickets.map((ticket, index) => {
+              const isAdmissionOnly =
+                ticket.ticketTypeLabel.includes('入場専用券');
+              const headlineLabel = isAdmissionOnly
+                ? '入場専用券'
+                : ticket.performanceName;
+
+              return (
+                <article
+                  className={styles.ticketCard}
+                  key={ticket.code}
+                  ref={(element) => {
+                    cardRefs.current[index] = element;
+                  }}
+                >
+                  <div className={styles.ticketHeader}>
+                    <h3 className={styles.ticketClass}>
+                      {headlineLabel}
+                      {!isAdmissionOnly && ticket.performanceTitle && (
+                        <span className={styles.ticketTitle}>
+                          「{ticket.performanceTitle}」
+                        </span>
+                      )}
+                    </h3>
+                    <span className={styles.ticketSchedule}>
+                      {ticket.scheduleName}
+                    </span>
+                  </div>
+                  <div className={styles.ticketMeta}>
+                    <div className={styles.ticketMetaRow}>
+                      <span className={styles.ticketMetaLabel}>券種</span>
+                      <span className={styles.ticketMetaValue}>
+                        {ticket.ticketTypeLabel}
                       </span>
-                    )}
-                  </h3>
-                  <span className={styles.ticketSchedule}>{ticket.scheduleName}</span>
-                </div>
-                <div className={styles.ticketMeta}>
-                  <div className={styles.ticketMetaRow}>
-                    <span className={styles.ticketMetaLabel}>券種</span>
-                    <span className={styles.ticketMetaValue}>{ticket.ticketTypeLabel}</span>
+                    </div>
+                    <div className={styles.ticketMetaRow}>
+                      <span className={styles.ticketMetaLabel}>間柄</span>
+                      <span className={styles.ticketMetaValue}>
+                        {ticket.relationshipName}
+                      </span>
+                    </div>
                   </div>
-                  <div className={styles.ticketMetaRow}>
-                    <span className={styles.ticketMetaLabel}>間柄</span>
-                    <span className={styles.ticketMetaValue}>{ticket.relationshipName}</span>
-                  </div>
-                </div>
-                {showTicketLink && (
-                  <Link
-                    to={`/t/${ticket.code}.${ticket.signature}`}
-                    className={styles.ticketLinkButton}
-                  >
-                    チケットを表示
-                  </Link>
-                )}
-              </article>
-            ))}
+                  {showTicketLink && (
+                    <Link
+                      to={`/t/${ticket.code}.${ticket.signature}`}
+                      className={styles.ticketLinkButton}
+                    >
+                      チケットを表示
+                    </Link>
+                  )}
+                </article>
+              );
+            })}
           </div>
           {isCollapsible && !expanded && <div className={styles.fadeMask} />}
         </div>

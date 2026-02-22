@@ -32,11 +32,11 @@ const IssueStepTicketType = ({
                 name='ticket_type'
                 value={String(option.id)}
                 checked={isSelected}
-                disabled={option.disabled}
+                disabled={!option.is_active}
                 onChange={() => onSelectTicketType(option.id)}
                 className={styles.srOnly}
               />
-              {option.label}
+              {option.name}
             </label>
           );
         })}

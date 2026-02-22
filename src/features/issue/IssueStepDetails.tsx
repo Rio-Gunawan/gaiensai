@@ -90,7 +90,7 @@ const IssueStepDetails = ({
       <ul className={styles.previewList}>
         <li>
           <span>チケットタイプ</span>
-          <strong>{selectedTicketType?.label ?? '-'}</strong>
+          <strong>{selectedTicketType?.name ?? '-'}</strong>
         </li>
         <li>
           <span>公演のクラス</span>

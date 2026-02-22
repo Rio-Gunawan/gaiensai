@@ -16,21 +16,16 @@ import type {
 } from '../../../types/Issue.types';
 import styles from './Issue.module.css';
 
-const TICKET_TYPE_OPTIONS: TicketTypeOption[] = [
-  { id: 1, label: 'クラス公演(当日)', disabled: false },
-  { id: 2, label: 'クラス公演(リハーサル)', disabled: true },
-  { id: 3, label: '部活公演', disabled: true },
-  { id: 4, label: '入場専用券', disabled: false },
-];
-
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
+const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
 
 const Issue = () => {
   const [step, setStep] = useState<Step>(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<number>(1);
   const [selectedPerformance, setSelectedPerformance] =
     useState<SelectedPerformance>(null);
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeOption[]>([]);
   const [relationships, setRelationships] = useState<RelationshipRow[]>([]);
   const [relationshipLoading, setRelationshipLoading] = useState(true);
   const [relationshipError, setRelationshipError] = useState<string | null>(
@@ -44,6 +39,25 @@ const Issue = () => {
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const loadTicketTypes = async () => {
+      const { data, error } = await supabase
+        .from('ticket_types')
+        .select('id, name, is_active')
+        .eq('type', '招待券')
+        .order('id', { ascending: true });
+
+      if (error) {
+        alert('チケット種別の読み込みに失敗しました。');
+        return;
+      }
+
+      setTicketTypes((data ?? []) as TicketTypeOption[]);
+    };
+
+    void loadTicketTypes();
+  }, []);
 
   useEffect(() => {
     const loadRelationships = async () => {
@@ -145,14 +159,50 @@ const Issue = () => {
 
   const selectedTicketType = useMemo(
     () =>
-      TICKET_TYPE_OPTIONS.find(
+      ticketTypes.find(
         (ticketType) => ticketType.id === selectedTicketTypeId,
       ) ?? null,
-    [selectedTicketTypeId],
+    [ticketTypes, selectedTicketTypeId],
   );
+  const isAdmissionOnlyTicket =
+    selectedTicketType?.name === ADMISSION_ONLY_TICKET_NAME;
+
+  useEffect(() => {
+    if (!selectedTicketType) {
+      return;
+    }
+
+    if (isAdmissionOnlyTicket) {
+      if (
+        !selectedPerformance ||
+        selectedPerformance.performanceId !== 0 ||
+        selectedPerformance.scheduleId !== 0
+      ) {
+        setSelectedPerformance({
+          performanceId: 0,
+          performanceName: '-',
+          scheduleId: 0,
+          scheduleName: '-',
+          remaining: 0,
+        });
+      }
+      return;
+    }
+
+    if (
+      selectedPerformance &&
+      selectedPerformance.performanceId === 0 &&
+      selectedPerformance.scheduleId === 0
+    ) {
+      setSelectedPerformance(null);
+    }
+  }, [isAdmissionOnlyTicket, selectedPerformance, selectedTicketType]);
 
   const selectedCellKey = selectedPerformance
-    ? `${selectedPerformance.performanceId}-${selectedPerformance.scheduleId}`
+    ? selectedPerformance.performanceId > 0 &&
+      selectedPerformance.scheduleId > 0
+      ? `${selectedPerformance.performanceId}-${selectedPerformance.scheduleId}`
+      : undefined
     : undefined;
   const selectedRelationshipName =
     selectedRelationshipId === null
@@ -218,11 +268,14 @@ const Issue = () => {
 
     setIsIssuing(true);
 
-    const { data: performanceTitle } = await supabase
-      .from('class_performances')
-      .select('title')
-      .eq('id', selectedPerformance.performanceId)
-      .maybeSingle();
+    const { data: performanceTitle } =
+      selectedPerformance.performanceId > 0
+        ? await supabase
+            .from('class_performances')
+            .select('title')
+            .eq('id', selectedPerformance.performanceId)
+            .maybeSingle()
+        : { data: null };
 
     const { data, error } = await supabase.functions.invoke('issue-tickets', {
       body: {
@@ -258,7 +311,7 @@ const Issue = () => {
         performanceName: selectedPerformance.performanceName,
         performanceTitle: performanceTitle?.title,
         scheduleName: selectedPerformance.scheduleName,
-        ticketTypeLabel: selectedTicketType.label,
+        ticketTypeLabel: selectedTicketType.name,
         relationshipName: selectedRelationshipName ?? '-',
         issuedTickets,
       }),
@@ -281,7 +334,7 @@ const Issue = () => {
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>
           <IssueStepTicketType
-            options={TICKET_TYPE_OPTIONS}
+            options={ticketTypes}
             selectedTicketTypeId={selectedTicketTypeId}
             onSelectTicketType={setSelectedTicketTypeId}
           />
@@ -311,17 +364,34 @@ const Issue = () => {
         </div>
         <div className={styles.actions}>
           <div className={styles.progressSection}>
-            <progress
-              className={styles.progressBar}
-              max={3}
-              value={step}
-            ></progress>
-            <p className={styles.stepIndicator}>STEP {step} / 3</p>
+            {(() => {
+              const totalSteps = isAdmissionOnlyTicket ? 2 : 3;
+              const displayedStep =
+                isAdmissionOnlyTicket && step === 3 ? 2 : step;
+
+              return (
+                <>
+                  <progress
+                    className={styles.progressBar}
+                    max={totalSteps}
+                    value={displayedStep}
+                  ></progress>
+                  <p className={styles.stepIndicator}>
+                    STEP {displayedStep} / {totalSteps}
+                  </p>
+                </>
+              );
+            })()}
           </div>
           <button
             type='button'
             className={styles.backButton}
             onClick={() => {
+              if (step === 3 && isAdmissionOnlyTicket) {
+                transitionToStep(1);
+                return;
+              }
+
               if (step > 1) {
                 transitionToStep((step - 1) as Step);
               }
@@ -335,13 +405,19 @@ const Issue = () => {
               type='button'
               className={styles.nextButton}
               onClick={() => {
-                if (step < 3) {
-                  transitionToStep((step + 1) as Step);
+                if (step === 1) {
+                  transitionToStep(isAdmissionOnlyTicket ? 3 : 2);
+                  return;
+                }
+
+                if (step === 2) {
+                  transitionToStep(3);
                 }
               }}
               disabled={
-                !(step === 1 && selectedTicketType) &&
-                !(step === 2 && selectedPerformance)
+                (step === 1 && !selectedTicketType) ||
+                (step === 2 && !selectedPerformance) ||
+                step === 3
               }
               style={step === 3 ? { display: 'none' } : undefined}
             >

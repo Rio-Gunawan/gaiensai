@@ -9,8 +9,8 @@ export type RelationshipRow = {
 
 export type TicketTypeOption = {
   id: number;
-  label: string;
-  disabled: boolean;
+  name: string;
+  is_active: boolean;
 };
 
 export type SelectedPerformance = AvailableSeatSelection | null;

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import styles from './IssuedTicketCardList.module.css';
 import { Link } from 'wouter-preact';
 
 export type TicketCardItem = {
   code: string;
   signature: string;
+  serial?: number;
   performanceName: string;
   performanceTitle?: string | null;
   scheduleName: string;
@@ -17,6 +18,9 @@ type IssuedTicketCardListProps = {
   tickets: TicketCardItem[];
   emptyMessage?: string;
   showTicketLink?: boolean;
+  showTicketCode?: boolean;
+  showSerialNumber?: boolean;
+  serialStart?: number;
   embedded?: boolean;
   collapseAt?: number;
 };
@@ -26,6 +30,9 @@ const IssuedTicketCardList = ({
   tickets,
   emptyMessage = '表示できるチケットがありません。',
   showTicketLink = true,
+  showTicketCode = false,
+  showSerialNumber = false,
+  serialStart = 1,
   embedded = false,
   collapseAt,
 }: IssuedTicketCardListProps) => {
@@ -33,6 +40,24 @@ const IssuedTicketCardList = ({
   const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(null);
   const [isCollapsible, setIsCollapsible] = useState(false);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
+  const serialNumbers = useMemo(() => {
+    const groupCounts = new Map<string, number>();
+    return tickets.map((ticket) => {
+      if (typeof ticket.serial === 'number') {
+        return ticket.serial;
+      }
+
+      const groupKey = [
+        ticket.scheduleName,
+        ticket.performanceName,
+        ticket.relationshipName,
+        ticket.ticketTypeLabel,
+      ].join('::');
+      const next = (groupCounts.get(groupKey) ?? 0) + 1;
+      groupCounts.set(groupKey, next);
+      return next;
+    });
+  }, [tickets]);
 
   useEffect(() => {
     if (typeof collapseAt !== 'number') {
@@ -118,6 +143,7 @@ const IssuedTicketCardList = ({
               const headlineLabel = isAdmissionOnly
                 ? '入場専用券'
                 : ticket.performanceName;
+              const serialNumber = serialStart + serialNumbers[index] - 1;
 
               return (
                 <article
@@ -127,6 +153,9 @@ const IssuedTicketCardList = ({
                     cardRefs.current[index] = element;
                   }}
                 >
+                  {showSerialNumber && (
+                    <span className={styles.serialBadge}>#{serialNumber}</span>
+                  )}
                   <div className={styles.ticketHeader}>
                     <h3 className={styles.ticketClass}>
                       {headlineLabel}
@@ -141,6 +170,18 @@ const IssuedTicketCardList = ({
                     </span>
                   </div>
                   <div className={styles.ticketMeta}>
+                    {showTicketCode && (
+                      <div className={styles.ticketMetaRow}>
+                        <span className={styles.ticketMetaLabel}>
+                          チケットコード
+                        </span>
+                        <span
+                          className={`${styles.ticketMetaValue} ${styles.ticketCodeValue}`}
+                        >
+                          {ticket.code}
+                        </span>
+                      </div>
+                    )}
                     <div className={styles.ticketMetaRow}>
                       <span className={styles.ticketMetaLabel}>券種</span>
                       <span className={styles.ticketMetaValue}>

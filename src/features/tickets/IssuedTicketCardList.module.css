@@ -51,6 +51,20 @@
   gap: 1rem;
 }
 
+.serialBadge {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--main-text-color);
+  background: var(--select-bg-color);
+  border: 1px solid var(--select-border-color);
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  line-height: 1.2;
+}
+
 .ticketHeader {
   border-bottom: 1px solid var(--select-border-color);
   padding-bottom: 1rem;
@@ -100,6 +114,13 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--heading-text-color);
+}
+
+.ticketCodeValue {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 400;
 }
 
 .ticketLinkButton {

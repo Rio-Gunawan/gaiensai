@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
+import { decodeTicketCode } from '@ticket-codec';
+import performancesSnapshot from '../../../generated/performances-static.json';
 
 import type { UserData } from '../../../types/types';
 import NormalSection from '../../../components/ui/NormalSection';
@@ -21,6 +23,39 @@ import Alert from '../../../components/ui/Alert';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
+};
+
+type TicketSnapshot = {
+  performances?: Array<{ id: number; class_name: string; title?: string | null }>;
+  schedules?: Array<{ id: number; round_name: string }>;
+  ticketTypes?: Array<{ id: number; name: string }>;
+  relationships?: Array<{ id: number; name: string }>;
+};
+
+type DecodedTicketSeed = {
+  relationshipId: number;
+  ticketTypeId: number;
+  performanceId: number;
+  scheduleId: number;
+  serial: number;
+};
+
+const ticketSnapshot = performancesSnapshot as TicketSnapshot;
+
+const toDecodedSeed = (
+  decoded: Awaited<ReturnType<typeof decodeTicketCode>>,
+): DecodedTicketSeed | null => {
+  if (!decoded) {
+    return null;
+  }
+
+  return {
+    relationshipId: decoded.relationship,
+    ticketTypeId: decoded.type,
+    performanceId: decoded.performance,
+    scheduleId: decoded.schedule,
+    serial: decoded.serial,
+  };
 };
 
 const Dashboard = ({ userData }: DashboardProps) => {
@@ -80,20 +115,16 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
       const [
         { data: ticketsData, error: ticketsError },
-        { data: ticketTypesData, error: ticketTypesError },
-        { data: relationshipsData, error: relationshipsError },
       ] = await Promise.all([
         supabase
           .from('tickets')
-          .select('id, code, signature, ticket_type, relationship, created_at')
+          .select('code, signature, relationship, created_at')
           .eq('user_id', user.id)
           .eq('status', 'valid')
           .order('created_at', { ascending: false }),
-        supabase.from('ticket_types').select('id, name'),
-        supabase.from('relationships').select('id, name'),
       ]);
 
-      if (ticketsError || ticketTypesError || relationshipsError) {
+      if (ticketsError) {
         if (fallbackToCachedTickets()) {
           return;
         }
@@ -103,10 +134,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
       }
 
       const tickets = (ticketsData ?? []) as Array<{
-        id: string;
         code: string;
         signature: string;
-        ticket_type: number;
         relationship: number;
         created_at: string;
       }>;
@@ -117,45 +146,38 @@ const Dashboard = ({ userData }: DashboardProps) => {
         return;
       }
 
-      const ticketIds = tickets.map((ticket) => ticket.id);
-      const { data: classTicketsData, error: classTicketsError } =
-        await supabase
-          .from('class_tickets')
-          .select('id, class_id, round_id')
-          .in('id', ticketIds);
+      const decodedTickets = await Promise.all(
+        tickets.map(async (ticket) => {
+          const decodedRaw = await decodeTicketCode(ticket.code, {
+            ticketSigningPrivateKeyMacBase64: import.meta.env
+              .VITE_TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64,
+            ticketSigningPrivateKeyCipherBase64: import.meta.env
+              .VITE_TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64,
+            base58Alphabet: import.meta.env.VITE_BASE58_ALPHABET,
+          });
 
-      if (classTicketsError) {
-        if (fallbackToCachedTickets()) {
-          return;
-        }
-        setTicketError('チケット詳細の取得に失敗しました。');
-        setTicketLoading(false);
-        return;
-      }
+          return {
+            ticket,
+            decoded: toDecodedSeed(decodedRaw),
+          };
+        }),
+      );
 
-      const classTickets = (classTicketsData ?? []) as Array<{
-        id: string;
-        class_id: number;
-        round_id: number;
-      }>;
-      const classIds = [...new Set(classTickets.map((item) => item.class_id))];
-      const roundIds = [...new Set(classTickets.map((item) => item.round_id))];
+      const performanceIds = [
+        ...new Set(
+          decodedTickets
+            .map((item) => item.decoded?.performanceId ?? 0)
+            .filter((id) => id > 0),
+        ),
+      ];
 
-      const [{ data: performanceData }, { data: scheduleData }] =
-        await Promise.all([
-          classIds.length > 0
-            ? supabase
-                .from('class_performances')
-                .select('id, class_name, title')
-                .in('id', classIds)
-            : Promise.resolve({ data: [], error: null }),
-          roundIds.length > 0
-            ? supabase
-                .from('performances_schedule')
-                .select('id, round_name')
-                .in('id', roundIds)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
+      const { data: performanceData } =
+        performanceIds.length > 0
+          ? await supabase
+              .from('class_performances')
+              .select('id, class_name, title')
+              .in('id', performanceIds)
+          : { data: [] };
 
       const performanceMap = new Map(
         (
@@ -168,53 +190,83 @@ const Dashboard = ({ userData }: DashboardProps) => {
       );
 
       const scheduleMap = new Map(
-        ((scheduleData ?? []) as Array<{ id: number; round_name: string }>).map(
-          (schedule) => [schedule.id, schedule],
-        ),
+        ((ticketSnapshot.schedules ?? []) as Array<{
+          id: number;
+          round_name: string;
+        }>).map((schedule) => [schedule.id, schedule]),
       );
 
-      const classTicketMap = new Map(
-        classTickets.map((item) => [item.id, item]),
-      );
       const ticketTypeMap = new Map(
-        (
-          (ticketTypesData ?? []) as Array<{ id: number; name: string | null }>
-        ).map((ticketType) => [
+        ((ticketSnapshot.ticketTypes ?? []) as Array<{
+          id: number;
+          name: string;
+        }>).map((ticketType) => [
           ticketType.id,
-          ticketType.name ?? `券種${ticketType.id}`,
+          ticketType.name,
         ]),
       );
       const relationshipMap = new Map(
-        (
-          (relationshipsData ?? []) as Array<{
-            id: number;
-            name: string | null;
-          }>
-        ).map((relationship) => [
+        ((ticketSnapshot.relationships ?? []) as Array<{
+          id: number;
+          name: string;
+        }>).map((relationship) => [
           relationship.id,
-          relationship.name ?? `間柄${relationship.id}`,
+          relationship.name,
         ]),
       );
 
-      const cards = tickets.map((ticket) => {
-        const classTicket = classTicketMap.get(ticket.id);
-        const performance = classTicket
-          ? performanceMap.get(classTicket.class_id)
+      const snapshotPerformanceMap = new Map(
+        ((ticketSnapshot.performances ?? []) as Array<{
+          id: number;
+          class_name: string;
+          title?: string | null;
+        }>).map((performance) => [performance.id, performance]),
+      );
+
+      const cards = decodedTickets.map(({ ticket, decoded }) => {
+        const relationshipId = decoded?.relationshipId ?? ticket.relationship;
+        const performance = decoded
+          ? performanceMap.get(decoded.performanceId) ??
+            snapshotPerformanceMap.get(decoded.performanceId)
           : undefined;
-        const schedule = classTicket
-          ? scheduleMap.get(classTicket.round_id)
+        const schedule = decoded
+          ? scheduleMap.get(decoded.scheduleId)
           : undefined;
+        const isAdmissionOnly =
+          decoded?.performanceId === 0 && decoded?.scheduleId === 0;
 
         return {
           code: ticket.code,
           signature: ticket.signature,
+          serial: decoded?.serial,
           performanceName: performance?.class_name ?? '-',
           performanceTitle: performance?.title ?? null,
-          scheduleName: schedule?.round_name ?? '-',
-          ticketTypeLabel: ticketTypeMap.get(ticket.ticket_type) ?? '-',
-          relationshipName: relationshipMap.get(ticket.relationship) ?? '-',
-          relationshipId: ticket.relationship,
+          scheduleName: isAdmissionOnly ? '' : (schedule?.round_name ?? '-'),
+          ticketTypeLabel: decoded
+            ? (ticketTypeMap.get(decoded.ticketTypeId) ?? `券種${decoded.ticketTypeId}`)
+            : '-',
+          relationshipName: decoded
+            ? (relationshipMap.get(decoded.relationshipId) ??
+              `間柄${decoded.relationshipId}`)
+            : '-',
+          relationshipId,
         };
+      });
+
+      cards.sort((a, b) => {
+        const groupCompare =
+          a.performanceName.localeCompare(b.performanceName, 'ja') ||
+          a.scheduleName.localeCompare(b.scheduleName, 'ja') ||
+          a.relationshipName.localeCompare(b.relationshipName, 'ja') ||
+          a.ticketTypeLabel.localeCompare(b.ticketTypeLabel, 'ja');
+
+        if (groupCompare !== 0) {
+          return groupCompare;
+        }
+
+        const aSerial = typeof a.serial === 'number' ? a.serial : Number.MAX_SAFE_INTEGER;
+        const bSerial = typeof b.serial === 'number' ? b.serial : Number.MAX_SAFE_INTEGER;
+        return aSerial - bSerial;
       });
 
       setTicketCards(cards);
@@ -308,6 +360,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
           <IssuedTicketCardList
             embedded={true}
             collapseAt={2}
+            showTicketCode={true}
+            showSerialNumber={true}
             tickets={ownUseTickets}
             emptyMessage='自分が使うチケットはまだありません。'
           />
@@ -323,6 +377,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
           <IssuedTicketCardList
             embedded={true}
             collapseAt={2}
+            showTicketCode={true}
+            showSerialNumber={true}
             tickets={guestTickets}
             emptyMessage='招待者用のチケットはまだありません。'
           />

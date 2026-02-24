@@ -19,6 +19,7 @@ type DecodedTicketSeed = {
   performanceId: number;
   scheduleId: number;
   year: string;
+  serial: number;
 };
 
 type TicketDisplay = DecodedTicketSeed & {
@@ -144,6 +145,7 @@ const toDecodedSeed = (
     performanceId: decoded.performance,
     scheduleId: decoded.schedule,
     year: String(decoded.year).padStart(2, '0'),
+    serial: decoded.serial,
   };
 };
 
@@ -236,6 +238,7 @@ const Ticket = () => {
     performanceId: 0,
     scheduleId: 0,
     year: '',
+    serial: 0,
     performanceName: '-',
     performanceTitle: null,
     scheduleName: '-',
@@ -295,7 +298,12 @@ const Ticket = () => {
 
       const cached = readTicketCache(code);
       if (cached) {
-        setTicket({ ...cached, signature });
+        setTicket({
+          ...cached,
+          signature,
+          serial:
+            typeof cached.serial === 'number' ? cached.serial : decoded.serial,
+        });
         const validityError = await checkTicketValidity(code);
         if (validityError) {
           nonBlockingErrors.push(validityError);
@@ -545,6 +553,7 @@ const Ticket = () => {
       </Alert>
       {loading && <p>読み込み中...</p>}
       <div className={styles.ticketContainer}>
+        <span className={styles.serialBadge}>#{ticket.serial}</span>
         <h2 className={styles.ticketHeader}>
           <span className={styles.performanceName}>
             {ticket.performanceName}

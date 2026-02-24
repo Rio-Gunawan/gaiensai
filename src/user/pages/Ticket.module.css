@@ -2,9 +2,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 2rem 0.5rem;
+  margin: 2.5rem 0.5rem 0;
   position: relative;
-  overflow: hidden;
+}
+
+.serialBadge {
+  position: absolute;
+  top: -1.2rem;
+  right: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--main-text-color);
+  background: var(--select-bg-color);
+  border: 1px solid var(--select-border-color);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  line-height: 1.2;
 }
 
 .ticketHeader {
@@ -38,6 +51,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 
 .ticketCode {

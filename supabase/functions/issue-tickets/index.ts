@@ -4,7 +4,7 @@ import '@supabase/functions-js/edge-runtime.d.ts';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { corsHeaders } from '@shared/cors.ts';
+import { getCorsHeaders } from '@shared/cors.ts';
 import { getEnv } from '@shared/getEnv.ts';
 import HttpError from '@shared/HttpError.ts';
 import type { TicketData } from '@shared/generateTicketCode.ts';
@@ -108,6 +108,8 @@ const validatePerformanceAndSchedule = (
 };
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // CORSプリフライトリクエストへの対応
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });

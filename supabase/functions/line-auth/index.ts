@@ -5,7 +5,7 @@ import '@supabase/functions-js/edge-runtime.d.ts';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { corsHeaders } from '@shared/cors.ts';
+import { getCorsHeaders } from '@shared/cors.ts';
 import { getEnv } from '@shared/getEnv.ts';
 
 // JWTペイロードをデコードするヘルパー
@@ -20,6 +20,8 @@ function decodeJwtPayload(token: string) {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // This is needed if you're planning to invoke your function from a browser.
   if (req.method === 'OPTIONS') {
     return new Response('ok', {

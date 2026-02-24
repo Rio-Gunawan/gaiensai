@@ -8,6 +8,10 @@ import { useEventConfig } from '../../hooks/useEventConfig';
 import { supabase } from '../../lib/supabase';
 import { decodeTicketCode } from '@ticket-codec';
 import performancesSnapshot from '../../generated/performances-static.json';
+import {
+  readTicketDisplayCache,
+  writeTicketDisplayCache,
+} from '../../features/tickets/ticketDisplayCache';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -61,10 +65,6 @@ type TicketSnapshot = {
 };
 
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
-
-const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
-const getTicketCacheKey = (code: string): string =>
-  `${TICKET_CACHE_PREFIX}${code}`;
 
 const publicKeyToArrayBuffer = (keyText: string): ArrayBuffer => {
   const trimmed = keyText.trim();
@@ -147,30 +147,6 @@ const toDecodedSeed = (
     year: String(decoded.year).padStart(2, '0'),
     serial: decoded.serial,
   };
-};
-
-const readTicketCache = (code: string): TicketDisplay | null => {
-  try {
-    const raw = localStorage.getItem(getTicketCacheKey(code));
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as { ticket?: TicketDisplay };
-
-    return parsed.ticket ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const writeTicketCache = (code: string, ticket: TicketDisplay): void => {
-  localStorage.setItem(
-    getTicketCacheKey(code),
-    JSON.stringify({
-      ticket,
-      cachedAt: Date.now(),
-    }),
-  );
 };
 
 const checkTicketValidity = async (code: string): Promise<string | null> => {
@@ -296,7 +272,7 @@ const Ticket = () => {
         );
       }
 
-      const cached = readTicketCache(code);
+      const cached = readTicketDisplayCache<TicketDisplay>(code);
       if (cached) {
         setTicket({
           ...cached,
@@ -534,7 +510,7 @@ const Ticket = () => {
       };
       setTicket(resolvedTicket);
       if (!usedSnapshotFallback) {
-        writeTicketCache(code, resolvedTicket);
+        writeTicketDisplayCache(code, resolvedTicket);
       }
       setErrorMessages(nonBlockingErrors);
       setLoading(false);

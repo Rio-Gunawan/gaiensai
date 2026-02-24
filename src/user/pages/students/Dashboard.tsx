@@ -5,9 +5,8 @@ import performancesSnapshot from '../../../generated/performances-static.json';
 
 import type { UserData } from '../../../types/types';
 import NormalSection from '../../../components/ui/NormalSection';
-import IssuedTicketCardList, {
-  type TicketCardItem,
-} from '../../../features/tickets/IssuedTicketCardList';
+import { type TicketCardItem } from '../../../features/tickets/IssuedTicketCardList';
+import TicketListContent from '../../../features/tickets/TicketListContent';
 
 import subPageStyles from '../../../styles/sub-pages.module.css';
 import sharedStyles from '../../../styles/shared.module.css';
@@ -352,37 +351,21 @@ const Dashboard = ({ userData }: DashboardProps) => {
       </NormalSection>
       <NormalSection>
         <h2>自分が使うチケット</h2>
-        {ticketLoading ? (
-          <p>読み込み中...</p>
-        ) : ticketError ? (
-          <p>{ticketError}</p>
-        ) : (
-          <IssuedTicketCardList
-            embedded={true}
-            collapseAt={2}
-            showTicketCode={true}
-            showSerialNumber={true}
-            tickets={ownUseTickets}
-            emptyMessage='自分が使うチケットはまだありません。'
-          />
-        )}
+        <TicketListContent
+          loading={ticketLoading}
+          error={ticketError}
+          tickets={ownUseTickets}
+          emptyMessage='自分が使うチケットはまだありません。'
+        />
       </NormalSection>
       <NormalSection>
         <h2>招待者用のチケット</h2>
-        {ticketLoading ? (
-          <p>読み込み中...</p>
-        ) : ticketError ? (
-          <p>{ticketError}</p>
-        ) : (
-          <IssuedTicketCardList
-            embedded={true}
-            collapseAt={2}
-            showTicketCode={true}
-            showSerialNumber={true}
-            tickets={guestTickets}
-            emptyMessage='招待者用のチケットはまだありません。'
-          />
-        )}
+        <TicketListContent
+          loading={ticketLoading}
+          error={ticketError}
+          tickets={guestTickets}
+          emptyMessage='招待者用のチケットはまだありません。'
+        />
       </NormalSection>
       <NormalSection>
         <h2>公演空き状況</h2>

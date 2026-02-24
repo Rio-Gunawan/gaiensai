@@ -90,7 +90,9 @@ const Home = () => {
     }
 
     const toParts = (dateText: string) => {
-      const [year, month, day] = dateText.split('-').map((value) => Number(value));
+      const [year, month, day] = dateText
+        .split('-')
+        .map((value) => Number(value));
       return { year, month, day };
     };
 
@@ -212,17 +214,7 @@ const Home = () => {
         <p>
           招待券は、お使いのデバイスで表示したことのあるもののみ表示できます。まだ閲覧していない場合は、招待URLよりアクセスしてください。
         </p>
-        <ul className={styles.ticketSectionUl}>
-          <li>
-            <Link to='/t'>招待券</Link>
-          </li>
-          <li>
-            <Link to='/t'>中学生券</Link>
-          </li>
-          <li>
-            <Link to='/t'>当日券</Link>
-          </li>
-        </ul>
+        <Link to='/t'>チケットを表示する</Link>
       </NormalSection>
       <section
         className={`${styles.buttonLinkWrap} ${styles.scrollSection}`}
@@ -276,7 +268,8 @@ const Home = () => {
             </h3>
             <p>
               外苑祭とは、青山高校の生徒が主体となって企画・運営する文化祭です。毎年8月下旬に開催され、5000人以上が来場する伝統行事です。
-              全{totalClassCount}クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
+              全{totalClassCount}
+              クラス全てが演劇またはミュージカルを披露し、体育館では部活のパフォーマンスが行われます。
             </p>
           </div>
         </div>

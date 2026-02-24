@@ -8,6 +8,7 @@ import NotFound from '../shared/NotFound';
 import Home from './pages/Home';
 import Performances from './pages/Performances';
 import Ticket from './pages/Ticket';
+import TicketHistory from './pages/TicketHistory';
 
 import '../styles/color-settings.css';
 import '../styles/index.css';
@@ -51,6 +52,7 @@ const App = () => {
       <div className={isHome ? '' : subPageStyles.subPageShell}>
         <Switch>
           <Route path='/' component={Home} />
+          <Route path='/t' component={TicketHistory} />
           <Route path='/t/:id' component={Ticket} />
           <Route path='/performances' component={Performances} />
           <Route path='/auth/line/callback' component={LineCallback} />

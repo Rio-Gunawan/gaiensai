@@ -6,11 +6,11 @@ import Alert from '../../components/ui/Alert';
 import QRCode from '../../components/ui/QRCode';
 import { useEventConfig } from '../../hooks/useEventConfig';
 import { supabase } from '../../lib/supabase';
+import { decodeTicketCode } from '@ticket-codec';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
 
-const BASE58_ALPHABET = import.meta.env.VITE_BASE58_ALPHABET;
 type DecodedTicketSeed = {
   affiliation: string;
   ticketTypeId: number;
@@ -33,65 +33,141 @@ type TicketDisplay = DecodedTicketSeed & {
   relationshipName: string;
 };
 
-const decodeBase58 = (value: string): bigint | null => {
-  let result = 0n;
+const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
+const getTicketCacheKey = (code: string): string =>
+  `${TICKET_CACHE_PREFIX}${code}`;
 
-  for (const char of value) {
-    const index = BASE58_ALPHABET.indexOf(char);
-    if (index < 0) {
-      return null;
-    }
-    result = result * 58n + BigInt(index);
+const publicKeyToArrayBuffer = (keyText: string): ArrayBuffer => {
+  const trimmed = keyText.trim();
+  const base64 = trimmed.replace(/\s+/g, '');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
   }
 
-  return result;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
 };
 
-const parseFromCode = (code: string): DecodedTicketSeed | null => {
-  const candidateLengths = [8, 7, 6, 5];
+const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
+  bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
 
-  for (const prefixLength of candidateLengths) {
-    if (code.length <= prefixLength) {
-      continue;
+const decodeBase64Url = (value: string): Uint8Array => {
+  const normalized = value.trim().replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+};
+
+const signingPublicKeyPromise = crypto.subtle.importKey(
+  'spki',
+  publicKeyToArrayBuffer(
+    import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
+  ),
+  { name: 'Ed25519' },
+  false,
+  ['verify'],
+);
+
+const verifyTicketSignature = async (
+  code: string,
+  signature: string,
+): Promise<boolean> => {
+  try {
+    const key = await signingPublicKeyPromise;
+    const payload = new TextEncoder().encode(code);
+    const signatureBytes = decodeBase64Url(signature);
+
+    return await crypto.subtle.verify(
+      'Ed25519',
+      key,
+      toArrayBuffer(signatureBytes),
+      payload,
+    );
+  } catch {
+    return false;
+  }
+};
+
+const toDecodedSeed = (
+  decoded: Awaited<ReturnType<typeof decodeTicketCode>>,
+): DecodedTicketSeed | null => {
+  if (!decoded) {
+    return null;
+  }
+
+  return {
+    affiliation: String(decoded.affiliation).padStart(4, '0'),
+    ticketTypeId: decoded.type,
+    relationshipId: decoded.relationship,
+    performanceId: decoded.performance,
+    scheduleId: decoded.schedule,
+    year: String(decoded.year).padStart(2, '0'),
+  };
+};
+
+const readTicketCache = (code: string): TicketDisplay | null => {
+  try {
+    const raw = localStorage.getItem(getTicketCacheKey(code));
+    if (!raw) {
+      return null;
     }
+    const parsed = JSON.parse(raw) as { ticket?: TicketDisplay };
 
-    const prefix = code.slice(0, prefixLength);
-    const decoded = decodeBase58(prefix);
+    return parsed.ticket ?? null;
+  } catch {
+    return null;
+  }
+};
 
-    if (decoded === null) {
-      continue;
-    }
+const writeTicketCache = (code: string, ticket: TicketDisplay): void => {
+  localStorage.setItem(
+    getTicketCacheKey(code),
+    JSON.stringify({
+      ticket,
+      cachedAt: Date.now(),
+    }),
+  );
+};
 
-    const padded = decoded.toString().padStart(12, '0');
-    if (padded.length !== 12) {
-      continue;
-    }
+const checkTicketValidity = async (code: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('status')
+    .eq('code', code)
+    .maybeSingle();
 
-    const ticketTypeId = Number(padded.slice(4, 5));
-    const relationshipId = Number(padded.slice(5, 6));
-    const performanceId = Number(padded.slice(6, 8));
-    const scheduleId = Number(padded.slice(8, 10));
-    const hasPerformanceSchedule = performanceId > 0 && scheduleId > 0;
-    const isAdmissionOnlySeed = performanceId === 0 && scheduleId === 0;
+  if (error) {
+    return `チケットの有効性確認に失敗しました。デバイスがオフラインの場合、または障害が発生している場合は、このエラーが発生する可能性があります。
+    これが正規のQRコードであれば、そのままご入場いただけます。オンラインでこのエラーが表示される場合は、外苑祭総務にお問い合わせください。`;
+  }
 
-    if (
-      ticketTypeId <= 0 ||
-      relationshipId <= 0 ||
-      performanceId < 0 ||
-      scheduleId < 0 ||
-      (!hasPerformanceSchedule && !isAdmissionOnlySeed)
-    ) {
-      continue;
-    }
+  const status = (data as { status?: string } | null)?.status;
 
-    return {
-      affiliation: padded.slice(0, 4),
-      ticketTypeId,
-      relationshipId,
-      performanceId,
-      scheduleId,
-      year: padded.slice(10, 12),
-    };
+  if (status === 'used') {
+    return 'このチケットはすでに使用されています。';
+  }
+  if (status === 'cancelled') {
+    return 'このチケットはキャンセルされています。';
+  }
+  if (!status) {
+    return 'このチケットは存在しないか、無効です。';
+  }
+  if (status !== 'valid') {
+    return 'このチケットは無効です。';
   }
 
   return null;
@@ -125,7 +201,7 @@ const Ticket = () => {
   const [showCopySucceed, setShowCopySucceed] = useState(false);
   const [ticket, setTicket] = useState<TicketDisplay | null>(null);
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
   const token = params.id;
 
@@ -139,38 +215,75 @@ const Ticket = () => {
   useEffect(() => {
     const loadTicket = async () => {
       if (!code || !signature) {
-        setErrorMessage('チケットURLの形式が正しくありません。');
-        setLoading(false);
-        return;
-      }
-
-      const decoded = parseFromCode(code);
-      if (!decoded) {
-        setErrorMessage('チケット情報の復元に失敗しました。');
+        setErrorMessages(['チケットURLの形式が正しくありません。']);
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      setErrorMessage(null);
+      setErrorMessages([]);
+      const nonBlockingErrors: string[] = [];
 
-      const [ticketTypeRes, relationshipRes] = await Promise.all([
-        supabase
-          .from('ticket_types')
-          .select('name')
-          .eq('id', decoded.ticketTypeId)
-          .maybeSingle(),
-        supabase
-          .from('relationships')
-          .select('name')
-          .eq('id', decoded.relationshipId)
-          .maybeSingle(),
+      const [decodedRaw, signatureIsValid] = await Promise.all([
+        decodeTicketCode(code, {
+          ticketSigningPrivateKeyMacBase64: import.meta.env
+            .VITE_TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64,
+          ticketSigningPrivateKeyCipherBase64: import.meta.env
+            .VITE_TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64,
+          base58Alphabet: import.meta.env.VITE_BASE58_ALPHABET,
+        }),
+        verifyTicketSignature(code, signature),
       ]);
+      const decoded = toDecodedSeed(decodedRaw);
 
-      if (ticketTypeRes.error || relationshipRes.error) {
-        setErrorMessage('チケット情報の取得に失敗しました。');
+      if (!decoded) {
+        setErrorMessages(['チケット情報の復元に失敗しました。']);
         setLoading(false);
         return;
+      }
+
+      if (!signatureIsValid) {
+        nonBlockingErrors.push(
+          'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
+        );
+      }
+
+      const cached = readTicketCache(code);
+      if (cached) {
+        setTicket({ ...cached, signature });
+        const validityError = await checkTicketValidity(code);
+        if (validityError) {
+          nonBlockingErrors.push(validityError);
+        }
+        setErrorMessages(nonBlockingErrors);
+        setLoading(false);
+        return;
+      }
+
+      const [ticketTypeRes, relationshipRes, validityError] = await Promise.all(
+        [
+          supabase
+            .from('ticket_types')
+            .select('name')
+            .eq('id', decoded.ticketTypeId)
+            .maybeSingle(),
+          supabase
+            .from('relationships')
+            .select('name')
+            .eq('id', decoded.relationshipId)
+            .maybeSingle(),
+          checkTicketValidity(code),
+        ],
+      );
+
+      if (ticketTypeRes.error || relationshipRes.error) {
+        setErrorMessages(['チケット情報の取得に失敗しました。']);
+        setLoading(false);
+        return;
+      }
+
+      if (validityError) {
+        nonBlockingErrors.push(validityError);
       }
 
       const isAdmissionOnly =
@@ -213,7 +326,7 @@ const Ticket = () => {
         ]);
 
         if (performanceRes.error || scheduleRes.error || configRes.error) {
-          setErrorMessage('チケット情報の取得に失敗しました。');
+          setErrorMessages(['チケット情報の取得に失敗しました。']);
           setLoading(false);
           return;
         }
@@ -251,7 +364,7 @@ const Ticket = () => {
           : '-';
       }
 
-      setTicket({
+      const resolvedTicket: TicketDisplay = {
         ...decoded,
         code,
         signature,
@@ -263,12 +376,15 @@ const Ticket = () => {
         scheduleEndTime,
         ticketTypeLabel: ticketTypeRes.data?.name ?? '-',
         relationshipName: relationshipRes.data?.name ?? '-',
-      });
+      };
+      setTicket(resolvedTicket);
+      writeTicketCache(code, resolvedTicket);
+      setErrorMessages(nonBlockingErrors);
       setLoading(false);
     };
 
     void loadTicket();
-  }, [code, signature, config.date]);
+  }, [code, signature, config.date, token]);
 
   const ticketUrl = `https://${config.site_url}/t/${token}`;
 
@@ -280,8 +396,8 @@ const Ticket = () => {
       </Alert>
       {loading ? (
         <p>読み込み中...</p>
-      ) : errorMessage || !ticket ? (
-        <p>{errorMessage ?? 'チケットが見つかりません。'}</p>
+      ) : !ticket ? (
+        <p>チケットが見つかりません。</p>
       ) : (
         <div className={styles.ticketContainer}>
           <h2 className={styles.ticketHeader}>
@@ -298,6 +414,20 @@ const Ticket = () => {
             <p className={styles.performanceTitle}>
               「{ticket.performanceTitle}」
             </p>
+          )}
+
+          {errorMessages.length > 0 && (
+            <Alert type='error'>
+              {errorMessages.length === 1 ? (
+                <p>{errorMessages[0]}</p>
+              ) : (
+                <ul>
+                  {errorMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              )}
+            </Alert>
           )}
 
           <div className={styles.qrSection}>

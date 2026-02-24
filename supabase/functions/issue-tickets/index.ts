@@ -1,12 +1,18 @@
-import 'jsr:@supabase/functions-js@2.90.1/edge-runtime.d.ts';
+/* eslint-disable no-console */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import '@supabase/functions-js/edge-runtime.d.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
+import { createClient } from '@supabase/supabase-js';
+
+import { corsHeaders } from '@shared/cors.ts';
+import { getEnv } from '@shared/getEnv.ts';
+import HttpError from '@shared/HttpError.ts';
+import type { TicketData } from '@shared/generateTicketCode.ts';
+import {
+  encodeBase58,
+  generateTicketCode,
+  signCode,
+} from '@shared/generateTicketCode.ts';
 
 type IssueTicketsRequest = {
   ticketTypeId: number;
@@ -15,68 +21,16 @@ type IssueTicketsRequest = {
   scheduleId: number;
   issueCount: number;
 };
-const ADMISSION_ONLY_TICKET_TYPE_ID = 4;
-
-class HttpError extends Error {
-  status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-const getEnv = (key: string): string => {
-  const value = Deno.env.get(key);
-
-  if (!value) {
-    throw new Error(`${key} is not configured`);
-  }
-
-  return value;
-};
-
-const getBase58Alphabet = (): string => {
-  const alphabet = Deno.env.get('BASE58_ALPHABET');
-
-  if (!alphabet) {
-    throw new HttpError(500, 'BASE58_ALPHABET is not configured');
-  }
-
-  if (alphabet.length !== 58) {
-    throw new HttpError(500, 'BASE58_ALPHABET must contain 58 characters');
-  }
-
-  return alphabet;
-};
-
-const toBase58FromBigInt = (value: bigint, alphabet: string): string => {
-  if (value < 0n) {
-    throw new Error('Negative values are not supported for base58 encoding');
-  }
-
-  if (value === 0n) {
-    return alphabet[0];
-  }
-
-  let current = value;
-  let encoded = '';
-
-  while (current > 0n) {
-    const remainder = Number(current % 58n);
-    encoded = `${alphabet[remainder]}${encoded}`;
-    current /= 58n;
-  }
-
-  return encoded;
-};
 
 const padNumber = (value: number, length: number): string =>
   String(value).padStart(length, '0');
 
 const parseRequestBody = (body: unknown): IssueTicketsRequest => {
   if (!body || typeof body !== 'object') {
-    throw new HttpError(400, 'Invalid request body');
+    throw new HttpError(
+      400,
+      'リクエストボディが正しくありません。システム担当にお問い合わせください。',
+    );
   }
 
   const parsed = body as Record<string, unknown>;
@@ -94,30 +48,16 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     !Number.isInteger(scheduleId) ||
     !Number.isInteger(issueCount)
   ) {
-    throw new HttpError(400, 'Request includes non-integer fields');
-  }
-
-  if (
-    ticketTypeId < 1 ||
-    relationshipId < 1 ||
-    issueCount < 1
-  ) {
-    throw new HttpError(400, 'Request includes invalid numeric ranges');
-  }
-
-  const isAdmissionOnly = ticketTypeId === ADMISSION_ONLY_TICKET_TYPE_ID;
-
-  if (isAdmissionOnly) {
-    if (performanceId !== 0 || scheduleId !== 0) {
-      throw new HttpError(
-        400,
-        'Admission-only ticket requires performanceId=0 and scheduleId=0',
-      );
-    }
-  } else if (performanceId < 1 || scheduleId < 1) {
     throw new HttpError(
       400,
-      'performanceId and scheduleId must be positive for this ticket type',
+      'リクエストボディのフィールドはすべて整数でなければなりません。システム担当にお問い合わせください。',
+    );
+  }
+
+  if (ticketTypeId < 1 || relationshipId < 1 || issueCount < 1) {
+    throw new HttpError(
+      400,
+      'リクエストボディに無効な数値範囲が含まれています。システム担当にお問い合わせください。',
     );
   }
 
@@ -142,70 +82,33 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
   };
 };
 
-const decodeBase64Flexible = (encoded: string): Uint8Array => {
-  const normalized = encoded.trim().replace(/-/g, '+').replace(/_/g, '/');
-  const padLength = (4 - (normalized.length % 4)) % 4;
-  const padded = normalized + '='.repeat(padLength);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
+const validatePerformanceAndSchedule = (
+  body: IssueTicketsRequest,
+  admissionOnlyTicketTypeIds: number[],
+): void => {
+  const admissionOnlySet = new Set(admissionOnlyTicketTypeIds);
+  const isAdmissionOnly = admissionOnlySet.has(body.ticketTypeId);
 
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+  if (isAdmissionOnly) {
+    if (body.performanceId !== 0 || body.scheduleId !== 0) {
+      throw new HttpError(
+        400,
+        'リクエストが間違っています。システム担当にお問い合わせください。Admission-only ticket requires performanceId=0 and scheduleId=0',
+      );
+    }
+    return;
   }
 
-  return bytes;
-};
-
-const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
-  bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-
-const encodeBase64Url = (bytes: Uint8Array): string => {
-  let binary = '';
-
-  for (const value of bytes) {
-    binary += String.fromCharCode(value);
-  }
-
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-};
-
-const signingKeyPromise = (() => {
-  const privateKeyBase64 =
-    Deno.env.get('TICKET_SIGNING_PRIVATE_KEY_PKCS8_BASE64') ??
-    Deno.env.get('TICKET_SIGNING_PRIVATE_KEY_PKCS8_BASE64URL');
-
-  if (!privateKeyBase64) {
-    throw new Error(
-      'TICKET_SIGNING_PRIVATE_KEY_PKCS8_BASE64 is not configured',
+  if (body.performanceId < 1 || body.scheduleId < 1) {
+    throw new HttpError(
+      400,
+      'リクエストが間違っています。システム担当にお問い合わせください。performanceId and scheduleId must be positive for this ticket type',
     );
   }
-
-  const privateKeyBytes = decodeBase64Flexible(privateKeyBase64);
-
-  return crypto.subtle.importKey(
-    'pkcs8',
-    toArrayBuffer(privateKeyBytes),
-    { name: 'Ed25519' },
-    false,
-    ['sign'],
-  );
-})();
-
-const signCode = async (code: string): Promise<string> => {
-  const key = await signingKeyPromise;
-  const payload = new TextEncoder().encode(code);
-  const signature = await crypto.subtle.sign('Ed25519', key, payload);
-
-  return encodeBase64Url(new Uint8Array(signature));
 };
 
 Deno.serve(async (req) => {
+  // CORSプリフライトリクエストへの対応
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -221,36 +124,32 @@ Deno.serve(async (req) => {
     const authorization = req.headers.get('Authorization') ?? '';
 
     if (!authorization.startsWith('Bearer ')) {
-      throw new HttpError(401, 'Missing bearer token');
+      throw new HttpError(
+        401,
+        '認証情報がありません。Bearerトークンを含むAuthorizationヘッダーが必要です。',
+      );
     }
 
     const accessToken = authorization.slice('Bearer '.length).trim();
 
     if (!accessToken) {
-      throw new HttpError(401, 'Missing access token');
+      throw new HttpError(401, '認証情報がありません。');
     }
 
     const body = parseRequestBody(await req.json());
-    const base58Alphabet = getBase58Alphabet();
 
     const supabaseUrl = getEnv('SUPABASE_URL');
-    const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY');
-    const serviceRoleKey =
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
-      Deno.env.get('FOR_LINE_SUPABASE_SECRET_KEY');
+    const publishableKey = getEnv('PUBLISHABLE_KEY');
+    const secretKey = getEnv('FOR_ISSUE_TICKETS_SUPABASE_SECRET_KEY');
 
-    if (!serviceRoleKey) {
-      throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
-    }
-
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const authClient = createClient(supabaseUrl, publishableKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
       },
     });
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    const adminClient = createClient(supabaseUrl, secretKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -263,7 +162,10 @@ Deno.serve(async (req) => {
     } = await authClient.auth.getUser(accessToken);
 
     if (authError || !user) {
-      throw new HttpError(401, 'Authentication failed');
+      throw new HttpError(
+        401,
+        'ログイン情報の確認に失敗しました。正しくログインされていますか?',
+      );
     }
 
     const { data: userRow, error: userRowError } = await adminClient
@@ -273,27 +175,61 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (userRowError) {
-      throw new HttpError(500, 'Failed to load user profile');
+      throw new HttpError(
+        500,
+        'ユーザーデータの取得に失敗しました。外苑祭総務にお問い合わせください。',
+      );
     }
 
     if (!userRow || userRow.role !== 'student') {
-      throw new HttpError(403, 'Only students can issue tickets');
+      throw new HttpError(403, '生徒以外はチケットを発行できません。');
     }
 
     const affiliation = Number(userRow.affiliation ?? -1);
 
     if (
       !Number.isInteger(affiliation) ||
-      affiliation < 0 ||
-      affiliation > 9999
+      affiliation < 1000 ||
+      affiliation > 3999
     ) {
-      throw new HttpError(400, 'Invalid affiliation value');
+      throw new HttpError(
+        400,
+        'ユーザーデータの学年クラス番号が不正です。外苑祭総務にお問い合わせください。',
+      );
     }
 
-    const issuedYear = new Date().getUTCFullYear() % 100;
-    const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
-    const basePrefix = toBase58FromBigInt(BigInt(concatenated), base58Alphabet);
+    const { data: admissionOnlyTicketTypes, error: admissionOnlyTypeError } =
+      await adminClient
+        .from('ticket_types')
+        .select('id')
+        .eq('name', '入場専用券');
 
+    if (admissionOnlyTypeError) {
+      throw new HttpError(
+        500,
+        '入場専用券情報の取得に失敗しました。外苑祭総務にお問い合わせください。',
+      );
+    }
+
+    const admissionOnlyTicketTypeIds = (
+      (admissionOnlyTicketTypes ?? []) as Array<{ id: number }>
+    ).map((row) => Number(row.id));
+
+    if (admissionOnlyTicketTypeIds.length === 0) {
+      throw new HttpError(
+        500,
+        "ticket_types に name='入場専用券' のデータがありません。外苑祭総務にお問い合わせください。",
+      );
+    }
+
+    validatePerformanceAndSchedule(body, admissionOnlyTicketTypeIds);
+
+    const issuedYear = new Date().getUTCFullYear() % 100;
+
+    const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
+    const basePrefix = encodeBase58(BigInt(concatenated));
+
+    // 発行枚数をデータベースに登録し、シリアル番号を取得
     const { data: counterData, error: counterError } = await adminClient.rpc(
       'increment_ticket_code_counter',
       {
@@ -302,20 +238,42 @@ Deno.serve(async (req) => {
       },
     );
 
-    if (counterError || counterData === null) {
-      throw new HttpError(500, 'Failed to increment ticket counter');
+    if (counterError?.message.includes('exceeded')) {
+      throw new HttpError(
+        409,
+        '同一種類(公演クラス・回・間柄が同じチケット)のチケット発行可能最大枚数(15枚)を超えています。申し訳ありませんが、公演回を変えて発行してください。',
+      );
     }
 
-    const endSerial = BigInt(counterData as number);
-    const startSerial = endSerial - BigInt(body.issueCount) + 1n;
+    if (counterError || counterData === null) {
+      throw new HttpError(
+        500,
+        'チケットコードのカウンターの更新に失敗しました。外苑祭総務にお問い合わせください。',
+      );
+    }
 
-    const codes = Array.from({ length: body.issueCount }, (_, i) => {
-      const serial = startSerial + BigInt(i);
-      return `${basePrefix}${toBase58FromBigInt(serial, base58Alphabet)}`;
-    });
+    const endSerial = counterData as number;
+    const startSerial = endSerial - body.issueCount + 1;
+
+    const codes = await Promise.all(
+      Array.from({ length: body.issueCount }, (_, i) => {
+        const serial = startSerial + i;
+        const ticketData: TicketData = {
+          affiliation,
+          relationship: body.relationshipId,
+          type: body.ticketTypeId,
+          performance: body.performanceId,
+          schedule: body.scheduleId,
+          year: issuedYear,
+          serial,
+        };
+        return generateTicketCode(ticketData);
+      }),
+    );
 
     const signatures = await Promise.all(codes.map((code) => signCode(code)));
 
+    // 発行されたチケットコードと署名をデータベースに保存
     const { data: issuedTickets, error: issueError } = await adminClient.rpc(
       'issue_class_tickets_with_codes',
       {
@@ -334,6 +292,15 @@ Deno.serve(async (req) => {
       throw new HttpError(409, issueError.message);
     }
 
+    console.log('Issued tickets successfully', {
+      userId: user.id,
+      ticketTypeId: body.ticketTypeId,
+      relationshipId: body.relationshipId,
+      performanceId: body.performanceId,
+      scheduleId: body.scheduleId,
+      issueCount: body.issueCount,
+    });
+
     return new Response(
       JSON.stringify({
         issuedTickets:
@@ -348,6 +315,8 @@ Deno.serve(async (req) => {
     const status = error instanceof HttpError ? error.status : 500;
     const message =
       error instanceof Error ? error.message : 'Unexpected server error';
+
+    console.error('Error processing request:', { error, status, message });
 
     return new Response(JSON.stringify({ error: message }), {
       status,

@@ -389,11 +389,14 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
 
-[functions.hello-world]
-verify_jwt = false
-
 [functions.line-auth]
+enabled = true
 verify_jwt = false
+import_map = "./functions/line-auth/deno.json"
+entrypoint = "./functions/line-auth/index.ts"
 
 [functions.issue-tickets]
+enabled = true
 verify_jwt = false
+import_map = "./functions/issue-tickets/deno.json"
+entrypoint = "./functions/issue-tickets/index.ts"

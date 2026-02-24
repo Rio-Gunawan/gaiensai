@@ -1,12 +1,12 @@
 /* eslint-disable no-console */
 // https://zenn.dev/kota113/articles/79a75dac7236c0 を参照してください。
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
+import '@supabase/functions-js/edge-runtime.d.ts';
+
+import { createClient } from '@supabase/supabase-js';
+
+import { corsHeaders } from '@shared/cors.ts';
+import { getEnv } from '@shared/getEnv.ts';
 
 // JWTペイロードをデコードするヘルパー
 function decodeJwtPayload(token: string) {
@@ -18,19 +18,6 @@ function decodeJwtPayload(token: string) {
   const decoded = atob(payload);
   return JSON.parse(decoded);
 }
-
-/**
- *  envファイルから情報を取得
- * @param key envファイルのkey
- * @returns envファイルから取得し結果
- */
-const getFromEnv = (key: string): string => {
-  const value: string | undefined = Deno.env.get(key);
-  if (value === undefined) {
-    throw new Error(key + 'がenvファイルに設定されていません。');
-  }
-  return value;
-};
 
 Deno.serve(async (req) => {
   // This is needed if you're planning to invoke your function from a browser.
@@ -45,9 +32,9 @@ Deno.serve(async (req) => {
     const tokenParams = new URLSearchParams();
     tokenParams.append('grant_type', 'authorization_code');
     tokenParams.append('code', code);
-    tokenParams.append('redirect_uri', getFromEnv('LINE_REDIRECT_URI'));
-    tokenParams.append('client_id', getFromEnv('LINE_CHANNEL_ID'));
-    tokenParams.append('client_secret', getFromEnv('LINE_CHANNEL_SECRET'));
+    tokenParams.append('redirect_uri', getEnv('LINE_REDIRECT_URI'));
+    tokenParams.append('client_id', getEnv('LINE_CHANNEL_ID'));
+    tokenParams.append('client_secret', getEnv('LINE_CHANNEL_SECRET'));
     const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
       method: 'POST',
       headers: {
@@ -73,8 +60,8 @@ Deno.serve(async (req) => {
 
     // 3. Supabase Adminクライアントでユーザーを検索または作成
     const supabaseAdmin = createClient(
-      getFromEnv('SUPABASE_URL'),
-      getFromEnv('FOR_LINE_SUPABASE_SECRET_KEY'),
+      getEnv('SUPABASE_URL'),
+      getEnv('FOR_LINE_SUPABASE_SECRET_KEY'),
       {
         auth: {
           autoRefreshToken: false,

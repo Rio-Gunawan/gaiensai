@@ -20,6 +20,59 @@ const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
 const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
 
+const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
+  const fallback =
+    error instanceof Error ? error.message : '不明なエラーが発生しました。';
+
+  if (!error || typeof error !== 'object') {
+    return fallback;
+  }
+
+  const context = (error as { context?: unknown }).context;
+
+  if (!context) {
+    return fallback;
+  }
+
+  try {
+    const response =
+      context instanceof Response
+        ? context.clone()
+        : (context as {
+            json?: () => Promise<unknown>;
+            text?: () => Promise<string>;
+          });
+
+    if (typeof response.json === 'function') {
+      const payload = await response.json();
+
+      if (payload && typeof payload === 'object') {
+        const maybeMessage = (
+          payload as { error?: unknown; message?: unknown; msg?: unknown }
+        ).error ??
+          (payload as { message?: unknown }).message ??
+          (payload as { msg?: unknown }).msg;
+
+        if (typeof maybeMessage === 'string' && maybeMessage.length > 0) {
+          return maybeMessage;
+        }
+      }
+    }
+
+    if (typeof response.text === 'function') {
+      const text = await response.text();
+
+      if (text.length > 0) {
+        return text;
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+};
+
 const Issue = () => {
   const [step, setStep] = useState<Step>(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<number>(1);
@@ -288,7 +341,8 @@ const Issue = () => {
     });
 
     if (error) {
-      alert(`発券に失敗しました: ${error.message}`);
+      const detailedMessage = await readFunctionErrorMessage(error);
+      alert(`発券に失敗しました: ${detailedMessage}`);
       setIsIssuing(false);
       return;
     }

@@ -19,6 +19,11 @@
   margin: 1em 0 0 0 ;
 }
 
+.alert ul {
+  padding-left: 1em;
+  margin-bottom: 0;
+}
+
 .error {
   background-color: var(--error-bg-color);
   border-color: var(--error-border-color);

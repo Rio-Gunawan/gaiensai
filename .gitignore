@@ -27,3 +27,7 @@ dist-ssr
 supabase/seed.sql
 
 *.pem
+*.pub
+
+# 自動生成ファイル
+generated/

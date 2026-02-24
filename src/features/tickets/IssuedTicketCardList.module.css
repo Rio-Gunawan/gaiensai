@@ -13,8 +13,14 @@
 
 .issuedGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
+}
+
+@media (max-width: 500px) {
+  .issuedGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .collapsible {
@@ -42,7 +48,7 @@
 
 .ticketCard {
   position: relative;
-  padding: 1.25rem;
+  padding: 2.25rem 1rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--select-border-color);
   background-color: var(--normal-section-bg-color);
@@ -53,7 +59,7 @@
 
 .serialBadge {
   position: absolute;
-  top: 0.8rem;
+  top: 0.7rem;
   right: 0.9rem;
   font-size: 0.8rem;
   font-weight: 800;

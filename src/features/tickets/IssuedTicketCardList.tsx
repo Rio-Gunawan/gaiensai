@@ -31,33 +31,65 @@ const IssuedTicketCardList = ({
 }: IssuedTicketCardListProps) => {
   const [expanded, setExpanded] = useState(false);
   const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(null);
+  const [isCollapsible, setIsCollapsible] = useState(false);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
 
-  const isCollapsible = typeof collapseAt === 'number' && tickets.length > collapseAt;
-  const firstHiddenIndex = typeof collapseAt === 'number' ? collapseAt : 0;
-  const halfVisibleIndex = firstHiddenIndex;
-
   useEffect(() => {
-    if (!isCollapsible || expanded) {
+    if (typeof collapseAt !== 'number') {
+      setIsCollapsible(false);
       setCollapsedMaxHeight(null);
       return;
     }
 
-    const firstCard = cardRefs.current[0];
-    const halfCard = cardRefs.current[halfVisibleIndex];
+    const calculateCollapsedState = () => {
+      const cards = cardRefs.current.filter(
+        (card): card is HTMLElement => card !== null,
+      );
 
-    if (!firstCard || !halfCard) {
-      setCollapsedMaxHeight(null);
-      return;
-    }
+      if (cards.length === 0) {
+        setIsCollapsible(false);
+        setCollapsedMaxHeight(null);
+        return;
+      }
 
-    const maxHeight =
-      halfCard.offsetTop -
-      firstCard.offsetTop +
-      halfCard.offsetHeight / 2;
+      const rowTops = [...new Set(cards.map((card) => card.offsetTop))].sort(
+        (a, b) => a - b,
+      );
 
-    setCollapsedMaxHeight(Math.max(maxHeight, 0));
-  }, [expanded, halfVisibleIndex, isCollapsible, tickets]);
+      const nextCollapsible = rowTops.length > collapseAt;
+      setIsCollapsible(nextCollapsible);
+
+      if (!nextCollapsible || expanded) {
+        setCollapsedMaxHeight(null);
+        return;
+      }
+
+      const firstRowTop = rowTops[0];
+      const firstHiddenRowTop = rowTops[collapseAt];
+      const firstHiddenCard = cards.find(
+        (card) => card.offsetTop === firstHiddenRowTop,
+      );
+
+      if (!firstHiddenCard) {
+        setCollapsedMaxHeight(null);
+        return;
+      }
+
+      const maxHeight =
+        firstHiddenRowTop -
+        firstRowTop +
+        firstHiddenCard.offsetHeight / 2;
+
+      setCollapsedMaxHeight(Math.max(maxHeight, 0));
+    };
+
+    calculateCollapsedState();
+
+    window.addEventListener('resize', calculateCollapsedState);
+    return () => {
+      window.removeEventListener('resize', calculateCollapsedState);
+    };
+  }, [collapseAt, expanded, tickets]);
 
   return (
     <section
@@ -78,12 +110,8 @@ const IssuedTicketCardList = ({
               ? { maxHeight: `${collapsedMaxHeight}px` }
               : undefined
           }
-        >
-          <div
-            className={`${styles.issuedGrid} ${
-              isCollapsible && !expanded ? styles.issuedGridCollapsed : ''
-            }`}
           >
+          <div className={styles.issuedGrid}>
             {tickets.map((ticket, index) => {
               const isAdmissionOnly =
                 ticket.ticketTypeLabel.includes('入場専用券');

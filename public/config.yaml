@@ -40,7 +40,7 @@ max_attendance_number: 42
 # 一日あたりの公演数(基本4) 2026/2/18: この設定は使わないことを検討中
 # performances_per_day: 4
 # 最終更新日(適宜更新してください)
-last_update: 2026-02-17
+last_update: 2026-02-25
 
 # PWA(オフライン&アプリ化)設定
 # プリキャッシュ対象に追加したい public/ 配下のファイル名

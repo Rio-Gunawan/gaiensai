@@ -125,6 +125,8 @@ const html = `<!doctype html>
   <meta name="theme-color" content="#081b47">
   <title>${escapeHtml(siteTitle)}</title>
 
+  <!-- PWAマニフェスト関連のmetaタグ(共通) -->
+  <meta name="mobile-web-app-capable" content="yes">
   <!-- PWAマニフェスト関連のmetaタグ(iOS用) -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />

@@ -13,6 +13,11 @@ import styles from './Dashboard.module.css';
 import { Link } from 'wouter-preact';
 import { IoMdAdd } from 'react-icons/io';
 import PerformancesTable from '../../../features/performances/PerformancesTable';
+import {
+  readCachedTicketCards,
+  writeCachedTicketCards,
+} from './offlineCache';
+import Alert from '../../../components/ui/Alert';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -24,22 +29,54 @@ const Dashboard = ({ userData }: DashboardProps) => {
   >([]);
   const [ticketLoading, setTicketLoading] = useState(true);
   const [ticketError, setTicketError] = useState<string | null>(null);
+  const [ticketNotice, setTicketNotice] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const loadTickets = async () => {
       setTicketLoading(true);
       setTicketError(null);
+      setTicketNotice(null);
 
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      const user = session?.user;
 
-      if (userError || !user) {
+      if (sessionError || !user) {
         setTicketError('ログイン情報の取得に失敗しました。');
         setTicketLoading(false);
         return;
       }
+
+      const fallbackToCachedTickets = () => {
+        const cachedTickets = readCachedTicketCards(user.id);
+        if (cachedTickets) {
+          setTicketCards(cachedTickets);
+          setTicketNotice(
+            'オフラインのため、前回読み込んだ発券済みチケットを表示しています。',
+          );
+          setTicketError(null);
+          setTicketLoading(false);
+          setIsOnline(false);
+          return true;
+        }
+        return false;
+      };
 
       const [
         { data: ticketsData, error: ticketsError },
@@ -57,6 +94,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
       ]);
 
       if (ticketsError || ticketTypesError || relationshipsError) {
+        if (fallbackToCachedTickets()) {
+          return;
+        }
         setTicketError('チケット情報の取得に失敗しました。');
         setTicketLoading(false);
         return;
@@ -85,6 +125,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
           .in('id', ticketIds);
 
       if (classTicketsError) {
+        if (fallbackToCachedTickets()) {
+          return;
+        }
         setTicketError('チケット詳細の取得に失敗しました。');
         setTicketLoading(false);
         return;
@@ -175,6 +218,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
       });
 
       setTicketCards(cards);
+      writeCachedTicketCards(user.id, cards);
       setTicketLoading(false);
     };
 
@@ -202,11 +246,27 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <h2 className={sharedStyles.normalH2}>
           {userData.affiliation} {userData.name} 様
         </h2>
-        <Link to='/students/issue' class={styles.buttonLink}>
+        <Link
+          to='/students/issue'
+          class={`${styles.buttonLink} ${!isOnline ? styles.buttonLinkDisabled : ''}`}
+          aria-disabled={!isOnline}
+          tabIndex={!isOnline ? -1 : 0}
+          onClick={(event) => {
+            if (!isOnline) {
+              event.preventDefault();
+            }
+          }}
+        >
           <IoMdAdd />
           新規チケット発行
         </Link>
+        {!isOnline && (
+          <p className={styles.issueOfflineNote}>
+            オフライン中は新規チケットを発行できません。
+          </p>
+        )}
       </section>
+      {ticketNotice && <Alert type='info'><p>{ticketNotice}</p></Alert>}
       <NormalSection>
         <h2>発券状況</h2>
         {ticketLoading ? (
@@ -214,31 +274,24 @@ const Dashboard = ({ userData }: DashboardProps) => {
         ) : ticketError ? (
           <p>{ticketError}</p>
         ) : ticketCards.length > 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              gap: '2rem',
-              textAlign: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+          <div className={styles.ticketSummary}>
+            <div className={styles.ticketSummaryItem}>
+              <p className={styles.ticketSummaryNumber}>
                 {ticketCards.length}
               </p>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>合計発券枚数</p>
+              <p className={styles.ticketSummaryLabel}>合計発券枚数</p>
             </div>
-            <div>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+            <div className={styles.ticketSummaryItem}>
+              <p className={styles.ticketSummaryNumber}>
                 {ownUseTickets.length}
               </p>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>自分用</p>
+              <p className={styles.ticketSummaryLabel}>自分用</p>
             </div>
-            <div>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+            <div className={styles.ticketSummaryItem}>
+              <p className={styles.ticketSummaryNumber}>
                 {guestTickets.length}
               </p>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>招待者用</p>
+              <p className={styles.ticketSummaryLabel}>招待者用</p>
             </div>
           </div>
         ) : (

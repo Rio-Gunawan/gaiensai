@@ -17,10 +17,6 @@
   gap: 1rem;
 }
 
-.issuedGridCollapsed {
-  grid-template-columns: 1fr;
-}
-
 .collapsible {
   position: relative;
   overflow: hidden;

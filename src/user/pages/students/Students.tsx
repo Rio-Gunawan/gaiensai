@@ -10,6 +10,10 @@ import Dashboard from './Dashboard';
 import InitialRegistration from './InitialRegistration';
 import Issue from './Issue';
 import IssueResult from './IssueResult';
+import {
+  readCachedStudentProfile,
+  writeCachedStudentProfile,
+} from './offlineCache';
 
 import styles from '../../../styles/sub-pages.module.css';
 
@@ -19,6 +23,14 @@ const Students = () => {
   const [location] = useLocation();
   const [session, setSession] = useState<AuthState>(undefined);
   const [userData, setUserData] = useState<UserData | undefined>(undefined);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const formatErrorMessage = (error: unknown) => {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error);
+  };
 
   const loadUserProfile = async (userId: string) => {
     const { data, error }: { data: UserData; error: unknown } = await supabase
@@ -33,6 +45,7 @@ const Students = () => {
   useEffect(() => {
     const loadProfile = async (nextSession: Session) => {
       setSession(nextSession);
+      setProfileError(null);
 
       if (!nextSession) {
         setUserData(null);
@@ -43,14 +56,20 @@ const Students = () => {
       const { data, error } = await loadUserProfile(nextSession.user.id);
 
       if (error) {
-        alert('ユーザープロフィールを取得するのに失敗しました。:' + error);
-        setSession(null);
-        setUserData(null);
-        navigate('/students/login');
+        const cachedProfile = readCachedStudentProfile(nextSession.user.id);
+        if (cachedProfile) {
+          setUserData(cachedProfile);
+          return;
+        }
+
+        setProfileError(formatErrorMessage(error));
         return;
       }
 
       setUserData(data);
+      if (data) {
+        writeCachedStudentProfile(nextSession.user.id, data);
+      }
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -77,6 +96,7 @@ const Students = () => {
 
       if (!error && data) {
         setUserData(data);
+        writeCachedStudentProfile(session.user.id, data);
         return true;
       }
 
@@ -97,6 +117,10 @@ const Students = () => {
       return;
     }
 
+    if (profileError) {
+      return;
+    }
+
     if (!userData && location !== '/students/initial-registration') {
       navigate('/students/initial-registration');
       return;
@@ -110,9 +134,34 @@ const Students = () => {
     ) {
       navigate('/students/dashboard');
     }
-  }, [location, session, userData]);
+  }, [location, profileError, session, userData]);
 
-  if (session === undefined || (session && userData === undefined)) {
+  const retryLoadProfile = async () => {
+    if (!session) {
+      return;
+    }
+
+    setProfileError(null);
+    const { data, error } = await loadUserProfile(session.user.id);
+
+    if (error) {
+      const cachedProfile = readCachedStudentProfile(session.user.id);
+      if (cachedProfile) {
+        setUserData(cachedProfile);
+        return;
+      }
+
+      setProfileError(formatErrorMessage(error));
+      return;
+    }
+
+    setUserData(data);
+    if (data) {
+      writeCachedStudentProfile(session.user.id, data);
+    }
+  };
+
+  if (session === undefined || (session && userData === undefined && !profileError)) {
     return (
       <section>
         <h1 style={styles.pageTitle}>生徒用ページ</h1>
@@ -130,6 +179,21 @@ const Students = () => {
 
   if (!session) {
     return null;
+  }
+
+  if (profileError && userData === undefined) {
+    return (
+      <section>
+        <h1 style={styles.pageTitle}>生徒用ページ</h1>
+        <h2>プロフィールを読み込めませんでした</h2>
+        <p>オフライン状態、または通信エラーの可能性があります。</p>
+        <p>通信状態を確認して、再読み込みをお試しください。</p>
+        <button type='button' onClick={() => void retryLoadProfile()}>
+          再試行
+        </button>
+        <p>詳細: {profileError}</p>
+      </section>
+    );
   }
 
   if (!userData) {

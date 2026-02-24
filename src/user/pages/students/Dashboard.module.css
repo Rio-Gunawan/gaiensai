@@ -27,7 +27,41 @@
   }
 }
 
+.buttonLinkDisabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.issueOfflineNote {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 .logoutBtn {
   display: block;
   margin: 0.5rem auto;
+}
+
+.ticketSummary {
+  display: flex;
+  gap: 2rem;
+  text-align: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ticketSummaryItem {
+  margin: 0 !important;
+}
+
+.ticketSummaryNumber {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0 !important;
+}
+
+.ticketSummaryLabel {
+  margin: 0 !important;
+  font-size: 0.9rem;
 }

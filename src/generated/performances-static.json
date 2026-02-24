@@ -1,0 +1,234 @@
+{
+  "generatedAt": "2026-02-24T12:41:00.099Z",
+  "performances": [
+    {
+      "id": 1,
+      "class_name": "1-1",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 2,
+      "class_name": "1-2",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 3,
+      "class_name": "1-3",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 4,
+      "class_name": "1-4",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 5,
+      "class_name": "1-5",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 6,
+      "class_name": "1-6",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 7,
+      "class_name": "1-7",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 8,
+      "class_name": "2-1",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 9,
+      "class_name": "2-2",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 10,
+      "class_name": "2-3",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 11,
+      "class_name": "2-4",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 12,
+      "class_name": "2-5",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 13,
+      "class_name": "2-6",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 14,
+      "class_name": "2-7",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 15,
+      "class_name": "3-1",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 16,
+      "class_name": "3-2",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 17,
+      "class_name": "3-3",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 18,
+      "class_name": "3-4",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 19,
+      "class_name": "3-5",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 20,
+      "class_name": "3-6",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    },
+    {
+      "id": 21,
+      "class_name": "3-7",
+      "total_capacity": 50,
+      "junior_capacity": 10
+    }
+  ],
+  "schedules": [
+    {
+      "id": 1,
+      "round_name": "1日目第1公演",
+      "start_at": "2025-08-30T00:00:00+00:00"
+    },
+    {
+      "id": 2,
+      "round_name": "1日目第2公演",
+      "start_at": "2025-08-30T01:30:00+00:00"
+    },
+    {
+      "id": 3,
+      "round_name": "1日目第3公演",
+      "start_at": "2025-08-30T03:30:00+00:00"
+    },
+    {
+      "id": 4,
+      "round_name": "1日目第4公演",
+      "start_at": "2025-08-30T05:00:00+00:00"
+    },
+    {
+      "id": 5,
+      "round_name": "2日目第1公演",
+      "start_at": "2025-08-31T00:00:00+00:00"
+    },
+    {
+      "id": 6,
+      "round_name": "2日目第2公演",
+      "start_at": "2025-08-31T01:30:00+00:00"
+    },
+    {
+      "id": 7,
+      "round_name": "2日目第3公演",
+      "start_at": "2025-08-31T03:30:00+00:00"
+    },
+    {
+      "id": 8,
+      "round_name": "2日目第4公演",
+      "start_at": "2025-08-31T05:00:00+00:00"
+    }
+  ],
+  "ticketTypes": [
+    {
+      "id": 1,
+      "name": "クラス公演(当日)"
+    },
+    {
+      "id": 2,
+      "name": "クラス公演(リハーサル)"
+    },
+    {
+      "id": 3,
+      "name": "部活公演"
+    },
+    {
+      "id": 4,
+      "name": "入場専用券"
+    },
+    {
+      "id": 5,
+      "name": "クラス公演"
+    },
+    {
+      "id": 6,
+      "name": "部活公演"
+    },
+    {
+      "id": 7,
+      "name": "入場専用券"
+    },
+    {
+      "id": 8,
+      "name": "クラス公演"
+    },
+    {
+      "id": 9,
+      "name": "部活公演"
+    }
+  ],
+  "relationships": [
+    {
+      "id": 1,
+      "name": "本人"
+    },
+    {
+      "id": 2,
+      "name": "家族"
+    },
+    {
+      "id": 3,
+      "name": "友人(青高生)"
+    },
+    {
+      "id": 4,
+      "name": "友人(外部)"
+    },
+    {
+      "id": 5,
+      "name": "その他"
+    }
+  ],
+  "showLengthMinutes": 60
+}

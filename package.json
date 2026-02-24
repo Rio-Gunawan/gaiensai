@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host",
     "generate:index": "node scripts/generate-index-from-config.mjs",
-    "build": "npm run generate:index && tsc -b && vite build",
+    "generate:performances": "node scripts/generate-performances-static.mjs",
+    "build": "npm run generate:index && npm run generate:performances && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
   },

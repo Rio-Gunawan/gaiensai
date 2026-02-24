@@ -7,6 +7,7 @@ import QRCode from '../../components/ui/QRCode';
 import { useEventConfig } from '../../hooks/useEventConfig';
 import { supabase } from '../../lib/supabase';
 import { decodeTicketCode } from '@ticket-codec';
+import performancesSnapshot from '../../generated/performances-static.json';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -32,6 +33,33 @@ type TicketDisplay = DecodedTicketSeed & {
   ticketTypeLabel: string;
   relationshipName: string;
 };
+
+type SnapshotPerformance = {
+  id: number;
+  class_name: string;
+};
+
+type SnapshotSchedule = {
+  id: number;
+  round_name: string;
+  start_at?: string | null;
+};
+
+type SnapshotNamedMaster = {
+  id: number;
+  name: string;
+};
+
+type TicketSnapshot = {
+  generatedAt: string | null;
+  performances: SnapshotPerformance[];
+  schedules: SnapshotSchedule[];
+  ticketTypes?: SnapshotNamedMaster[];
+  relationships?: SnapshotNamedMaster[];
+  showLengthMinutes?: number | null;
+};
+
+const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 
 const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
 const getTicketCacheKey = (code: string): string =>
@@ -152,7 +180,7 @@ const checkTicketValidity = async (code: string): Promise<string | null> => {
 
   if (error) {
     return `チケットの有効性確認に失敗しました。デバイスがオフラインの場合、または障害が発生している場合は、このエラーが発生する可能性があります。
-    これが正規のQRコードであれば、そのままご入場いただけます。オンラインでこのエラーが表示される場合は、外苑祭総務にお問い合わせください。`;
+    これが正規で未使用のQRコードであれば、そのままご入場いただけます。不明点がありましたら、お気軽に外苑祭総務にお問い合わせください。`;
   }
 
   const status = (data as { status?: string } | null)?.status;
@@ -199,7 +227,24 @@ const Ticket = () => {
   const { config } = useEventConfig();
   const params = useParams();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
-  const [ticket, setTicket] = useState<TicketDisplay | null>(null);
+  const [ticket, setTicket] = useState<TicketDisplay>({
+    code: '',
+    signature: '',
+    affiliation: '-',
+    ticketTypeId: 0,
+    relationshipId: 0,
+    performanceId: 0,
+    scheduleId: 0,
+    year: '',
+    performanceName: '-',
+    performanceTitle: null,
+    scheduleName: '-',
+    scheduleDate: '-',
+    scheduleTime: '',
+    scheduleEndTime: '',
+    ticketTypeLabel: '-',
+    relationshipName: '-',
+  });
   const [loading, setLoading] = useState(true);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
@@ -260,27 +305,7 @@ const Ticket = () => {
         return;
       }
 
-      const [ticketTypeRes, relationshipRes, validityError] = await Promise.all(
-        [
-          supabase
-            .from('ticket_types')
-            .select('name')
-            .eq('id', decoded.ticketTypeId)
-            .maybeSingle(),
-          supabase
-            .from('relationships')
-            .select('name')
-            .eq('id', decoded.relationshipId)
-            .maybeSingle(),
-          checkTicketValidity(code),
-        ],
-      );
-
-      if (ticketTypeRes.error || relationshipRes.error) {
-        setErrorMessages(['チケット情報の取得に失敗しました。']);
-        setLoading(false);
-        return;
-      }
+      const validityError = await checkTicketValidity(code);
 
       if (validityError) {
         nonBlockingErrors.push(validityError);
@@ -289,12 +314,27 @@ const Ticket = () => {
       const isAdmissionOnly =
         decoded.performanceId === 0 && decoded.scheduleId === 0;
 
+      const snapshotPerformance = ticketSnapshot.performances.find(
+        (performance) => performance.id === decoded.performanceId,
+      );
+      const snapshotSchedule = ticketSnapshot.schedules.find(
+        (schedule) => schedule.id === decoded.scheduleId,
+      );
+      const snapshotTicketType = (ticketSnapshot.ticketTypes ?? []).find(
+        (ticketType) => ticketType.id === decoded.ticketTypeId,
+      );
+      const snapshotRelationship = (ticketSnapshot.relationships ?? []).find(
+        (relationship) => relationship.id === decoded.relationshipId,
+      );
+
       let performanceName = '-';
       let performanceTitle: string | null = null;
       let scheduleName = '-';
       let scheduleDate = '-';
-      let scheduleTime = '-';
-      let scheduleEndTime = '-';
+      let scheduleTime = '';
+      let scheduleEndTime = '';
+      let ticketTypeLabel = snapshotTicketType?.name ?? '-';
+      let relationshipName = snapshotRelationship?.name ?? '-';
 
       if (isAdmissionOnly) {
         performanceName = '入場専用券';
@@ -306,43 +346,17 @@ const Ticket = () => {
         scheduleTime = '';
         scheduleEndTime = '';
       } else {
-        const [performanceRes, scheduleRes, configRes] = await Promise.all([
-          supabase
-            .from('class_performances')
-            .select('class_name, title')
-            .eq('id', decoded.performanceId)
-            .maybeSingle(),
-          supabase
-            .from('performances_schedule')
-            .select('round_name, start_at')
-            .eq('id', decoded.scheduleId)
-            .maybeSingle(),
-          supabase
-            .from('configs')
-            .select('show_length')
-            .order('id', { ascending: true })
-            .limit(1)
-            .maybeSingle(),
-        ]);
-
-        if (performanceRes.error || scheduleRes.error || configRes.error) {
-          setErrorMessages(['チケット情報の取得に失敗しました。']);
-          setLoading(false);
-          return;
-        }
-
-        const startAt = scheduleRes.data?.start_at
-          ? new Date(scheduleRes.data.start_at)
+        const startAt = snapshotSchedule?.start_at
+          ? new Date(snapshotSchedule.start_at)
           : null;
-        const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
+        const showLengthMinutes = Number(ticketSnapshot.showLengthMinutes ?? 0);
         const endAt =
           startAt && Number.isFinite(showLengthMinutes)
             ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
             : null;
 
-        performanceName = performanceRes.data?.class_name ?? '-';
-        performanceTitle = performanceRes.data?.title ?? null;
-        scheduleName = scheduleRes.data?.round_name ?? '-';
+        performanceName = snapshotPerformance?.class_name ?? '-';
+        scheduleName = snapshotSchedule?.round_name ?? '-';
         scheduleTime = startAt
           ? startAt.toLocaleTimeString('ja-JP', {
               hour: '2-digit',
@@ -364,6 +378,139 @@ const Ticket = () => {
           : '-';
       }
 
+      let usedSnapshotFallback = false;
+
+      try {
+        if (isAdmissionOnly) {
+          const [ticketTypeRes, relationshipRes] = await Promise.all([
+            supabase
+              .from('ticket_types')
+              .select('name')
+              .eq('id', decoded.ticketTypeId)
+              .maybeSingle(),
+            supabase
+              .from('relationships')
+              .select('name')
+              .eq('id', decoded.relationshipId)
+              .maybeSingle(),
+          ]);
+
+          if (
+            ticketTypeRes.error ||
+            relationshipRes.error ||
+            !ticketTypeRes.data ||
+            !relationshipRes.data
+          ) {
+            throw new Error('failed_to_fetch_ticket_master');
+          }
+
+          ticketTypeLabel = ticketTypeRes.data.name ?? '-';
+          relationshipName = relationshipRes.data.name ?? '-';
+        } else {
+          const [
+            ticketTypeRes,
+            relationshipRes,
+            performanceRes,
+            scheduleRes,
+            configRes,
+          ] = await Promise.all([
+            supabase
+              .from('ticket_types')
+              .select('name')
+              .eq('id', decoded.ticketTypeId)
+              .maybeSingle(),
+            supabase
+              .from('relationships')
+              .select('name')
+              .eq('id', decoded.relationshipId)
+              .maybeSingle(),
+            supabase
+              .from('class_performances')
+              .select('class_name, title')
+              .eq('id', decoded.performanceId)
+              .maybeSingle(),
+            supabase
+              .from('performances_schedule')
+              .select('round_name, start_at')
+              .eq('id', decoded.scheduleId)
+              .maybeSingle(),
+            supabase
+              .from('configs')
+              .select('show_length')
+              .order('id', { ascending: true })
+              .limit(1)
+              .maybeSingle(),
+          ]);
+
+          if (
+            ticketTypeRes.error ||
+            relationshipRes.error ||
+            performanceRes.error ||
+            scheduleRes.error ||
+            configRes.error ||
+            !ticketTypeRes.data ||
+            !relationshipRes.data ||
+            !performanceRes.data ||
+            !scheduleRes.data
+          ) {
+            throw new Error('failed_to_fetch_ticket_display_data');
+          }
+
+          ticketTypeLabel = ticketTypeRes.data.name ?? '-';
+          relationshipName = relationshipRes.data.name ?? '-';
+          performanceName = performanceRes.data.class_name ?? '-';
+          performanceTitle = performanceRes.data.title ?? null;
+          scheduleName = scheduleRes.data.round_name ?? '-';
+
+          const startAt = scheduleRes.data.start_at
+            ? new Date(scheduleRes.data.start_at)
+            : null;
+          const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
+          const endAt =
+            startAt && Number.isFinite(showLengthMinutes)
+              ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+              : null;
+
+          scheduleTime = startAt
+            ? startAt.toLocaleTimeString('ja-JP', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '-';
+          scheduleEndTime = endAt
+            ? endAt.toLocaleTimeString('ja-JP', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '-';
+          scheduleDate = startAt
+            ? startAt.toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+              })
+            : '-';
+        }
+      } catch {
+        usedSnapshotFallback = true;
+        nonBlockingErrors.push(
+          'チケット詳細の取得に失敗したため、保存済みデータを表示しています。',
+        );
+      }
+
+      if (usedSnapshotFallback) {
+        if (!isAdmissionOnly && (!snapshotPerformance || !snapshotSchedule)) {
+          nonBlockingErrors.push(
+            '一部の公演情報を最新データから解決できなかったため、表示内容に不足がある可能性があります。',
+          );
+        }
+        if (!snapshotTicketType || !snapshotRelationship) {
+          nonBlockingErrors.push(
+            '券種または間柄マスタを取得できなかったため、一部項目が「-」表示になる場合があります。',
+          );
+        }
+      }
+
       const resolvedTicket: TicketDisplay = {
         ...decoded,
         code,
@@ -374,11 +521,13 @@ const Ticket = () => {
         scheduleDate,
         scheduleTime,
         scheduleEndTime,
-        ticketTypeLabel: ticketTypeRes.data?.name ?? '-',
-        relationshipName: relationshipRes.data?.name ?? '-',
+        ticketTypeLabel,
+        relationshipName,
       };
       setTicket(resolvedTicket);
-      writeTicketCache(code, resolvedTicket);
+      if (!usedSnapshotFallback) {
+        writeTicketCache(code, resolvedTicket);
+      }
       setErrorMessages(nonBlockingErrors);
       setLoading(false);
     };
@@ -394,102 +543,92 @@ const Ticket = () => {
       <Alert type='warning'>
         <p>必ずスクリーンショットで保存してください。</p>
       </Alert>
-      {loading ? (
-        <p>読み込み中...</p>
-      ) : !ticket ? (
-        <p>チケットが見つかりません。</p>
-      ) : (
-        <div className={styles.ticketContainer}>
-          <h2 className={styles.ticketHeader}>
-            <span className={styles.performanceName}>
-              {ticket.performanceName}
+      {loading && <p>読み込み中...</p>}
+      <div className={styles.ticketContainer}>
+        <h2 className={styles.ticketHeader}>
+          <span className={styles.performanceName}>
+            {ticket.performanceName}
+          </span>
+          {ticket.scheduleName && (
+            <span className={styles.performanceRound}>
+              {ticket.scheduleName}
             </span>
-            {ticket.scheduleName && (
-              <span className={styles.performanceRound}>
-                {ticket.scheduleName}
-              </span>
+          )}
+        </h2>
+        {ticket.performanceTitle && (
+          <p className={styles.performanceTitle}>「{ticket.performanceTitle}」</p>
+        )}
+        {errorMessages.length > 0 && (
+          <Alert type='error'>
+            {errorMessages.length === 1 ? (
+              <p>{errorMessages[0]}</p>
+            ) : (
+              <ul>
+                {errorMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
             )}
-          </h2>
-          {ticket.performanceTitle && (
-            <p className={styles.performanceTitle}>
-              「{ticket.performanceTitle}」
-            </p>
-          )}
+          </Alert>
+        )}
 
-          {errorMessages.length > 0 && (
-            <Alert type='error'>
-              {errorMessages.length === 1 ? (
-                <p>{errorMessages[0]}</p>
-              ) : (
-                <ul>
-                  {errorMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
+        <div className={styles.qrSection}>
+          <QRCode value={token} size={Math.min(window.innerWidth * 0.8, 350)} />
+          <p className={styles.ticketCode}>{code}</p>
+        </div>
+
+        <div className={styles.ticketDetails}>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>日時</span>
+            <span className={styles.detailValue}>
+              {ticket.scheduleDate}
+              {ticket.scheduleTime && ticket.scheduleEndTime && (
+                <>
+                  <br />
+                  {ticket.scheduleTime} - {ticket.scheduleEndTime}
+                </>
               )}
-            </Alert>
-          )}
-
-          <div className={styles.qrSection}>
-            <QRCode
-              value={token}
-              size={Math.min(window.innerWidth * 0.8, 350)}
-            />
-            <p className={styles.ticketCode}>{ticket.code}</p>
+            </span>
           </div>
-
-          <div className={styles.ticketDetails}>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>日時</span>
-              <span className={styles.detailValue}>
-                {ticket.scheduleDate}
-                {ticket.scheduleTime && ticket.scheduleEndTime && (
-                  <>
-                    <br />
-                    {ticket.scheduleTime} - {ticket.scheduleEndTime}
-                  </>
-                )}
-              </span>
-            </div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>券種</span>
-              <span className={styles.detailValue}>
-                {ticket.ticketTypeLabel}
-              </span>
-            </div>
-            <div className={styles.detailRow}>
-              <span className={styles.detailLabel}>発行</span>
-              <span className={styles.detailValue}>
-                {ticket.affiliation} / {ticket.relationshipName}
-              </span>
-            </div>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>券種</span>
+            <span className={styles.detailValue}>{ticket.ticketTypeLabel}</span>
           </div>
-
-          <div className={styles.actionSection}>
-            <p className={styles.urlContainer}>
-              <a href={`/t/${token}`}>{ticketUrl}</a>
-            </p>
-            <button
-              className={styles.copyButton}
-              onClick={async () => {
-                await navigator.clipboard.writeText(ticketUrl);
-                setShowCopySucceed(true);
-                setTimeout(() => {
-                  setShowCopySucceed(false);
-                }, 2000);
-              }}
-            >
-              チケットURLをコピー
-            </button>
-            <p
-              className={styles.copySucceed}
-              style={{ opacity: showCopySucceed ? 1 : 0 }}
-            >
-              コピーしました
-            </p>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>発行者</span>
+            <span className={styles.detailValue}>{ticket.affiliation}</span>
+          </div>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>間柄</span>
+            <span className={styles.detailValue}>{ticket.relationshipName}</span>
           </div>
         </div>
-      )}
+
+        <div className={styles.actionSection}>
+          <p className={styles.urlContainer}>
+            <a href={`/t/${token}`}>{ticketUrl}</a>
+          </p>
+          <button
+            className={styles.copyButton}
+            onClick={async () => {
+              await navigator.clipboard.writeText(ticketUrl);
+              setShowCopySucceed(true);
+              setTimeout(() => {
+                setShowCopySucceed(false);
+              }, 2000);
+            }}
+          >
+            チケットURLをコピー
+          </button>
+          <p
+            className={styles.copySucceed}
+            style={{ opacity: showCopySucceed ? 1 : 0 }}
+          >
+            コピーしました
+          </p>
+        </div>
+      </div>
+
       <section>
         <h3>注意事項</h3>
         <ul className={styles.notes}>

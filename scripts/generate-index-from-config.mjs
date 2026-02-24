@@ -125,6 +125,11 @@ const html = `<!doctype html>
   <meta name="theme-color" content="#081b47">
   <title>${escapeHtml(siteTitle)}</title>
 
+  <!-- PWAマニフェスト関連のmetaタグ(iOS用) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="${escapeHtml(siteTitle)}" />
+
   <meta property="og:site_name" content="${escapeHtml(siteTitle)}" />
   <meta property="og:title" content="${escapeHtml(siteTitle)}" />
   <meta property="og:type" content="website" />

@@ -42,6 +42,19 @@ max_attendance_number: 42
 # 最終更新日(適宜更新してください)
 last_update: 2026-02-17
 
+# PWA(オフライン&アプリ化)設定
+# プリキャッシュ対象に追加したい public/ 配下のファイル名
+pwa_include_assets:
+  - favicon.ico
+  - apple-touch-icon.png
+  - favicon.svg
+# PWAマニフェスト設定
+pwa_manifest_name: 外苑祭2025 公式サイト
+pwa_manifest_short_name: 外苑祭
+# テーマカラーと背景色は、ブラウザのUIや、ホーム画面に追加したときの背景色などに使われます。現在は青にしていますが、気分で変えてください。
+pwa_manifest_theme_color: '#081b47'
+pwa_manifest_background_color: '#081b47'
+pwa_manifest_display: standalone
 # コピーライトの年号は自動更新です。
 
 # 次のステップ:

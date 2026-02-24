@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import { createClient } from '@supabase/supabase-js';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 // eslint-disable-next-line no-undef
 const rootDir = process.cwd();
@@ -119,6 +119,7 @@ const buildSnapshot = async () => {
 
 try {
   const snapshot = await buildSnapshot();
+  mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
   console.log(`Generated ${outputPath}`);
 } catch (error) {

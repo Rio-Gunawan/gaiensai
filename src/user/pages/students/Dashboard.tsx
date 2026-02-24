@@ -19,7 +19,9 @@ type DashboardProps = {
 };
 
 const Dashboard = ({ userData }: DashboardProps) => {
-  const [ticketCards, setTicketCards] = useState<(TicketCardItem & { relationshipId: number })[]>([]);
+  const [ticketCards, setTicketCards] = useState<
+    (TicketCardItem & { relationshipId: number })[]
+  >([]);
   const [ticketLoading, setTicketLoading] = useState(true);
   const [ticketError, setTicketError] = useState<string | null>(null);
 
@@ -60,8 +62,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         return;
       }
 
-      const tickets = (ticketsData ??
-        []) as Array<{
+      const tickets = (ticketsData ?? []) as Array<{
         id: string;
         code: string;
         signature: string;
@@ -77,10 +78,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
       }
 
       const ticketIds = tickets.map((ticket) => ticket.id);
-      const { data: classTicketsData, error: classTicketsError } = await supabase
-        .from('class_tickets')
-        .select('id, class_id, round_id')
-        .in('id', ticketIds);
+      const { data: classTicketsData, error: classTicketsError } =
+        await supabase
+          .from('class_tickets')
+          .select('id, class_id, round_id')
+          .in('id', ticketIds);
 
       if (classTicketsError) {
         setTicketError('チケット詳細の取得に失敗しました。');
@@ -88,30 +90,38 @@ const Dashboard = ({ userData }: DashboardProps) => {
         return;
       }
 
-      const classTickets = (classTicketsData ??
-        []) as Array<{ id: string; class_id: number; round_id: number }>;
+      const classTickets = (classTicketsData ?? []) as Array<{
+        id: string;
+        class_id: number;
+        round_id: number;
+      }>;
       const classIds = [...new Set(classTickets.map((item) => item.class_id))];
       const roundIds = [...new Set(classTickets.map((item) => item.round_id))];
 
-      const [{ data: performanceData }, { data: scheduleData }] = await Promise.all([
-        classIds.length > 0
-          ? supabase
-              .from('class_performances')
-              .select('id, class_name, title')
-              .in('id', classIds)
-          : Promise.resolve({ data: [], error: null }),
-        roundIds.length > 0
-          ? supabase
-              .from('performances_schedule')
-              .select('id, round_name')
-              .in('id', roundIds)
-          : Promise.resolve({ data: [], error: null }),
-      ]);
+      const [{ data: performanceData }, { data: scheduleData }] =
+        await Promise.all([
+          classIds.length > 0
+            ? supabase
+                .from('class_performances')
+                .select('id, class_name, title')
+                .in('id', classIds)
+            : Promise.resolve({ data: [], error: null }),
+          roundIds.length > 0
+            ? supabase
+                .from('performances_schedule')
+                .select('id, round_name')
+                .in('id', roundIds)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
 
       const performanceMap = new Map(
-        ((performanceData ?? []) as Array<{ id: number; class_name: string; title: string | null }>).map(
-          (performance) => [performance.id, performance],
-        ),
+        (
+          (performanceData ?? []) as Array<{
+            id: number;
+            class_name: string;
+            title: string | null;
+          }>
+        ).map((performance) => [performance.id, performance]),
       );
 
       const scheduleMap = new Map(
@@ -120,19 +130,27 @@ const Dashboard = ({ userData }: DashboardProps) => {
         ),
       );
 
-      const classTicketMap = new Map(classTickets.map((item) => [item.id, item]));
+      const classTicketMap = new Map(
+        classTickets.map((item) => [item.id, item]),
+      );
       const ticketTypeMap = new Map(
-        ((ticketTypesData ?? []) as Array<{ id: number; name: string | null }>).map(
-          (ticketType) => [ticketType.id, ticketType.name ?? `券種${ticketType.id}`],
-        ),
+        (
+          (ticketTypesData ?? []) as Array<{ id: number; name: string | null }>
+        ).map((ticketType) => [
+          ticketType.id,
+          ticketType.name ?? `券種${ticketType.id}`,
+        ]),
       );
       const relationshipMap = new Map(
-        ((relationshipsData ?? []) as Array<{ id: number; name: string | null }>).map(
-          (relationship) => [
-            relationship.id,
-            relationship.name ?? `間柄${relationship.id}`,
-          ],
-        ),
+        (
+          (relationshipsData ?? []) as Array<{
+            id: number;
+            name: string | null;
+          }>
+        ).map((relationship) => [
+          relationship.id,
+          relationship.name ?? `間柄${relationship.id}`,
+        ]),
       );
 
       const cards = tickets.map((ticket) => {
@@ -168,6 +186,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
     [ticketCards],
   );
 
+  const guestTickets = useMemo(
+    () => ticketCards.filter((ticket) => ticket.relationshipId !== 1),
+    [ticketCards],
+  );
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -185,6 +208,44 @@ const Dashboard = ({ userData }: DashboardProps) => {
         </Link>
       </section>
       <NormalSection>
+        <h2>発券状況</h2>
+        {ticketLoading ? (
+          <p>読み込み中...</p>
+        ) : ticketError ? (
+          <p>{ticketError}</p>
+        ) : ticketCards.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              gap: '2rem',
+              textAlign: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+                {ticketCards.length}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>合計発券枚数</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+                {ownUseTickets.length}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>自分用</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
+                {guestTickets.length}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>招待者用</p>
+            </div>
+          </div>
+        ) : (
+          <p>まだチケットは発券されていません。</p>
+        )}
+      </NormalSection>
+      <NormalSection>
         <h2>自分が使うチケット</h2>
         {ticketLoading ? (
           <p>読み込み中...</p>
@@ -200,7 +261,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         )}
       </NormalSection>
       <NormalSection>
-        <h2>発券したチケット</h2>
+        <h2>招待者用のチケット</h2>
         {ticketLoading ? (
           <p>読み込み中...</p>
         ) : ticketError ? (
@@ -209,8 +270,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
           <IssuedTicketCardList
             embedded={true}
             collapseAt={2}
-            tickets={ticketCards}
-            emptyMessage='発券したチケットはまだありません。'
+            tickets={guestTickets}
+            emptyMessage='招待者用のチケットはまだありません。'
           />
         )}
       </NormalSection>
@@ -220,7 +281,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <PerformancesTable enableIssueJump={true} />
       </NormalSection>
       <section>
-        <button onClick={handleLogout} className={styles.logoutBtn}>ログアウト</button>
+        <button onClick={handleLogout} className={styles.logoutBtn}>
+          ログアウト
+        </button>
       </section>
     </>
   );

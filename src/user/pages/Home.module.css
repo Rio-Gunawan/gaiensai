@@ -522,6 +522,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .firstViewText {
+    animation: none;
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .meshWave,
+  .ringOrbit,
+  .capsuleFlow,
+  .diamondStack,
+  .sparkBurst,
+  .scroll::before {
+    animation: none;
+  }
+
   .scrollSection {
     opacity: 1;
     transform: none;

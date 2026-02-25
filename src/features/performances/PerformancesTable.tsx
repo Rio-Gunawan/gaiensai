@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { supabase } from '../../lib/supabase';
 import styles from './PerformancesTable.module.css';
 import { RiCircleLine, RiCloseLargeLine, RiTriangleLine } from 'react-icons/ri';
@@ -25,7 +25,7 @@ type RemainingSeatsRpcResult = {
 
 type PerformancesTableProps = {
   enableIssueJump?: boolean;
-  onAvailableCellClick?: (selection: AvailableSeatSelection) => void;
+  onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
 };
 
@@ -34,6 +34,7 @@ const PerformancesTable = ({
   onAvailableCellClick,
   selectedCellKey,
 }: PerformancesTableProps) => {
+  const autoSelectedCellKeyRef = useRef<string | null>(null);
   const [performances, setPerformances] = useState<PerformanceRow[]>([]);
   const [schedules, setSchedules] = useState<PerformanceSchedule[]>([]);
   const [selectedPerformanceId, setSelectedPerformanceId] = useState<
@@ -167,6 +168,76 @@ const PerformancesTable = ({
       ),
     [schedules, selectedScheduleId],
   );
+
+  useEffect(() => {
+    if (!onAvailableCellClick || enableIssueJump) {
+      return;
+    }
+
+    if (selectedCellKey) {
+      const [selectedPerformanceIdFromKey, selectedScheduleIdFromKey] =
+        selectedCellKey.split('-').map(Number);
+      const isSelectedPerformanceInFilter = filteredPerformances.some(
+        (performance) => performance.id === selectedPerformanceIdFromKey,
+      );
+      const isSelectedScheduleInFilter = filteredSchedules.some(
+        (schedule) => schedule.id === selectedScheduleIdFromKey,
+      );
+
+      if (!isSelectedPerformanceInFilter || !isSelectedScheduleInFilter) {
+        autoSelectedCellKeyRef.current = null;
+        onAvailableCellClick(null);
+      }
+
+      return;
+    }
+
+    const selectableCells: AvailableSeatSelection[] = [];
+
+    for (const schedule of filteredSchedules) {
+      for (const performance of filteredPerformances) {
+        const key = `${performance.id}-${schedule.id}`;
+        const remaining = Number(remainingSeatMap.get(key) ?? 0);
+
+        if (remaining <= 0) {
+          continue;
+        }
+
+        selectableCells.push({
+          performanceId: performance.id,
+          performanceName: performance.class_name,
+          scheduleId: schedule.id,
+          scheduleName: schedule.round_name,
+          remaining,
+        });
+      }
+    }
+
+    if (selectableCells.length !== 1) {
+      autoSelectedCellKeyRef.current = null;
+      return;
+    }
+
+    const selection = selectableCells[0];
+    const key = `${selection.performanceId}-${selection.scheduleId}`;
+
+    if (
+      selectedCellKey === key ||
+      autoSelectedCellKeyRef.current === key
+    ) {
+      return;
+    }
+
+    autoSelectedCellKeyRef.current = key;
+    onAvailableCellClick(selection);
+  }, [
+    enableIssueJump,
+    filteredPerformances,
+    filteredSchedules,
+    onAvailableCellClick,
+    remainingSeatMap,
+    selectedCellKey,
+  ]);
 
   const getMark = (status: 'circle' | 'triangle' | 'cross') => {
     if (status === 'cross') {

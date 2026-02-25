@@ -1,13 +1,12 @@
 import NormalSection from '../../components/ui/NormalSection';
 import PerformancesTable from '../../features/performances/PerformancesTable';
 import type { SelectedPerformance } from '../../types/Issue.types';
-import type { AvailableSeatSelection } from '../../types/types';
 import styles from '../../user/pages/students/Issue.module.css';
 
 type IssueStepPerformanceProps = {
   selectedPerformance: SelectedPerformance;
   selectedCellKey?: string;
-  onSelectPerformance: (selection: AvailableSeatSelection) => void;
+  onSelectPerformance: (selection: SelectedPerformance) => void;
 };
 
 const IssueStepPerformance = ({

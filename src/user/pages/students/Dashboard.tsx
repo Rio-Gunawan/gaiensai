@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
-import { decodeTicketCode } from '@ticket-codec';
 import performancesSnapshot from '../../../generated/performances-static.json';
+import {
+  decodeTicketCodeWithEnv,
+  toTicketDecodedSeed,
+} from '../../../features/tickets/ticketCodeDecode';
 
 import type { UserData } from '../../../types/types';
 import NormalSection from '../../../components/ui/NormalSection';
@@ -31,31 +34,7 @@ type TicketSnapshot = {
   relationships?: Array<{ id: number; name: string }>;
 };
 
-type DecodedTicketSeed = {
-  relationshipId: number;
-  ticketTypeId: number;
-  performanceId: number;
-  scheduleId: number;
-  serial: number;
-};
-
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
-
-const toDecodedSeed = (
-  decoded: Awaited<ReturnType<typeof decodeTicketCode>>,
-): DecodedTicketSeed | null => {
-  if (!decoded) {
-    return null;
-  }
-
-  return {
-    relationshipId: decoded.relationship,
-    ticketTypeId: decoded.type,
-    performanceId: decoded.performance,
-    scheduleId: decoded.schedule,
-    serial: decoded.serial,
-  };
-};
 
 const Dashboard = ({ userData }: DashboardProps) => {
   const [ticketCards, setTicketCards] = useState<
@@ -147,17 +126,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
       const decodedTickets = await Promise.all(
         tickets.map(async (ticket) => {
-          const decodedRaw = await decodeTicketCode(ticket.code, {
-            ticketSigningPrivateKeyMacBase64: import.meta.env
-              .VITE_TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64,
-            ticketSigningPrivateKeyCipherBase64: import.meta.env
-              .VITE_TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64,
-            base58Alphabet: import.meta.env.VITE_BASE58_ALPHABET,
-          });
+          const decodedRaw = await decodeTicketCodeWithEnv(ticket.code);
 
           return {
             ticket,
-            decoded: toDecodedSeed(decodedRaw),
+            decoded: toTicketDecodedSeed(decodedRaw),
           };
         }),
       );
@@ -250,22 +223,6 @@ const Dashboard = ({ userData }: DashboardProps) => {
             : '-',
           relationshipId,
         };
-      });
-
-      cards.sort((a, b) => {
-        const groupCompare =
-          a.performanceName.localeCompare(b.performanceName, 'ja') ||
-          a.scheduleName.localeCompare(b.scheduleName, 'ja') ||
-          a.relationshipName.localeCompare(b.relationshipName, 'ja') ||
-          a.ticketTypeLabel.localeCompare(b.ticketTypeLabel, 'ja');
-
-        if (groupCompare !== 0) {
-          return groupCompare;
-        }
-
-        const aSerial = typeof a.serial === 'number' ? a.serial : Number.MAX_SAFE_INTEGER;
-        const bSerial = typeof b.serial === 'number' ? b.serial : Number.MAX_SAFE_INTEGER;
-        return aSerial - bSerial;
       });
 
       setTicketCards(cards);

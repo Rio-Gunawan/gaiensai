@@ -11,6 +11,7 @@ export type TicketCardItem = {
   scheduleName: string;
   ticketTypeLabel: string;
   relationshipName: string;
+  issuerName?: string;
 };
 
 type IssuedTicketCardListProps = {
@@ -20,9 +21,34 @@ type IssuedTicketCardListProps = {
   showTicketLink?: boolean;
   showTicketCode?: boolean;
   showSerialNumber?: boolean;
-  serialStart?: number;
   embedded?: boolean;
   collapseAt?: number;
+};
+
+export const compareTicketCardItem = (
+  a: TicketCardItem,
+  b: TicketCardItem,
+): number => {
+  const groupCompare =
+    a.performanceName.localeCompare(b.performanceName, 'ja') ||
+    a.scheduleName.localeCompare(b.scheduleName, 'ja') ||
+    a.relationshipName.localeCompare(b.relationshipName, 'ja') ||
+    (a.issuerName ?? '').localeCompare(b.issuerName ?? '', 'ja') ||
+    a.ticketTypeLabel.localeCompare(b.ticketTypeLabel, 'ja');
+
+  if (groupCompare !== 0) {
+    return groupCompare;
+  }
+
+  const aSerial =
+    typeof a.serial === 'number' ? a.serial : Number.MAX_SAFE_INTEGER;
+  const bSerial =
+    typeof b.serial === 'number' ? b.serial : Number.MAX_SAFE_INTEGER;
+  if (aSerial !== bSerial) {
+    return aSerial - bSerial;
+  }
+
+  return a.code.localeCompare(b.code, 'ja');
 };
 
 const IssuedTicketCardList = ({
@@ -32,7 +58,6 @@ const IssuedTicketCardList = ({
   showTicketLink = true,
   showTicketCode = false,
   showSerialNumber = false,
-  serialStart = 1,
   embedded = false,
   collapseAt,
 }: IssuedTicketCardListProps) => {
@@ -40,24 +65,10 @@ const IssuedTicketCardList = ({
   const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(null);
   const [isCollapsible, setIsCollapsible] = useState(false);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
-  const serialNumbers = useMemo(() => {
-    const groupCounts = new Map<string, number>();
-    return tickets.map((ticket) => {
-      if (typeof ticket.serial === 'number') {
-        return ticket.serial;
-      }
-
-      const groupKey = [
-        ticket.scheduleName,
-        ticket.performanceName,
-        ticket.relationshipName,
-        ticket.ticketTypeLabel,
-      ].join('::');
-      const next = (groupCounts.get(groupKey) ?? 0) + 1;
-      groupCounts.set(groupKey, next);
-      return next;
-    });
-  }, [tickets]);
+  const sortedTickets = useMemo(
+    () => [...tickets].sort(compareTicketCardItem),
+    [tickets],
+  );
 
   useEffect(() => {
     if (typeof collapseAt !== 'number') {
@@ -114,7 +125,7 @@ const IssuedTicketCardList = ({
     return () => {
       window.removeEventListener('resize', calculateCollapsedState);
     };
-  }, [collapseAt, expanded, tickets]);
+  }, [collapseAt, expanded, sortedTickets]);
 
   return (
     <section
@@ -123,7 +134,7 @@ const IssuedTicketCardList = ({
       }`}
     >
       {title && <h2 className={styles.issuedTitle}>{title}</h2>}
-      {tickets.length === 0 ? (
+      {sortedTickets.length === 0 ? (
         <p className={styles.emptyState}>{emptyMessage}</p>
       ) : (
         <div
@@ -137,13 +148,12 @@ const IssuedTicketCardList = ({
           }
           >
           <div className={styles.issuedGrid}>
-            {tickets.map((ticket, index) => {
+            {sortedTickets.map((ticket, index) => {
               const isAdmissionOnly =
                 ticket.ticketTypeLabel.includes('入場専用券');
               const headlineLabel = isAdmissionOnly
                 ? '入場専用券'
                 : ticket.performanceName;
-              const serialNumber = serialStart + serialNumbers[index] - 1;
 
               return (
                 <article
@@ -153,8 +163,8 @@ const IssuedTicketCardList = ({
                     cardRefs.current[index] = element;
                   }}
                 >
-                  {showSerialNumber && (
-                    <span className={styles.serialBadge}>#{serialNumber}</span>
+                  {showSerialNumber && typeof ticket.serial === 'number' && (
+                    <span className={styles.serialBadge}>#{ticket.serial}</span>
                   )}
                   <div className={styles.ticketHeader}>
                     <h3 className={styles.ticketClass}>

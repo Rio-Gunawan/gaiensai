@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { MdArrowBack } from 'react-icons/md';
 import { Link } from 'wouter-preact';
 import IssuedTicketCardList from '../../../features/tickets/IssuedTicketCardList';
+import { useDecodedSerialTickets } from '../../../features/tickets/useDecodedSerialTickets';
 
 import {
   ISSUE_RESULT_STORAGE_KEY,
@@ -33,6 +34,8 @@ const IssueResult = () => {
     }
   }, []);
 
+  const issuedTickets = useDecodedSerialTickets(result?.issuedTickets ?? []);
+
   return (
     <div className={styles.issuePage}>
       <div className={styles.topActions}>
@@ -53,7 +56,9 @@ const IssueResult = () => {
       ) : (
         <IssuedTicketCardList
           title='発券したチケット一覧'
-          tickets={result.issuedTickets.map((ticket) => ({
+          showSerialNumber
+          showTicketCode
+          tickets={issuedTickets.map((ticket) => ({
             ...ticket,
             performanceName: result.performanceName,
             performanceTitle: result.performanceTitle,

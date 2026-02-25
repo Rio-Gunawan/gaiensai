@@ -2,6 +2,7 @@ import { useMemo } from 'preact/hooks';
 import TicketListContent from '../../features/tickets/TicketListContent';
 import { listTicketDisplayCache } from '../../features/tickets/ticketDisplayCache';
 import type { TicketCardItem } from '../../features/tickets/IssuedTicketCardList';
+import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerialTickets';
 import pageStyles from '../../styles/sub-pages.module.css';
 
 type CachedTicketDisplay = TicketCardItem & {
@@ -9,10 +10,11 @@ type CachedTicketDisplay = TicketCardItem & {
 };
 
 const TicketHistory = () => {
-  const tickets = useMemo(
+  const cachedTickets = useMemo(
     () => listTicketDisplayCache<CachedTicketDisplay>(),
     [],
   );
+  const tickets = useDecodedSerialTickets<TicketCardItem>(cachedTickets);
 
   return (
     <>

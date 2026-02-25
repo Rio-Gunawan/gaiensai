@@ -6,27 +6,21 @@ import Alert from '../../components/ui/Alert';
 import QRCode from '../../components/ui/QRCode';
 import { useEventConfig } from '../../hooks/useEventConfig';
 import { supabase } from '../../lib/supabase';
-import { decodeTicketCode } from '@ticket-codec';
 import performancesSnapshot from '../../generated/performances-static.json';
 import {
   readTicketDisplayCache,
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache';
+import {
+  decodeTicketCodeWithEnv,
+  toTicketDecodedDisplaySeed,
+  type TicketDecodedDisplaySeed,
+} from '../../features/tickets/ticketCodeDecode';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
 
-type DecodedTicketSeed = {
-  affiliation: string;
-  ticketTypeId: number;
-  relationshipId: number;
-  performanceId: number;
-  scheduleId: number;
-  year: string;
-  serial: number;
-};
-
-type TicketDisplay = DecodedTicketSeed & {
+type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
   signature: string;
   performanceName: string;
@@ -131,24 +125,6 @@ const verifyTicketSignature = async (
   }
 };
 
-const toDecodedSeed = (
-  decoded: Awaited<ReturnType<typeof decodeTicketCode>>,
-): DecodedTicketSeed | null => {
-  if (!decoded) {
-    return null;
-  }
-
-  return {
-    affiliation: String(decoded.affiliation).padStart(4, '0'),
-    ticketTypeId: decoded.type,
-    relationshipId: decoded.relationship,
-    performanceId: decoded.performance,
-    scheduleId: decoded.schedule,
-    year: String(decoded.year).padStart(2, '0'),
-    serial: decoded.serial,
-  };
-};
-
 const checkTicketValidity = async (code: string): Promise<string | null> => {
   const { data, error } = await supabase
     .from('tickets')
@@ -249,16 +225,10 @@ const Ticket = () => {
       const nonBlockingErrors: string[] = [];
 
       const [decodedRaw, signatureIsValid] = await Promise.all([
-        decodeTicketCode(code, {
-          ticketSigningPrivateKeyMacBase64: import.meta.env
-            .VITE_TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64,
-          ticketSigningPrivateKeyCipherBase64: import.meta.env
-            .VITE_TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64,
-          base58Alphabet: import.meta.env.VITE_BASE58_ALPHABET,
-        }),
+        decodeTicketCodeWithEnv(code),
         verifyTicketSignature(code, signature),
       ]);
-      const decoded = toDecodedSeed(decodedRaw);
+      const decoded = toTicketDecodedDisplaySeed(decodedRaw);
 
       if (!decoded) {
         setErrorMessages(['チケット情報の復元に失敗しました。']);

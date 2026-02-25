@@ -226,6 +226,62 @@ Deno.serve(async (req) => {
 
     validatePerformanceAndSchedule(body, admissionOnlyTicketTypeIds);
 
+    // Check per-user max tickets before reserving serial numbers to avoid
+    // incrementing the counter when the user would exceed their limit.
+    const { data: configRow, error: configError } = await adminClient
+      .from('configs')
+      .select('max_tickets_per_user')
+      .order('id', { ascending: true })
+      .maybeSingle();
+
+    if (configError) {
+      throw new HttpError(
+        500,
+        '設定の取得に失敗しました。外苑祭総務にお問い合わせください。',
+      );
+    }
+
+    if (!configRow || configRow.max_tickets_per_user === null) {
+      throw new HttpError(
+        500,
+        'チケット発行上限の設定が見つかりません。外苑祭総務にお問い合わせください。',
+      );
+    }
+
+    const maxTicketsPerUser = Number(configRow.max_tickets_per_user);
+
+    if (body.issueCount > maxTicketsPerUser) {
+      throw new HttpError(
+        409,
+        `1回の発行枚数がユーザ上限を超えています。最大 ${maxTicketsPerUser} 枚までです。
+        さらに必要な場合は、まだ発行可能枚数に余裕がある他の生徒に、招待券を分けてもらえないかと相談してください。`,
+      );
+    }
+
+    const { count: existingCount, error: existingCountError } =
+      await adminClient
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'valid');
+
+    if (existingCountError) {
+      throw new HttpError(
+        500,
+        '既存チケット数の取得に失敗しました。外苑祭総務にお問い合わせください。',
+      );
+    }
+
+    const existing = Number(existingCount ?? 0);
+
+    if (existing + body.issueCount > maxTicketsPerUser) {
+      throw new HttpError(
+        409,
+        `チケット発行上限を超えています（既に ${existing} 枚）。1ユーザあたり最大 ${maxTicketsPerUser} 枚です。
+        さらに必要な場合は、まだ発行可能枚数に余裕がある他の生徒に、招待券を分けてもらえないかと相談してください。`,
+      );
+    }
+
     const issuedYear = new Date().getUTCFullYear() % 100;
 
     const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;

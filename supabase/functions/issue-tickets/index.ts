@@ -7,12 +7,12 @@ import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders } from '@shared/cors.ts';
 import { getEnv } from '@shared/getEnv.ts';
 import HttpError from '@shared/HttpError.ts';
-import type { TicketData } from '@shared/generateTicketCode.ts';
 import {
   encodeBase58,
   generateTicketCode,
   signCode,
 } from '@shared/generateTicketCode.ts';
+import { issueWithRollback, type RpcClient } from './issueWithRollback.ts';
 
 type IssueTicketsRequest = {
   ticketTypeId: number;
@@ -107,7 +107,7 @@ const validatePerformanceAndSchedule = (
   }
 };
 
-Deno.serve(async (req) => {
+export const handleIssueTicketsRequest = async (req: Request): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
   // CORSプリフライトリクエストへの対応
@@ -311,44 +311,21 @@ Deno.serve(async (req) => {
     }
 
     const endSerial = counterData as number;
-    const startSerial = endSerial - body.issueCount + 1;
-
-    const codes = await Promise.all(
-      Array.from({ length: body.issueCount }, (_, i) => {
-        const serial = startSerial + i;
-        const ticketData: TicketData = {
-          affiliation,
-          relationship: body.relationshipId,
-          type: body.ticketTypeId,
-          performance: body.performanceId,
-          schedule: body.scheduleId,
-          year: issuedYear,
-          serial,
-        };
-        return generateTicketCode(ticketData);
-      }),
-    );
-
-    const signatures = await Promise.all(codes.map((code) => signCode(code)));
-
-    // 発行されたチケットコードと署名をデータベースに保存
-    const { data: issuedTickets, error: issueError } = await adminClient.rpc(
-      'issue_class_tickets_with_codes',
-      {
-        p_user_id: user.id,
-        p_ticket_type_id: body.ticketTypeId,
-        p_relationship_id: body.relationshipId,
-        p_performance_id: body.performanceId,
-        p_schedule_id: body.scheduleId,
-        p_issue_count: body.issueCount,
-        p_codes: codes,
-        p_signatures: signatures,
-      },
-    );
-
-    if (issueError) {
-      throw new HttpError(409, issueError.message);
-    }
+    const issuedTickets = await issueWithRollback({
+      adminClient: adminClient as unknown as RpcClient,
+      userId: user.id,
+      issueCount: body.issueCount,
+      ticketTypeId: body.ticketTypeId,
+      relationshipId: body.relationshipId,
+      performanceId: body.performanceId,
+      scheduleId: body.scheduleId,
+      affiliation,
+      issuedYear,
+      basePrefix,
+      endSerial,
+      generateCode: generateTicketCode,
+      signTicketCode: signCode,
+    });
 
     console.log('Issued tickets successfully', {
       userId: user.id,
@@ -361,8 +338,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        issuedTickets:
-          (issuedTickets as Array<{ code: string; signature: string }>) ?? [],
+        issuedTickets,
       }),
       {
         status: 200,
@@ -370,7 +346,8 @@ Deno.serve(async (req) => {
       },
     );
   } catch (error) {
-    const status = error instanceof HttpError ? error.status : 500;
+    const httpError = error instanceof HttpError ? error : null;
+    const status = httpError?.status ?? 500;
     const message =
       error instanceof Error ? error.message : 'Unexpected server error';
 
@@ -381,4 +358,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+};
+
+if (import.meta.main) {
+  Deno.serve(handleIssueTicketsRequest);
+}

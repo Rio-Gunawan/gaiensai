@@ -1,7 +1,13 @@
 import { encodeAffiliation } from './convertAffiliation.ts';
 import { getBase58Alphabet, getEnv } from './getEnv.ts';
-import { encodeBase64Url } from '../_shared/base64Url.ts';
-import { toArrayBuffer } from '../_shared/arrayBuffer.ts';
+import {
+  decodeBase64,
+  encodeBase64Url,
+  feistelFunction,
+  generateMAC10,
+  importHmacKey,
+  toArrayBuffer,
+} from './cryptoUtils.ts';
 import {
   AFFILIATION_BITS,
   PERFORMANCE_BITS,
@@ -57,75 +63,12 @@ function packData(data: TicketData): bigint {
 // ---------------------------------------------------------
 // 3. Web Crypto API の準備 (非同期)
 // ---------------------------------------------------------
-const decodeBase64 = (base64: string): Uint8Array => {
-  const normalized = base64.trim();
-  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return bytes;
-};
-
 const RAW_MAC_KEY = decodeBase64(
   getEnv('TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64'),
 );
 const RAW_CIPHER_KEY = decodeBase64(
   getEnv('TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64'),
 );
-
-// HMAC用の CryptoKey オブジェクトを生成する関数
-async function importHmacKey(rawKey: Uint8Array): Promise<CryptoKey> {
-  return await crypto.subtle.importKey(
-    'raw',
-    rawKey.buffer as ArrayBuffer, // .buffer を明示し、型を固定する
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-}
-
-// ---------------------------------------------------------
-// 4. 暗号化・MAC生成ロジック (DataView を使用)
-// ---------------------------------------------------------
-
-async function generateMAC10(data36: bigint, key: CryptoKey): Promise<bigint> {
-  // 8バイト(64bit)の箱を用意
-  const buffer = new ArrayBuffer(8);
-  const view = new DataView(buffer);
-
-  // Node の writeBigUInt64BE と同じ (false = Big-Endian)
-  view.setBigUint64(0, data36, false);
-
-  // HMAC生成 (Web Crypto API)
-  const signature = await crypto.subtle.sign('HMAC', key, buffer);
-  const hashView = new DataView(signature);
-
-  // Node の readUInt16BE(0) と同じ
-  return BigInt((hashView.getUint16(0, false) >> 6) & 0x3ff); // 先頭10bit
-}
-
-async function feistelFunction(
-  rightHalf: bigint,
-  round: number,
-  key: CryptoKey,
-): Promise<bigint> {
-  // ラウンド数(1byte) + rightHalf(4byte) = 5バイトの箱を用意
-  const buffer = new ArrayBuffer(5);
-  const view = new DataView(buffer);
-
-  view.setUint8(0, round);
-  view.setUint32(1, Number(rightHalf), false); // Big-Endian
-
-  const signature = await crypto.subtle.sign('HMAC', key, buffer);
-  const hashView = new DataView(signature);
-
-  // Node の readUInt32BE(0) と同じ
-  return BigInt((hashView.getUint32(0, false) >>> 9) & 0x7fffff); // 先頭23bit
-}
 
 const ENCRYPTION_ROUNDS = 8;
 

@@ -1,4 +1,10 @@
 import { decodeAffiliation } from "./convertAffiliation.ts";
+import {
+  decodeBase64,
+  feistelFunction,
+  generateMAC10,
+  importHmacKey,
+} from "./cryptoUtils.ts";
 import type { TicketData } from "./ticketDataType.ts";
 
 // ---------------------------------------------------------
@@ -22,15 +28,6 @@ type DecodeOptions = {
   ticketSigningPrivateKeyCipherBase64?: string;
   base58Alphabet?: string;
 };
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
 
 function resolveKeys(options?: DecodeOptions) {
   const readRuntimeEnv = (key: string): string | undefined => {
@@ -69,56 +66,10 @@ function resolveKeys(options?: DecodeOptions) {
     );
   }
 
-  const RAW_MAC_KEY = base64ToUint8Array(macBase64);
-  const RAW_CIPHER_KEY = base64ToUint8Array(cipherBase64);
+  const RAW_MAC_KEY = decodeBase64(macBase64);
+  const RAW_CIPHER_KEY = decodeBase64(cipherBase64);
 
   return { RAW_MAC_KEY, RAW_CIPHER_KEY, alphabet } as const;
-}
-
-// HMAC用の CryptoKey オブジェクトを生成する関数
-async function importHmacKey(rawKey: Uint8Array): Promise<CryptoKey> {
-  return await crypto.subtle.importKey(
-    'raw',
-    rawKey.buffer as ArrayBuffer, // .buffer を明示し、型を固定する
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-}
-
-async function generateMAC10(data36: bigint, key: CryptoKey): Promise<bigint> {
-  // 8バイト(64bit)の箱を用意
-  const buffer = new ArrayBuffer(8);
-  const view = new DataView(buffer);
-
-  // Node の writeBigUInt64BE と同じ (false = Big-Endian)
-  view.setBigUint64(0, data36, false);
-
-  // HMAC生成 (Web Crypto API)
-  const signature = await crypto.subtle.sign('HMAC', key, buffer);
-  const hashView = new DataView(signature);
-
-  // Node の readUInt16BE(0) と同じ
-  return BigInt((hashView.getUint16(0, false) >> 6) & 0x3ff); // 先頭10bit
-}
-
-async function feistelFunction(
-  rightHalf: bigint,
-  round: number,
-  key: CryptoKey,
-): Promise<bigint> {
-  // ラウンド数(1byte) + rightHalf(4byte) = 5バイトの箱を用意
-  const buffer = new ArrayBuffer(5);
-  const view = new DataView(buffer);
-
-  view.setUint8(0, round);
-  view.setUint32(1, Number(rightHalf), false); // Big-Endian
-
-  const signature = await crypto.subtle.sign('HMAC', key, buffer);
-  const hashView = new DataView(signature);
-
-  // Node の readUInt32BE(0) と同じ
-  return BigInt((hashView.getUint32(0, false) >>> 9) & 0x7fffff); // 先頭23bit
 }
 
 const ENCRYPTION_ROUNDS = 8;
@@ -185,3 +136,6 @@ export async function decodeTicketCode(
 
   return unpackData(data36);
 }
+
+// helpers exported for testing
+export { unpackData, resolveKeys, decryptFeistel46, decodeBase58 };

@@ -73,7 +73,8 @@ const createTestEnv = async () => {
   Deno.env.set('TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64', toBase64(cipherKey));
   Deno.env.set('TICKET_SIGNING_PRIVATE_KEY_Ed25519_BASE64', toBase64(pkcs8));
 
-  const { generateTicketCode, signCode } = await import('./generateTicketCode.ts');
+  const { generateTicketCode, signCode } =
+    await import('./generateTicketCode.ts');
   const { decodeTicketCode } = await import('./decodeTicketCode.ts');
   const { verifyCodeSignature } = await import('./verifyCodeSignature.ts');
 
@@ -312,7 +313,10 @@ Deno.test({
     const { signCode, verifyCodeSignature, publicKeySpkiBase64 } =
       await setupTestEnv();
 
-    const validPayload = JSON.stringify({ code: 'ABC123', exp: Date.now() + 60_000 });
+    const validPayload = JSON.stringify({
+      code: 'ABC123',
+      exp: Date.now() + 60_000,
+    });
     const validSignature = await signCode(validPayload);
     const tampered = `${validPayload.slice(0, -1)}X.${validSignature}`;
 
@@ -355,7 +359,10 @@ Deno.test({
     const { signCode, verifyCodeSignature, publicKeySpkiBase64 } =
       await setupTestEnv();
 
-    const validPayload = JSON.stringify({ code: 'ABC123', exp: Date.now() + 60_000 });
+    const validPayload = JSON.stringify({
+      code: 'ABC123',
+      exp: Date.now() + 60_000,
+    });
     const validSignature = await signCode(validPayload);
 
     const valid = await verifyCodeSignature(
@@ -399,6 +406,87 @@ Deno.test({
 
     if (isValid) {
       throw new Error('Expected expired QR to be invalid');
+    }
+  },
+});
+
+// Additional tests for decodeTicketCode internals and error cases
+
+Deno.test({
+  name: 'resolveKeys throws when required keys are missing',
+  permissions: { env: true },
+  fn: async () => {
+    // clear relevant env vars
+    Deno.env.delete('BASE58_ALPHABET');
+    Deno.env.delete('TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64');
+    Deno.env.delete('TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64');
+
+    const { resolveKeys } = await import('./decodeTicketCode.ts');
+
+    let err: unknown;
+    try {
+      resolveKeys();
+    } catch (e) {
+      err = e;
+    }
+    if (!(err instanceof Error)) {
+      throw new Error('Expected resolveKeys to throw when keys missing');
+    }
+
+    // restore env for further tests; recreate environment directly
+    await createTestEnv();
+  },
+});
+
+Deno.test({
+  name: 'decodeBase58 returns null for invalid characters',
+  fn: async () => {
+    const { decodeBase58 } = await import('./decodeTicketCode.ts');
+    const alphabet = 'ABC';
+    const result = decodeBase58('DA', alphabet); // D not in alphabet
+    if (result !== null) {
+      throw new Error('Expected null for invalid base58 string');
+    }
+  },
+});
+
+Deno.test({
+  name: 'decodeTicketCode handles bad input gracefully',
+  permissions: { env: true },
+  fn: async () => {
+    const { decodeTicketCode } = await setupTestEnv();
+
+    // too long
+    if ((await decodeTicketCode('123456789')) !== null) {
+      throw new Error('Expected null for code longer than 8');
+    }
+    // zero length
+    if ((await decodeTicketCode('')) !== null) {
+      throw new Error('Expected null for empty code');
+    }
+    // non-alphabet char
+    const { alphabet } = (await import('./decodeTicketCode.ts')).resolveKeys();
+    const invalid = '!' + alphabet.slice(1);
+    if ((await decodeTicketCode(invalid)) !== null) {
+      throw new Error('Expected null for invalid character');
+    }
+
+    // tamper legitimate code (MAC mismatch)
+    const ticket = {
+      affiliation: 1101,
+      relationship: 1,
+      type: 1,
+      performance: 1,
+      schedule: 1,
+      year: 2025,
+      serial: 1,
+    };
+    const code = await (await setupTestEnv()).generateTicketCode(ticket);
+    const tampered =
+      code.slice(0, -1) +
+      alphabet[(alphabet.indexOf(code.slice(-1)) + 1) % alphabet.length];
+    if ((await decodeTicketCode(tampered)) !== null) {
+      throw new Error('Expected null for tampered code');
     }
   },
 });

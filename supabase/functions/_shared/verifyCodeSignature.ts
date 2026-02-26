@@ -1,18 +1,4 @@
-import { decodeBase64Url } from './base64Url.ts';
-import { toArrayBuffer } from './arrayBuffer.ts';
-
-const decodeBase64 = (base64: string): Uint8Array => {
-  const normalized = base64.trim();
-  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return bytes;
-};
+import { decodeBase64, decodeBase64Url, toArrayBuffer } from './cryptoUtils.ts';
 
 const importEd25519PublicKey = async (
   spkiBase64: string,

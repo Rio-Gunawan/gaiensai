@@ -1,18 +1,9 @@
 import { decodeAffiliation } from "./convertAffiliation.ts";
+import type { TicketData } from "./ticketDataType.ts";
 
 // ---------------------------------------------------------
-// 1. 定数・型定義
+// チケットコードデコード関数
 // ---------------------------------------------------------
-
-export interface TicketData {
-  affiliation: number; // 11 bit
-  relationship: number; // 3 bit
-  type: number; // 4 bit
-  performance: number; // 5 bit
-  schedule: number; // 6 bit
-  year: number; // 3 bit
-  serial: number; // 4 bit
-}
 
 function unpackData(packed: bigint): TicketData {
   return {

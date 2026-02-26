@@ -16,6 +16,7 @@ import {
   toTicketDecodedDisplaySeed,
   type TicketDecodedDisplaySeed,
 } from '../../features/tickets/ticketCodeDecode';
+import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyCodeSignature.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -60,70 +61,15 @@ type TicketSnapshot = {
 
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 
-const publicKeyToArrayBuffer = (keyText: string): ArrayBuffer => {
-  const trimmed = keyText.trim();
-  const base64 = trimmed.replace(/\s+/g, '');
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  );
-};
-
-const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
-  bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-
-const decodeBase64Url = (value: string): Uint8Array => {
-  const normalized = value.trim().replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-
-  return bytes;
-};
-
-const signingPublicKeyPromise = crypto.subtle.importKey(
-  'spki',
-  publicKeyToArrayBuffer(
-    import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
-  ),
-  { name: 'Ed25519' },
-  false,
-  ['verify'],
-);
-
 const verifyTicketSignature = async (
   code: string,
   signature: string,
-): Promise<boolean> => {
-  try {
-    const key = await signingPublicKeyPromise;
-    const payload = new TextEncoder().encode(code);
-    const signatureBytes = decodeBase64Url(signature);
-
-    return await crypto.subtle.verify(
-      'Ed25519',
-      key,
-      toArrayBuffer(signatureBytes),
-      payload,
-    );
-  } catch {
-    return false;
-  }
-};
+): Promise<boolean> =>
+  verifyCodeSignature(
+    code,
+    signature,
+    import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
+  );
 
 const checkTicketValidity = async (code: string): Promise<string | null> => {
   const { data, error } = await supabase

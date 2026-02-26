@@ -10,21 +10,21 @@ Deno.test('issue fails then counter rollback RPC is called', async () => {
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
 
   const adminClient = {
-    rpc: async (fn: string, args: Record<string, unknown>) => {
+    rpc: (fn: string, args: Record<string, unknown>) => {
       rpcCalls.push({ fn, args });
 
       if (fn === 'issue_class_tickets_with_codes') {
-        return {
+        return Promise.resolve({
           data: null,
           error: { message: 'forced issue failure' },
-        };
+        });
       }
 
       if (fn === 'rollback_ticket_code_counter') {
-        return {
+        return Promise.resolve({
           data: true,
           error: null,
-        };
+        });
       }
 
       throw new Error(`unexpected rpc: ${fn}`);
@@ -46,8 +46,8 @@ Deno.test('issue fails then counter rollback RPC is called', async () => {
       issuedYear: 26,
       basePrefix: 'prefix123',
       endSerial: 8,
-      generateCode: async (ticketData) => `CODE-${ticketData.serial}`,
-      signTicketCode: async (code) => `SIG-${code}`,
+      generateCode: (ticketData) => Promise.resolve(`CODE-${ticketData.serial}`),
+      signTicketCode: (code) => Promise.resolve(`SIG-${code}`),
     });
   } catch (error) {
     thrown = error;

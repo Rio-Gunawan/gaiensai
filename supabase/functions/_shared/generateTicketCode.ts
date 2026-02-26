@@ -1,38 +1,56 @@
 import { encodeAffiliation } from './convertAffiliation.ts';
 import { getBase58Alphabet, getEnv } from './getEnv.ts';
+import { encodeBase64Url } from '../_shared/base64Url.ts';
+import { toArrayBuffer } from '../_shared/arrayBuffer.ts';
+import {
+  AFFILIATION_BITS,
+  PERFORMANCE_BITS,
+  RELATIONSHIP_BITS,
+  SCHEDULE_BITS,
+  SERIAL_BITS,
+  TYPE_BITS,
+  YEAR_BITS,
+  type TicketData,
+} from './ticketDataType.ts';
 
 // ---------------------------------------------------------
 // チケットコード生成関数
 // ---------------------------------------------------------
 
 // ---------------------------------------------------------
-// 1. 定数・型定義
-// ---------------------------------------------------------
-
-export type TicketData = {
-  affiliation: number; // 11 bit
-  relationship: number; // 3 bit
-  type: number; // 4 bit
-  performance: number; // 5 bit
-  schedule: number; // 6 bit
-  year: number; // 3 bit
-  serial: number; // 4 bit
-};
-
-// ---------------------------------------------------------
 // 2. ビットパッキング (同期処理・変更なし)
 // ---------------------------------------------------------
+function assertBitRange(name: string, value: number, bits: bigint): void {
+  if (!Number.isInteger(value)) {
+    throw new Error(`${name} must be an integer`);
+  }
+
+  const max = (1n << bits) - 1n;
+  const valueAsBigInt = BigInt(value);
+
+  if (valueAsBigInt < 0n || valueAsBigInt > max) {
+    throw new Error(`${name} out of range (0..${max.toString()})`);
+  }
+}
+
 function packData(data: TicketData): bigint {
   const convertedAffiliation = encodeAffiliation(data.affiliation); // 11 bit
+  assertBitRange('convertedAffiliation', convertedAffiliation, AFFILIATION_BITS);
+  assertBitRange('relationship', data.relationship, RELATIONSHIP_BITS);
+  assertBitRange('type', data.type, TYPE_BITS);
+  assertBitRange('performance', data.performance, PERFORMANCE_BITS);
+  assertBitRange('schedule', data.schedule, SCHEDULE_BITS);
+  assertBitRange('year', data.year, YEAR_BITS);
+  assertBitRange('serial', data.serial, SERIAL_BITS);
+
   let packed = 0n;
-  // オーバーフローを防ぐためにマスク処理を行う。
-  packed = (packed << 11n) | BigInt(convertedAffiliation & 0x7ff);
-  packed = (packed << 3n) | BigInt(data.relationship & 0x7);
-  packed = (packed << 4n) | BigInt(data.type & 0xf);
-  packed = (packed << 5n) | BigInt(data.performance & 0x1f);
-  packed = (packed << 6n) | BigInt(data.schedule & 0x3f);
-  packed = (packed << 3n) | BigInt(data.year & 0x7);
-  packed = (packed << 4n) | BigInt(data.serial & 0xf);
+  packed = (packed << AFFILIATION_BITS) | BigInt(convertedAffiliation);
+  packed = (packed << RELATIONSHIP_BITS) | BigInt(data.relationship);
+  packed = (packed << TYPE_BITS) | BigInt(data.type);
+  packed = (packed << PERFORMANCE_BITS) | BigInt(data.performance);
+  packed = (packed << SCHEDULE_BITS) | BigInt(data.schedule);
+  packed = (packed << YEAR_BITS) | BigInt(data.year);
+  packed = (packed << SERIAL_BITS) | BigInt(data.serial);
   return packed;
 }
 
@@ -52,7 +70,9 @@ const decodeBase64 = (base64: string): Uint8Array => {
   return bytes;
 };
 
-const RAW_MAC_KEY = decodeBase64(getEnv('TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64'));
+const RAW_MAC_KEY = decodeBase64(
+  getEnv('TICKET_SIGNING_PRIVATE_KEY_MAC_BASE64'),
+);
 const RAW_CIPHER_KEY = decodeBase64(
   getEnv('TICKET_SIGNING_PRIVATE_KEY_CIPHER_BASE64'),
 );
@@ -166,6 +186,8 @@ export async function generateTicketCode(data: TicketData): Promise<string> {
   const macKey = await importHmacKey(RAW_MAC_KEY);
   const cipherKey = await importHmacKey(RAW_CIPHER_KEY);
 
+  data.year = data.year % Number(YEAR_BITS); // 年は下3bitのみ使用
+
   const data36 = packData(data);
   const mac10 = await generateMAC10(data36, macKey);
   const payload46 = (data36 << 10n) | mac10;
@@ -193,26 +215,6 @@ const decodePrivateKeyBase64 = (encoded: string): Uint8Array => {
   return bytes;
 };
 
-const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
-  bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-
-// Base64URLエンコード関数
-const encodeBase64Url = (bytes: Uint8Array): string => {
-  let binary = '';
-
-  for (const value of bytes) {
-    binary += String.fromCharCode(value);
-  }
-
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-};
-
 // Ed25519署名用の CryptoKey を生成する関数
 const signingKeyPromise = (() => {
   const privateKeyBase64 = getEnv('TICKET_SIGNING_PRIVATE_KEY_Ed25519_BASE64');
@@ -226,7 +228,6 @@ const signingKeyPromise = (() => {
     ['sign'],
   );
 })();
-
 
 /**
  * チケットコードに対してEd25519署名を生成する関数

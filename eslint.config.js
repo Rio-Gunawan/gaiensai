@@ -6,6 +6,9 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
+  {
+    ignores: ["dist/**", "node_modules/**"]
+  },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
@@ -31,5 +34,10 @@ export default defineConfig([
       // Preactを使用するのでこれはオフに。
       "react/react-in-jsx-scope": "off",
     },
+    settings: {
+      react: {
+        version: "detect"
+      }
+    }
   },
 ]);

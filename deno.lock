@@ -43,6 +43,7 @@
         "npm:uqr@~0.1.2",
         "npm:vite-plugin-pwa@^1.2.0",
         "npm:vite@^7.2.4",
+        "npm:vitest@^4.0.18",
         "npm:wouter-preact@^3.9.0"
       ]
     }

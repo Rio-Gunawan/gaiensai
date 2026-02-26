@@ -282,12 +282,12 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       );
     }
 
+    // チケットコードのプレフィックスを生成（学年クラス番号 + チケット種別 + 間柄 + 公演ID + 回ID + 発行年の下2桁）
     const issuedYear = new Date().getUTCFullYear() % 100;
-
     const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
     const basePrefix = encodeBase58(BigInt(concatenated));
 
-    // 発行枚数をデータベースに登録し、シリアル番号を取得
+    // プレフィックスをキーとして発行枚数をデータベースに登録し、シリアル番号を取得
     const { data: counterData, error: counterError } = await adminClient.rpc(
       'increment_ticket_code_counter',
       {

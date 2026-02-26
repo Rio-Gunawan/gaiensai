@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 20
 
-      - uses: denoland/setup-deno@v1
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: latest
 

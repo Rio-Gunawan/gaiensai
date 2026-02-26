@@ -15,7 +15,7 @@
     "test": "eslint . && npm run test:deno && npm run test:vitest"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.97.0",
     "preact": "^10.27.2",
     "react-icons": "^5.5.0",
     "uqr": "^0.1.2",

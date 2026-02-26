@@ -17,11 +17,3 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci"
-
-  # Docker を使っている場合のみ
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: "docker"

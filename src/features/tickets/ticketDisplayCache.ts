@@ -57,3 +57,35 @@ export const listTicketDisplayCache = <T>(): T[] => {
     .sort((a, b) => b.cachedAt - a.cachedAt)
     .map((item) => item.ticket);
 };
+
+export const deleteTicketDisplayCache = (code: string): void => {
+  try {
+    window.localStorage.removeItem(getTicketCacheKey(code));
+  } catch {
+    // ignore
+  }
+};
+
+export const markTicketDisplayCacheCancelled = (code: string): void => {
+  try {
+    const raw = window.localStorage.getItem(getTicketCacheKey(code));
+    if (!raw) {
+      return;
+    }
+    const parsed = JSON.parse(raw) as {
+      ticket?: Record<string, unknown>;
+      cachedAt?: number;
+    };
+    if (!parsed.ticket) {
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (parsed.ticket as any).status = 'cancelled';
+    window.localStorage.setItem(
+      getTicketCacheKey(code),
+      JSON.stringify(parsed),
+    );
+  } catch {
+    // ignore
+  }
+};

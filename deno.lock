@@ -34,6 +34,7 @@
         "npm:eslint-plugin-react@^7.37.5",
         "npm:eslint@^9.39.2",
         "npm:globals@^17.3.0",
+        "npm:jsdom@^28.1.0",
         "npm:preact@^10.27.2",
         "npm:prettier@^3.2.2",
         "npm:react-icons@^5.5.0",

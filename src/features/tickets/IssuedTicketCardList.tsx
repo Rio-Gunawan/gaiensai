@@ -12,6 +12,7 @@ export type TicketCardItem = {
   ticketTypeLabel: string;
   relationshipName: string;
   issuerName?: string;
+  status?: 'valid' | 'cancelled' | 'used' | 'missing' | 'unknown';
 };
 
 type IssuedTicketCardListProps = {
@@ -62,7 +63,9 @@ const IssuedTicketCardList = ({
   collapseAt,
 }: IssuedTicketCardListProps) => {
   const [expanded, setExpanded] = useState(false);
-  const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(null);
+  const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(
+    null,
+  );
   const [isCollapsible, setIsCollapsible] = useState(false);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
   const sortedTickets = useMemo(
@@ -112,9 +115,7 @@ const IssuedTicketCardList = ({
       }
 
       const maxHeight =
-        firstHiddenRowTop -
-        firstRowTop +
-        firstHiddenCard.offsetHeight / 2;
+        firstHiddenRowTop - firstRowTop + firstHiddenCard.offsetHeight / 2;
 
       setCollapsedMaxHeight(Math.max(maxHeight, 0));
     };
@@ -146,7 +147,7 @@ const IssuedTicketCardList = ({
               ? { maxHeight: `${collapsedMaxHeight}px` }
               : undefined
           }
-          >
+        >
           <div className={styles.issuedGrid}>
             {sortedTickets.map((ticket, index) => {
               const isAdmissionOnly =

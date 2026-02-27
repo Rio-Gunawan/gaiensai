@@ -20,6 +20,7 @@ import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyC
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
+import { MdClose } from 'react-icons/md';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -32,6 +33,14 @@ type TicketDisplay = TicketDecodedDisplaySeed & {
   scheduleEndTime: string;
   ticketTypeLabel: string;
   relationshipName: string;
+  status?: TicketStatus;
+};
+
+type TicketStatus = 'valid' | 'used' | 'cancelled' | 'missing' | 'unknown';
+
+type TicketValidityCheckResult = {
+  status: TicketStatus;
+  errorMessage: string | null;
 };
 
 type SnapshotPerformance = {
@@ -71,7 +80,18 @@ const verifyTicketSignature = async (
     import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
   );
 
-const checkTicketValidity = async (code: string): Promise<string | null> => {
+const checkTicketValidity = async (
+  code: string,
+): Promise<TicketValidityCheckResult> => {
+
+  const cachedStatus = readTicketDisplayCache<{ status: TicketStatus }>(code)?.status;
+  if (cachedStatus === 'cancelled') {
+    return {
+      status: 'cancelled',
+      errorMessage: 'このチケットはキャンセルされています。',
+    };
+  }
+
   const { data, error } = await supabase
     .from('tickets')
     .select('status')
@@ -79,26 +99,49 @@ const checkTicketValidity = async (code: string): Promise<string | null> => {
     .maybeSingle();
 
   if (error) {
-    return `チケットの有効性確認に失敗しました。デバイスがオフラインの場合、または障害が発生している場合は、このエラーが発生する可能性があります。
-    これが正規で未使用のQRコードであれば、そのままご入場いただけます。不明点がありましたら、お気軽に外苑祭総務にお問い合わせください。`;
+    return {
+      status: 'unknown',
+      errorMessage: `チケットの有効性確認に失敗しました。デバイスがオフラインの場合、または障害が発生している場合は、このエラーが発生する可能性があります。
+    これが正規で未使用のQRコードであれば、そのままご入場いただけます。不明点がありましたら、お気軽に外苑祭総務にお問い合わせください。`,
+    };
   }
 
   const status = (data as { status?: string } | null)?.status;
 
   if (status === 'used') {
-    return 'このチケットはすでに使用されています。';
+    return {
+      status: 'used',
+      errorMessage: 'このチケットはすでに使用されています。',
+    };
   }
   if (status === 'cancelled') {
-    return 'このチケットはキャンセルされています。';
+    const existing = readTicketDisplayCache<Record<string, unknown>>(code);
+    if (existing) {
+      existing.status = 'cancelled';
+      writeTicketDisplayCache(code, existing);
+    }
+    return {
+      status: 'cancelled',
+      errorMessage: 'このチケットはキャンセルされています。',
+    };
   }
   if (!status) {
-    return 'このチケットは存在しないか、無効です。';
+    return {
+      status: 'missing',
+      errorMessage: 'このチケットは存在しないか、無効です。',
+    };
   }
   if (status !== 'valid') {
-    return 'このチケットは無効です。';
+    return {
+      status: 'unknown',
+      errorMessage: 'このチケットは無効です。',
+    };
   }
 
-  return null;
+  return {
+    status: 'valid',
+    errorMessage: null,
+  };
 };
 
 const formatDateText = (date: string[]) => {
@@ -147,7 +190,9 @@ const Ticket = () => {
     relationshipName: '-',
   });
   const [loading, setLoading] = useState(true);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
+  const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
 
   const token = params.id;
 
@@ -162,6 +207,7 @@ const Ticket = () => {
     const loadTicket = async () => {
       if (!code || !signature) {
         setErrorMessages(['チケットURLの形式が正しくありません。']);
+        setTicketStatus('unknown');
         setLoading(false);
         return;
       }
@@ -178,6 +224,7 @@ const Ticket = () => {
 
       if (!decoded) {
         setErrorMessages(['チケット情報の復元に失敗しました。']);
+        setTicketStatus('unknown');
         setLoading(false);
         return;
       }
@@ -196,19 +243,20 @@ const Ticket = () => {
           serial:
             typeof cached.serial === 'number' ? cached.serial : decoded.serial,
         });
-        const validityError = await checkTicketValidity(code);
-        if (validityError) {
-          nonBlockingErrors.push(validityError);
+        const validityResult = await checkTicketValidity(code);
+        setTicketStatus(validityResult.status);
+        if (validityResult.errorMessage) {
+          nonBlockingErrors.push(validityResult.errorMessage);
         }
         setErrorMessages(nonBlockingErrors);
         setLoading(false);
         return;
       }
 
-      const validityError = await checkTicketValidity(code);
-
-      if (validityError) {
-        nonBlockingErrors.push(validityError);
+      const validityResult = await checkTicketValidity(code);
+      setTicketStatus(validityResult.status);
+      if (validityResult.errorMessage) {
+        nonBlockingErrors.push(validityResult.errorMessage);
       }
 
       const isAdmissionOnly =
@@ -436,6 +484,73 @@ const Ticket = () => {
   }, [code, signature, config.date, token]);
 
   const ticketUrl = `https://${config.site_url}/t/${token}`;
+  const canCancelTicket =
+    !loading && !cancelLoading && ticketStatus === 'valid';
+
+  const handleCancelTicket = async () => {
+    if (!canCancelTicket) {
+      return;
+    }
+
+    const shouldCancel = window.confirm(
+      'このチケットをキャンセルしますか？この操作は取り消せません。',
+    );
+    if (!shouldCancel) {
+      return;
+    }
+
+    setCancelLoading(true);
+    const { error } = await supabase.rpc('cancel_own_ticket_by_code', {
+      p_code: code,
+    });
+
+    if (error) {
+      setErrorMessages((previous) => [
+        ...previous,
+        `キャンセルに失敗しました: ${error.message}`,
+      ]);
+      setCancelLoading(false);
+      return;
+    }
+
+    setTicketStatus('cancelled');
+
+    // update cached stores so TicketHistory/Dashboard update with status
+    try {
+      const {
+        writeTicketDisplayCache,
+        readTicketDisplayCache,
+      } = await import('../../features/tickets/ticketDisplayCache');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = readTicketDisplayCache<Record<string, any>>(code);
+      if (existing) {
+        existing.status = 'cancelled';
+        writeTicketDisplayCache(code, existing);
+      }
+    } catch (e) {
+      // ignore cache update failures
+    }
+    try {
+      const { markCachedTicketCardCancelled } =
+        await import('./students/offlineCache.ts');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.id) {
+        markCachedTicketCardCancelled(user.id, code);
+      }
+    } catch (e) {
+      // ignore absence of offline cache or auth issues
+    }
+
+    setErrorMessages((previous) => {
+      const kept = previous.filter(
+        (message) => message !== 'このチケットはキャンセルされています。',
+      );
+      return [...kept, 'このチケットはキャンセルされています。'];
+    });
+    setCancelLoading(false);
+  };
 
   return (
     <>
@@ -457,7 +572,9 @@ const Ticket = () => {
           )}
         </h2>
         {ticket.performanceTitle && (
-          <p className={styles.performanceTitle}>「{ticket.performanceTitle}」</p>
+          <p className={styles.performanceTitle}>
+            「{ticket.performanceTitle}」
+          </p>
         )}
         {errorMessages.length > 0 && (
           <Alert type='error'>
@@ -473,10 +590,15 @@ const Ticket = () => {
           </Alert>
         )}
 
-        <div className={styles.qrSection}>
-          <QRCode value={token} size={Math.min(window.innerWidth * 0.8, 350)} />
-          <p className={styles.ticketCode}>{code}</p>
-        </div>
+        {ticketStatus !== 'cancelled' && (
+          <div className={styles.qrSection}>
+            <QRCode
+              value={token}
+              size={Math.min(window.innerWidth * 0.8, 350)}
+            />
+            <p className={styles.ticketCode}>{code}</p>
+          </div>
+        )}
 
         <div className={styles.ticketDetails}>
           <div className={styles.detailRow}>
@@ -501,33 +623,45 @@ const Ticket = () => {
           </div>
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>間柄</span>
-            <span className={styles.detailValue}>{ticket.relationshipName}</span>
+            <span className={styles.detailValue}>
+              {ticket.relationshipName}
+            </span>
           </div>
         </div>
 
-        <div className={styles.actionSection}>
-          <p className={styles.urlContainer}>
-            <a href={`/t/${token}`}>{ticketUrl}</a>
-          </p>
-          <button
-            className={styles.copyButton}
-            onClick={async () => {
-              await navigator.clipboard.writeText(ticketUrl);
-              setShowCopySucceed(true);
-              setTimeout(() => {
-                setShowCopySucceed(false);
-              }, 2000);
-            }}
-          >
-            チケットURLをコピー
-          </button>
-          <p
-            className={styles.copySucceed}
-            style={{ opacity: showCopySucceed ? 1 : 0 }}
-          >
-            コピーしました
-          </p>
-        </div>
+        {ticketStatus !== 'cancelled' && (
+          <div className={styles.actionSection}>
+            <p className={styles.urlContainer}>
+              <a href={`/t/${token}`}>{ticketUrl}</a>
+            </p>
+            <button
+              className={styles.copyButton}
+              onClick={async () => {
+                await navigator.clipboard.writeText(ticketUrl);
+                setShowCopySucceed(true);
+                setTimeout(() => {
+                  setShowCopySucceed(false);
+                }, 2000);
+              }}
+            >
+              チケットURLをコピー
+            </button>
+            <p
+              className={styles.copySucceed}
+              style={{ opacity: showCopySucceed ? 1 : 0 }}
+            >
+              コピーしました
+            </p>
+            <button
+              className={styles.cancelButton}
+              disabled={!canCancelTicket}
+              onClick={handleCancelTicket}
+            >
+              <MdClose />
+              {cancelLoading ? 'キャンセル中...' : 'チケットをキャンセル'}
+            </button>
+          </div>
+        )}
       </div>
 
       <section>

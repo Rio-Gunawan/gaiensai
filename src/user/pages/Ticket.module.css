@@ -128,3 +128,22 @@
   margin: 0;
   transition: opacity 0.3s;
 }
+
+.cancelButton {
+  padding: 0;
+  margin: 0.5rem 0;
+  background: none;
+  color: var(--error-text-color);
+  font-weight: bold;
+  border: none;
+  transition: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cancelButton:hover {
+  background: none;
+  border: none;
+  outline: none;
+}

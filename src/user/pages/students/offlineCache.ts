@@ -73,3 +73,34 @@ export const writeCachedTicketCards = (
     }),
   );
 };
+
+export const deleteCachedTicketCard = (userId: string, code: string): void => {
+  try {
+    const tickets = readCachedTicketCards(userId);
+    if (!tickets) {
+      return;
+    }
+    const filtered = tickets.filter((t) => t.code !== code);
+    writeCachedTicketCards(userId, filtered);
+  } catch {
+    // ignore
+  }
+};
+
+export const markCachedTicketCardCancelled = (
+  userId: string,
+  code: string,
+): void => {
+  try {
+    const tickets = readCachedTicketCards(userId);
+    if (!tickets) {
+      return;
+    }
+    const updated = tickets.map((t) =>
+      t.code === code ? { ...t, status: 'cancelled' } : t,
+    );
+    writeCachedTicketCards(userId, updated as StoredTicketCard[]);
+  } catch {
+    // ignore
+  }
+};

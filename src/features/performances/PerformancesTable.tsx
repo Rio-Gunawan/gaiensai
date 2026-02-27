@@ -128,10 +128,7 @@ const PerformancesTable = ({
         const totalCapacity = Number(performance.total_capacity ?? 0);
         const juniorCapacity = Number(performance.junior_capacity ?? 0);
         const generalCapacity = Math.max(totalCapacity - juniorCapacity, 0);
-        const lowStockThreshold = Math.max(
-          1,
-          Math.ceil(generalCapacity * 0.1),
-        );
+        const lowStockThreshold = Math.max(1, Math.ceil(generalCapacity * 0.1));
 
         if (remaining <= 0) {
           map.set(key, 'cross');
@@ -171,6 +168,11 @@ const PerformancesTable = ({
 
   useEffect(() => {
     if (!onAvailableCellClick || enableIssueJump) {
+      return;
+    }
+
+    // if table data has not yet been loaded, don't modify selection
+    if (filteredPerformances.length === 0 || filteredSchedules.length === 0) {
       return;
     }
 
@@ -221,10 +223,7 @@ const PerformancesTable = ({
     const selection = selectableCells[0];
     const key = `${selection.performanceId}-${selection.scheduleId}`;
 
-    if (
-      selectedCellKey === key ||
-      autoSelectedCellKeyRef.current === key
-    ) {
+    if (selectedCellKey === key || autoSelectedCellKeyRef.current === key) {
       return;
     }
 
@@ -260,7 +259,9 @@ const PerformancesTable = ({
     }
   };
 
-  const handleAvailableCellClick = (selection: AvailableSeatSelection): void => {
+  const handleAvailableCellClick = (
+    selection: AvailableSeatSelection,
+  ): void => {
     onAvailableCellClick?.(selection);
 
     if (!enableIssueJump) {
@@ -299,7 +300,9 @@ const PerformancesTable = ({
               value={String(selectedPerformanceId)}
               onChange={(event) => {
                 const value = event.currentTarget.value;
-                setSelectedPerformanceId(value === 'all' ? 'all' : Number(value));
+                setSelectedPerformanceId(
+                  value === 'all' ? 'all' : Number(value),
+                );
               }}
             >
               <option value='all'>すべて</option>
@@ -378,9 +381,15 @@ const PerformancesTable = ({
         </label>
       </div>
       <div className={styles.legend}>
-        <span className={`${styles.legendItem} ${styles.statusCircle}`}>○ 余裕あり</span>
-        <span className={`${styles.legendItem} ${styles.statusTriangle}`}>△ 残り10%以下</span>
-        <span className={`${styles.legendItem} ${styles.statusCross}`}>× 売り切れ</span>
+        <span className={`${styles.legendItem} ${styles.statusCircle}`}>
+          ○ 余裕あり
+        </span>
+        <span className={`${styles.legendItem} ${styles.statusTriangle}`}>
+          △ 残り10%以下
+        </span>
+        <span className={`${styles.legendItem} ${styles.statusCross}`}>
+          × 売り切れ
+        </span>
       </div>
       <p className={styles.scrollHint}>← 横にスクロールできます →</p>
       <div className={styles.tableWrapper}>
@@ -405,7 +414,9 @@ const PerformancesTable = ({
                   const status = statusByKey.get(key) ?? 'cross';
                   const canIssue = remaining > 0;
                   const canJump = canIssue && enableIssueJump;
-                  const isInteractive = canIssue && (enableIssueJump || Boolean(onAvailableCellClick));
+                  const isInteractive =
+                    canIssue &&
+                    (enableIssueJump || Boolean(onAvailableCellClick));
                   const isSelected = selectedCellKey === key;
 
                   return (

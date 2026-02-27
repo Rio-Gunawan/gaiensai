@@ -1,9 +1,9 @@
+/* eslint-disable no-undef */
 /* eslint-disable no-console */
 import { createClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-// eslint-disable-next-line no-undef
 const rootDir = process.cwd();
 const outputPath = resolve(rootDir, 'src/generated/performances-static.json');
 
@@ -47,9 +47,13 @@ const readEnvFile = (filePath) => {
 const env = {
   ...readEnvFile(resolve(rootDir, '.env')),
   ...readEnvFile(resolve(rootDir, '.env.local')),
-  // eslint-disable-next-line no-undef
   ...process.env,
 };
+
+if (!env.VITE_SUPABASE_URL) {
+  console.warn("Skipping static generation (no Supabase env)");
+  process.exit(0);
+}
 
 const supabaseUrl = env.VITE_SUPABASE_URL;
 const supabaseKey =
@@ -128,7 +132,6 @@ try {
       `[warn] Failed to refresh ${outputPath}. Existing snapshot is kept.`,
     );
     console.warn(error);
-    // eslint-disable-next-line no-undef
     process.exit(0);
   }
 

@@ -1,3 +1,5 @@
+import type { TicketCardItem } from '../features/tickets/IssuedTicketCardList';
+
 export type GalleryImage = {
   src: string;
   alt: string;
@@ -55,4 +57,7 @@ export type AvailableSeatSelection = {
   scheduleId: number;
   scheduleName: string;
   remaining: number;
+};
+export type CachedTicketDisplay = TicketCardItem & {
+  serial?: number;
 };

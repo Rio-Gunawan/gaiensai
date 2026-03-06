@@ -125,8 +125,31 @@
 .copySucceed {
   color: var(--success-color);
   font-size: 0.9rem;
+  font-weight: 700;
   margin: 0;
   transition: opacity 0.3s;
+  text-align: center;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.shortenButton,
+.modalCloseButton {
+  border: 1px solid var(--select-border-color);
+  background: var(--main-bg-color);
+  color: var(--main-text-color);
+}
+
+.copyButton:disabled,
+.shortenButton:disabled,
+.modalCloseButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .cancelButton {
@@ -146,4 +169,62 @@
   background: none;
   border: none;
   outline: none;
+}
+
+.shortUrlModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.shortUrlModal {
+  width: min(92%, 460px);
+  border-radius: 12px;
+  padding: 1.2rem;
+  background: var(--main-bg-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.shortUrlModalTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.shortUrlModalDescription {
+  margin: 0 0 0.8rem;
+  font-size: 0.8rem;
+  color: var(--main-text-color);
+}
+
+.shortUrlValue {
+  margin: 0;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-family: monospace;
+  background: var(--url-bg-color);
+  color: var(--url-text-color);
+  word-break: break-all;
+  user-select: all;
+}
+
+.shortUrlModalActions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.shortUrlWarn {
+  margin: 1em 0;
+}
+
+.shortUrlWarn h2 {
+  margin: 0;
+  margin-bottom: 0.5em;
+  font-size: 1.1rem;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useParams } from 'wouter-preact';
 import { navigate } from 'wouter-preact/use-browser-location';
 
@@ -8,6 +8,7 @@ import { useEventConfig } from '../../hooks/useEventConfig';
 import { supabase } from '../../lib/supabase';
 import performancesSnapshot from '../../generated/performances-static.json';
 import {
+  listTicketDisplayCache,
   readTicketDisplayCache,
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache';
@@ -21,6 +22,10 @@ import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyC
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
 import { MdClose } from 'react-icons/md';
+import TicketListContent from '../../features/tickets/TicketListContent.tsx';
+import type { CachedTicketDisplay } from '../../types/types.ts';
+import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerialTickets.ts';
+import type { TicketCardItem } from '../../features/tickets/IssuedTicketCardList.tsx';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -83,8 +88,9 @@ const verifyTicketSignature = async (
 const checkTicketValidity = async (
   code: string,
 ): Promise<TicketValidityCheckResult> => {
-
-  const cachedStatus = readTicketDisplayCache<{ status: TicketStatus }>(code)?.status;
+  const cachedStatus = readTicketDisplayCache<{ status: TicketStatus }>(
+    code,
+  )?.status;
   if (cachedStatus === 'cancelled') {
     return {
       status: 'cancelled',
@@ -170,6 +176,10 @@ const Ticket = () => {
   const { config } = useEventConfig();
   const params = useParams();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
+  const [isShortUrlModalOpen, setIsShortUrlModalOpen] = useState(false);
+  const [issuedShortUrl, setIssuedShortUrl] = useState('');
+  const [isIssuingShortUrl, setIsIssuingShortUrl] = useState(false);
+  const [showShortUrlCopySucceed, setShowShortUrlCopySucceed] = useState(false);
   const [ticket, setTicket] = useState<TicketDisplay>({
     code: '',
     signature: '',
@@ -486,6 +496,70 @@ const Ticket = () => {
   const ticketUrl = `https://${config.site_url}/t/${token}`;
   const canCancelTicket =
     !loading && !cancelLoading && ticketStatus === 'valid';
+  const shortenerApiKey = import.meta.env.VITE_SHORTEN_URL_API_KEY;
+
+  const handleIssueShortUrl = async () => {
+    if (!shortenerApiKey) {
+      setErrorMessages((previous) => [
+        ...previous,
+        '短縮URL発行APIキーが設定されていません。',
+      ]);
+      return;
+    }
+
+    setIsIssuingShortUrl(true);
+    try {
+      const params = new URLSearchParams({
+        url: ticketUrl,
+        analytics: 'false',
+        key: shortenerApiKey,
+      });
+      const response = await fetch(`https://xgd.io/V1/shorten?${params}`);
+      const rawBody = (await response.text()).trim();
+
+      if (!response.ok) {
+        throw new Error(rawBody || '短縮URLの発行に失敗しました。');
+      }
+
+      let resolvedShortUrl = rawBody;
+      if (rawBody.startsWith('{')) {
+        try {
+          const payload = JSON.parse(rawBody) as {
+            shorturl?: string;
+            short_url?: string;
+            url?: string;
+            link?: string;
+          };
+          resolvedShortUrl =
+            payload.shorturl ??
+            payload.short_url ??
+            payload.url ??
+            payload.link ??
+            '';
+        } catch {
+          // ignore json parse failure and keep raw response
+        }
+      }
+
+      if (!resolvedShortUrl.startsWith('http')) {
+        throw new Error('短縮URLの形式が正しくありません。');
+      }
+
+      setIssuedShortUrl(resolvedShortUrl);
+      setIsShortUrlModalOpen(true);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : '短縮URLの発行に失敗しました。';
+      setErrorMessages((previous) => [
+        ...previous,
+        `短縮URLの発行に失敗しました: ${message}`,
+      ]);
+    } finally {
+      setIsIssuingShortUrl(false);
+    }
+  };
 
   const handleCancelTicket = async () => {
     if (!canCancelTicket) {
@@ -517,10 +591,8 @@ const Ticket = () => {
 
     // update cached stores so TicketHistory/Dashboard update with status
     try {
-      const {
-        writeTicketDisplayCache,
-        readTicketDisplayCache,
-      } = await import('../../features/tickets/ticketDisplayCache');
+      const { writeTicketDisplayCache, readTicketDisplayCache } =
+        await import('../../features/tickets/ticketDisplayCache');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = readTicketDisplayCache<Record<string, any>>(code);
       if (existing) {
@@ -551,6 +623,14 @@ const Ticket = () => {
     });
     setCancelLoading(false);
   };
+
+  const cachedTickets = useMemo(
+    () => listTicketDisplayCache<CachedTicketDisplay>(),
+    [],
+  );
+  const tickets = useDecodedSerialTickets<TicketCardItem>(cachedTickets)
+    .filter((t) => t.code !== code)
+    .filter((t) => t.status !== 'cancelled');
 
   return (
     <>
@@ -596,7 +676,9 @@ const Ticket = () => {
               value={token}
               size={Math.min(window.innerWidth * 0.8, 350)}
             />
-            <p className={styles.ticketCode}>{code}</p>
+            <p className={styles.ticketCode}>
+              {code.replace(/.{4}/g, '$&-').replace(/-$/, '')}
+            </p>
           </div>
         )}
 
@@ -634,18 +716,27 @@ const Ticket = () => {
             <p className={styles.urlContainer}>
               <a href={`/t/${token}`}>{ticketUrl}</a>
             </p>
-            <button
-              className={styles.copyButton}
-              onClick={async () => {
-                await navigator.clipboard.writeText(ticketUrl);
-                setShowCopySucceed(true);
-                setTimeout(() => {
-                  setShowCopySucceed(false);
-                }, 2000);
-              }}
-            >
-              チケットURLをコピー
-            </button>
+            <div className={styles.actionButtons}>
+              <button
+                className={styles.copyButton}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(ticketUrl);
+                  setShowCopySucceed(true);
+                  setTimeout(() => {
+                    setShowCopySucceed(false);
+                  }, 2000);
+                }}
+              >
+                チケットURLをコピー
+              </button>
+              <button
+                className={styles.shortenButton}
+                onClick={handleIssueShortUrl}
+                disabled={isIssuingShortUrl}
+              >
+                {isIssuingShortUrl ? '短縮URLを発行中...' : '短縮URLを発行'}
+              </button>
+            </div>
             <p
               className={styles.copySucceed}
               style={{ opacity: showCopySucceed ? 1 : 0 }}
@@ -664,6 +755,62 @@ const Ticket = () => {
         )}
       </div>
 
+      {isShortUrlModalOpen && (
+        <div
+          className={styles.shortUrlModalOverlay}
+          role='presentation'
+          onClick={() => setIsShortUrlModalOpen(false)}
+        >
+          <div
+            className={styles.shortUrlModal}
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='short-url-modal-title'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2
+              id='short-url-modal-title'
+              className={styles.shortUrlModalTitle}
+            >
+              短縮URLを発行しました
+            </h2>
+            <Alert className={styles.shortUrlWarn}>
+              短縮URLは手入力が必要な場面以外で使わないでください。
+            </Alert>
+            <p className={styles.shortUrlModalDescription}>
+              短縮URLはオフライン時に使用不能になります。URLを共有する場合は、短縮URLよりもQRコードのスクリーンショットを共有することをおすすめします。
+            </p>
+            <p className={styles.shortUrlValue}>{issuedShortUrl}</p>
+            <div className={styles.shortUrlModalActions}>
+              <button
+                type='button'
+                className={styles.copyButton}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(issuedShortUrl);
+                  setShowShortUrlCopySucceed(true);
+                  setTimeout(() => setShowShortUrlCopySucceed(false), 2000);
+                }}
+              >
+                短縮URLをコピー
+              </button>
+              <button
+                type='button'
+                className={styles.modalCloseButton}
+                onClick={() => setIsShortUrlModalOpen(false)}
+              >
+                閉じる
+              </button>
+            </div>
+            <p
+              className={styles.copySucceed}
+              style={{ opacity: showShortUrlCopySucceed ? 1 : 0 }}
+            >
+              コピーしました
+            </p>
+          </div>
+        </div>
+      )}
+
       <section>
         <h3>注意事項</h3>
         <ul className={styles.notes}>
@@ -680,7 +827,21 @@ const Ticket = () => {
           <li>
             このページで発券されたチケットは、外苑祭当日、入場時に必要となります。忘れずに持参してください。
           </li>
+          <li>
+            <strong>
+              URLやこの画面は、絶対に不特定多数に共有してはいけません。
+            </strong>
+          </li>
         </ul>
+      </section>
+
+      <section>
+        <h3>他のチケット</h3>
+        <TicketListContent
+          embedded={false}
+          tickets={tickets}
+          emptyMessage='この端末で表示したことのあるチケットはまだありません。'
+        />
       </section>
     </>
   );

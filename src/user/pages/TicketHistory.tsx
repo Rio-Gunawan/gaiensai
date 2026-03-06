@@ -4,10 +4,7 @@ import { listTicketDisplayCache } from '../../features/tickets/ticketDisplayCach
 import type { TicketCardItem } from '../../features/tickets/IssuedTicketCardList';
 import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerialTickets';
 import pageStyles from '../../styles/sub-pages.module.css';
-
-type CachedTicketDisplay = TicketCardItem & {
-  serial?: number;
-};
+import type { CachedTicketDisplay } from '../../types/types';
 
 const TicketHistory = () => {
   const cachedTickets = useMemo(

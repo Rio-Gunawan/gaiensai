@@ -62,7 +62,7 @@ const TicketHistory = () => {
           sortMode={validSortMode}
           onSortModeChange={setValidSortMode}
           tickets={validTickets}
-          emptyMessage='有効なチケットはありません。'
+          emptyMessage='この端末で開いたことがある有効なチケットはまだありません。'
         />
       </section>
       <section>
@@ -73,7 +73,7 @@ const TicketHistory = () => {
           sortMode={cancelledSortMode}
           onSortModeChange={setCancelledSortMode}
           tickets={cancelledTickets}
-          emptyMessage='キャンセル済みチケットはありません。'
+          emptyMessage='この端末で開いたことがあるキャンセル済みチケットはまだありません。'
         />
       </section>
       <section>
@@ -84,7 +84,7 @@ const TicketHistory = () => {
           sortMode={otherSortMode}
           onSortModeChange={setOtherSortMode}
           tickets={otherTickets}
-          emptyMessage='その他のチケットはありません。'
+          emptyMessage='この端末で開いたことがあるその他のチケットはまだありません。'
         />
       </section>
     </>

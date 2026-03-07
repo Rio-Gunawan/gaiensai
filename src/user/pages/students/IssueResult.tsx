@@ -56,6 +56,7 @@ const IssueResult = () => {
       ) : (
         <IssuedTicketCardList
           title='発券したチケット一覧'
+          showSortControl
           showSerialNumber
           showTicketCode
           tickets={issuedTickets.map((ticket) => ({

@@ -29,6 +29,31 @@ const normalizeCachedTicketStatus = <T>(ticket: T): T => {
   return {
     ...(ticket as Record<string, unknown>),
     status,
+} as T;
+};
+
+const normalizeLastOpenedAt = (value: unknown): number =>
+  Number.isFinite(Number(value)) ? Number(value) : 0;
+
+const normalizeCachedTicket = <T>(
+  ticket: T,
+  fallbackLastOpenedAt: number,
+): T => {
+  const normalizedStatusTicket = normalizeCachedTicketStatus(ticket);
+  if (!normalizedStatusTicket || typeof normalizedStatusTicket !== 'object') {
+    return normalizedStatusTicket;
+  }
+  const rawLastOpenedAt = (
+    normalizedStatusTicket as { lastOpenedAt?: unknown }
+  ).lastOpenedAt;
+  const lastOpenedAt = Math.max(
+    normalizeLastOpenedAt(rawLastOpenedAt),
+    normalizeLastOpenedAt(fallbackLastOpenedAt),
+  );
+
+  return {
+    ...(normalizedStatusTicket as Record<string, unknown>),
+    lastOpenedAt,
   } as T;
 };
 
@@ -57,30 +82,63 @@ export const readTicketDisplayCache = <T>(code: string): T | null => {
     if (!raw) {
       return null;
     }
-    const parsed = JSON.parse(raw) as { ticket?: T };
+    const parsed = JSON.parse(raw) as {
+      ticket?: T;
+      lastOpenedAt?: number;
+      cachedAt?: number;
+    };
     if (!parsed.ticket) {
       return null;
     }
-    return normalizeCachedTicketStatus(parsed.ticket);
+    return normalizeCachedTicket(
+      parsed.ticket,
+      normalizeLastOpenedAt(parsed.lastOpenedAt ?? parsed.cachedAt),
+    );
   } catch {
     return null;
   }
 };
 
 export const writeTicketDisplayCache = <T>(code: string, ticket: T): void => {
-  const normalizedTicket = normalizeCachedTicketStatus(ticket);
+  const now = Date.now();
+  const normalizedTicket = normalizeCachedTicket(ticket, now);
   window.localStorage.setItem(
     getTicketCacheKey(code),
     JSON.stringify({
       ticket: normalizedTicket,
-      cachedAt: Date.now(),
+      cachedAt: now,
+      lastOpenedAt: now,
     }),
   );
   notifyTicketDisplayCacheUpdated(code);
 };
 
+export const touchTicketDisplayCacheOpenedAt = (code: string): void => {
+  try {
+    const raw = window.localStorage.getItem(getTicketCacheKey(code));
+    if (!raw) {
+      return;
+    }
+    const parsed = JSON.parse(raw) as {
+      ticket?: Record<string, unknown>;
+      cachedAt?: number;
+      lastOpenedAt?: number;
+    };
+    if (!parsed.ticket) {
+      return;
+    }
+    const now = Date.now();
+    parsed.ticket = normalizeCachedTicket(parsed.ticket, now);
+    parsed.lastOpenedAt = now;
+    window.localStorage.setItem(getTicketCacheKey(code), JSON.stringify(parsed));
+    notifyTicketDisplayCacheUpdated(code);
+  } catch {
+    // ignore
+  }
+};
+
 export const listTicketDisplayCache = <T>(): T[] => {
-  const items: Array<{ ticket: T; cachedAt: number }> = [];
+  const items: Array<{ ticket: T; lastOpenedAt: number }> = [];
 
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const key = window.localStorage.key(i);
@@ -93,13 +151,20 @@ export const listTicketDisplayCache = <T>(): T[] => {
       if (!raw) {
         continue;
       }
-      const parsed = JSON.parse(raw) as { ticket?: T; cachedAt?: number };
+      const parsed = JSON.parse(raw) as {
+        ticket?: T;
+        cachedAt?: number;
+        lastOpenedAt?: number;
+      };
       if (!parsed.ticket) {
         continue;
       }
+      const lastOpenedAt = normalizeLastOpenedAt(
+        parsed.lastOpenedAt ?? parsed.cachedAt,
+      );
       items.push({
-        ticket: normalizeCachedTicketStatus(parsed.ticket),
-        cachedAt: Number(parsed.cachedAt ?? 0),
+        ticket: normalizeCachedTicket(parsed.ticket, lastOpenedAt),
+        lastOpenedAt,
       });
     } catch {
       // Ignore malformed entries.
@@ -107,7 +172,7 @@ export const listTicketDisplayCache = <T>(): T[] => {
   }
 
   return items
-    .sort((a, b) => b.cachedAt - a.cachedAt)
+    .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
     .map((item) => item.ticket);
 };
 

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   readTicketDisplayCache,
   writeTicketDisplayCache,
   listTicketDisplayCache,
   markTicketDisplayCacheCancelled,
+  touchTicketDisplayCacheOpenedAt,
 } from './ticketDisplayCache';
 
 describe('ticketDisplayCache', () => {
@@ -19,19 +20,28 @@ describe('ticketDisplayCache', () => {
     expect(readTicketDisplayCache<typeof sample>(sample.code)).toEqual({
       ...sample,
       status: 'unknown',
+      lastOpenedAt: expect.any(Number),
     });
   });
 
-  it('list returns entries in most-recent-first order', () => {
-    // write two entries with explicit cachedAt timestamps to ensure ordering
+  it('list returns entries in most-recent-open-first order', () => {
+    // write two entries with explicit lastOpenedAt timestamps to ensure ordering
     const now = Date.now();
     localStorage.setItem(
       'ticket-display-cache:v1:A',
-      JSON.stringify({ ticket: { code: 'A' }, cachedAt: now }),
+      JSON.stringify({
+        ticket: { code: 'A' },
+        cachedAt: now,
+        lastOpenedAt: now,
+      }),
     );
     localStorage.setItem(
       'ticket-display-cache:v1:B',
-      JSON.stringify({ ticket: { code: 'B' }, cachedAt: now + 1000 }),
+      JSON.stringify({
+        ticket: { code: 'B' },
+        cachedAt: now + 1000,
+        lastOpenedAt: now + 1000,
+      }),
     );
     const list = listTicketDisplayCache<{ code: string }>();
     expect(list.map((t) => t.code)).toEqual(['B', 'A']);
@@ -51,5 +61,22 @@ describe('ticketDisplayCache', () => {
     markTicketDisplayCacheCancelled(sample.code);
     const after = readTicketDisplayCache<{ status?: string }>(sample.code);
     expect(after?.status).toBe('cancelled');
+  });
+
+  it('touchTicketDisplayCacheOpenedAt updates lastOpenedAt', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1000);
+    writeTicketDisplayCache(sample.code, sample);
+    const before = readTicketDisplayCache<{ lastOpenedAt?: number }>(
+      sample.code,
+    );
+    const beforeOpenedAt = before?.lastOpenedAt ?? 0;
+    vi.spyOn(Date, 'now').mockReturnValue(2000);
+    touchTicketDisplayCacheOpenedAt(sample.code);
+    const after = readTicketDisplayCache<{ lastOpenedAt?: number }>(
+      sample.code,
+    );
+    expect(after?.lastOpenedAt).toBe(2000);
+    expect((after?.lastOpenedAt ?? 0) > beforeOpenedAt).toBe(true);
+    vi.restoreAllMocks();
   });
 });

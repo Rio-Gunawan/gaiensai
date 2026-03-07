@@ -11,6 +11,7 @@ import {
   listTicketDisplayCache,
   readTicketDisplayCache,
   subscribeTicketDisplayCacheUpdated,
+  touchTicketDisplayCacheOpenedAt,
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache';
 import {
@@ -29,6 +30,7 @@ import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerial
 import type {
   TicketCardItem,
   TicketCardStatus,
+  TicketListSortMode,
 } from '../../features/tickets/IssuedTicketCardList.tsx';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
@@ -274,6 +276,7 @@ const Ticket = () => {
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
   const [cacheVersion, setCacheVersion] = useState(0);
+  const [sortMode, setSortMode] = useState<TicketListSortMode>('recent');
 
   const token = params.id;
 
@@ -315,6 +318,8 @@ const Ticket = () => {
           'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
         );
       }
+
+      touchTicketDisplayCacheOpenedAt(code);
 
       const cached = readTicketDisplayCache<TicketDisplay>(code);
       if (cached) {
@@ -1132,6 +1137,9 @@ const Ticket = () => {
         <TicketListContent
           embedded={false}
           tickets={tickets}
+          showSortControl
+          sortMode={sortMode}
+          onSortModeChange={setSortMode}
           emptyMessage='この端末で表示したことのあるチケットはまだありません。'
         />
       </section>

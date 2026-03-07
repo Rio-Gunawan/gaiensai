@@ -13,6 +13,7 @@ export type TicketCardItem = {
   code: string;
   signature: string;
   serial?: number;
+  lastOpenedAt?: number;
   performanceName: string;
   performanceTitle?: string | null;
   scheduleName: string;
@@ -21,6 +22,8 @@ export type TicketCardItem = {
   issuerName?: string;
   status: TicketCardStatus;
 };
+
+export type TicketListSortMode = 'recent' | 'class' | 'performance';
 
 type IssuedTicketCardListProps = {
   title?: string;
@@ -31,6 +34,9 @@ type IssuedTicketCardListProps = {
   showSerialNumber?: boolean;
   embedded?: boolean;
   collapseAt?: number;
+  showSortControl?: boolean;
+  sortMode?: TicketListSortMode;
+  onSortModeChange?: (mode: TicketListSortMode) => void;
 };
 
 export const compareTicketCardItem = (
@@ -59,6 +65,44 @@ export const compareTicketCardItem = (
   return a.code.localeCompare(b.code, 'ja');
 };
 
+export const compareTicketByPerformance = (
+  a: TicketCardItem,
+  b: TicketCardItem,
+): number => {
+  const groupCompare =
+    a.scheduleName.localeCompare(b.scheduleName, 'ja') ||
+    a.performanceName.localeCompare(b.performanceName, 'ja') ||
+    a.relationshipName.localeCompare(b.relationshipName, 'ja') ||
+    (a.issuerName ?? '').localeCompare(b.issuerName ?? '', 'ja') ||
+    a.ticketTypeLabel.localeCompare(b.ticketTypeLabel, 'ja');
+
+  if (groupCompare !== 0) {
+    return groupCompare;
+  }
+
+  const aSerial =
+    typeof a.serial === 'number' ? a.serial : Number.MAX_SAFE_INTEGER;
+  const bSerial =
+    typeof b.serial === 'number' ? b.serial : Number.MAX_SAFE_INTEGER;
+  if (aSerial !== bSerial) {
+    return aSerial - bSerial;
+  }
+
+  return a.code.localeCompare(b.code, 'ja');
+};
+
+export const compareTicketByRecentOpen = (
+  a: TicketCardItem,
+  b: TicketCardItem,
+): number => {
+  const aLastOpenedAt = typeof a.lastOpenedAt === 'number' ? a.lastOpenedAt : 0;
+  const bLastOpenedAt = typeof b.lastOpenedAt === 'number' ? b.lastOpenedAt : 0;
+  if (aLastOpenedAt !== bLastOpenedAt) {
+    return bLastOpenedAt - aLastOpenedAt;
+  }
+  return 0;
+};
+
 const IssuedTicketCardList = ({
   title,
   tickets,
@@ -68,17 +112,36 @@ const IssuedTicketCardList = ({
   showSerialNumber = false,
   embedded = false,
   collapseAt,
+  showSortControl = false,
+  sortMode,
+  onSortModeChange,
 }: IssuedTicketCardListProps) => {
+  const [internalSortMode, setInternalSortMode] =
+    useState<TicketListSortMode>('recent');
   const [expanded, setExpanded] = useState(false);
   const [collapsedMaxHeight, setCollapsedMaxHeight] = useState<number | null>(
     null,
   );
   const [isCollapsible, setIsCollapsible] = useState(false);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
-  const sortedTickets = useMemo(
-    () => [...tickets].sort(compareTicketCardItem),
-    [tickets],
-  );
+  const resolvedSortMode = sortMode ?? internalSortMode;
+
+  const handleSortModeChange = (nextMode: TicketListSortMode) => {
+    if (!sortMode) {
+      setInternalSortMode(nextMode);
+    }
+    onSortModeChange?.(nextMode);
+  };
+
+  const sortedTickets = useMemo(() => {
+    if (resolvedSortMode === 'recent') {
+      return [...tickets].sort(compareTicketByRecentOpen);
+    }
+    if (resolvedSortMode === 'class') {
+      return [...tickets].sort(compareTicketCardItem);
+    }
+    return [...tickets].sort(compareTicketByPerformance);
+  }, [tickets, resolvedSortMode]);
 
   useEffect(() => {
     if (typeof collapseAt !== 'number') {
@@ -142,6 +205,27 @@ const IssuedTicketCardList = ({
       }`}
     >
       {title && <h2 className={styles.issuedTitle}>{title}</h2>}
+      {showSortControl && (
+        <div className={styles.sortControlRow}>
+          <label className={styles.sortLabel} htmlFor='ticket-list-sort'>
+            並び替え
+          </label>
+          <select
+            id='ticket-list-sort'
+            className={styles.sortSelect}
+            value={resolvedSortMode}
+            onChange={(event) =>
+              handleSortModeChange(
+                event.currentTarget.value as TicketListSortMode,
+              )
+            }
+          >
+            <option value='recent'>最後に開いた順</option>
+            <option value='class'>クラス順</option>
+            <option value='performance'>公演順</option>
+          </select>
+        </div>
+      )}
       {sortedTickets.length === 0 ? (
         <p className={styles.emptyState}>{emptyMessage}</p>
       ) : (
@@ -175,7 +259,7 @@ const IssuedTicketCardList = ({
                     <span className={styles.serialBadge}>#{ticket.serial}</span>
                   )}
                   <div className={styles.ticketHeader}>
-                    <h3 className={styles.ticketClass}>
+                    <h3 className={`${styles.ticketClass} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}>
                       {headlineLabel}
                       {!isAdmissionOnly && ticket.performanceTitle && (
                         <span className={styles.ticketTitle}>
@@ -183,7 +267,7 @@ const IssuedTicketCardList = ({
                         </span>
                       )}
                     </h3>
-                    <span className={styles.ticketSchedule}>
+                    <span className={`${styles.ticketSchedule} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}>
                       {ticket.scheduleName}
                     </span>
                   </div>

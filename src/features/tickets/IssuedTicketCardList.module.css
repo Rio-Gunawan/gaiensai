@@ -11,6 +11,29 @@
   font-size: 1.2rem;
 }
 
+.sortControlRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+}
+
+.sortLabel {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--heading-text-color);
+}
+
+.sortSelect {
+  border: 1px solid var(--select-border-color);
+  border-radius: 8px;
+  background: var(--select-bg-color);
+  color: var(--main-text-color);
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .issuedGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -97,6 +120,10 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--accent-color);
+}
+
+.isInvalid {
+  text-decoration: line-through;
 }
 
 .ticketMeta {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
 import { navigate } from 'wouter-preact/use-browser-location';
+import { useTurnstile } from '../../../hooks/useTurnstile';
 
 import lineImageUrl from '../../../assets/line.webp';
 import styles from './Login.module.css';
@@ -20,6 +21,12 @@ function Login() {
   const [verifying, setVerifying] = useState(!!hasTokenHash);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+  const {
+    token: turnstileToken,
+    hasSiteKey: hasTurnstileSiteKey,
+    getToken: getTurnstileToken,
+    reset: resetTurnstile,
+  } = useTurnstile({ containerId: 'login-email-turnstile' });
 
   useEffect(() => {
     const currentParams = new URLSearchParams(window.location.search);
@@ -70,13 +77,22 @@ function Login() {
 
   const handleLogin = async (event: Event) => {
     event.preventDefault();
+    const captchaToken = getTurnstileToken();
+
+    if (!captchaToken) {
+      alert('Turnstile認証を完了してからログインしてください。');
+      return;
+    }
+
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: window.location.href,
+        captchaToken,
       },
     });
+    resetTurnstile();
     if (error) {
       if (
         error.message.includes(
@@ -150,23 +166,24 @@ function Login() {
       message = '途中でセッションが切断されました。再度ログインしてください。';
     }
     if (authError === 'Email link is invalid or has expired') {
-      message = 'メールのURLが無効です。メールの有効期限が切れている、あるいは最新のものではない可能性があります。再度ログインしてください。';
+      message =
+        'メールのURLが無効です。メールの有効期限が切れている、あるいは最新のものではない可能性があります。再度ログインしてください。';
     }
-      return (
-        <section>
-          <h1 className={subPageStyles.pageTitle}>認証エラー</h1>
-          <p>認証に失敗しました</p>
-          <p>エラーメッセージ: {message}</p>
-          <button
-            onClick={() => {
-              setAuthError(null);
-              window.history.replaceState({}, document.title, '/students');
-            }}
-          >
-            ログインページに戻る
-          </button>
-        </section>
-      );
+    return (
+      <section>
+        <h1 className={subPageStyles.pageTitle}>認証エラー</h1>
+        <p>認証に失敗しました</p>
+        <p>エラーメッセージ: {message}</p>
+        <button
+          onClick={() => {
+            setAuthError(null);
+            window.history.replaceState({}, document.title, '/students');
+          }}
+        >
+          ログインページに戻る
+        </button>
+      </section>
+    );
   }
 
   // Show auth success (briefly before session loads)
@@ -256,6 +273,21 @@ function Login() {
         >
           <img src={lineImageUrl} alt='LINE' /> <span>LINEでログイン</span>
         </button>
+
+        <div className={styles.turnstileContainer}>
+          <div id='login-email-turnstile' className='cf-turnstile'></div>
+          {!hasTurnstileSiteKey ? (
+            <p className={styles.turnstileNote}>
+              Turnstile site key が未設定です。
+            </p>
+          ) : !turnstileToken ? (
+            <p className={styles.turnstileNote}>
+              メール送信前に Turnstile 認証を完了してください。
+            </p>
+          ) : (
+            ''
+          )}
+        </div>
 
         <h3>メールアドレスの取得目的について</h3>
         <p>

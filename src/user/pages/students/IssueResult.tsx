@@ -54,6 +54,7 @@ const IssueResult = () => {
           </Link>
         </section>
       ) : (
+        <section className={styles.issuedSection}>
         <IssuedTicketCardList
           title='発券したチケット一覧'
           showSortControl
@@ -69,6 +70,7 @@ const IssueResult = () => {
             status: 'valid',
           }))}
         />
+      </section>
       )}
 
       <Link to='/students/dashboard' className={styles.buttonLink}>

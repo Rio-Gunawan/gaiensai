@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
 import Modal from '../../../components/ui/Modal';
 import { useEventConfig } from '../../../hooks/useEventConfig';
+import { useTurnstile } from '../../../hooks/useTurnstile';
 
 type InitialRegistrationProps = {
   onRegistered: () => Promise<boolean>;
@@ -19,6 +20,12 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const [loading, setLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {
+    token: turnstileToken,
+    hasSiteKey: hasTurnstileSiteKey,
+    getToken: getTurnstileToken,
+    reset: resetTurnstile,
+  } = useTurnstile({ containerId: 'initial-registration-turnstile' });
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
@@ -64,6 +71,12 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       return;
     }
 
+    const captchaToken = getTurnstileToken();
+    if (!captchaToken) {
+      setErrorMessage('Turnstile認証を完了してから登録してください。');
+      return;
+    }
+
     setLoading(true);
 
     // サーバーサイド関数 (RPC) を呼び出して登録
@@ -77,6 +90,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     });
 
     setLoading(false);
+    resetTurnstile();
 
     if (error) {
       // RPC内で発生したエラーメッセージを表示
@@ -211,6 +225,18 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
           />
         </label>
         {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
+        <div className={styles.turnstileContainer}>
+          <div id='initial-registration-turnstile' className='cf-turnstile'></div>
+          {!hasTurnstileSiteKey ? (
+            <p className={styles.turnstileNote}>Turnstile site key が未設定です。</p>
+          ) : !turnstileToken ? (
+            <p className={styles.turnstileNote}>
+              登録前に Turnstile 認証を完了してください。
+            </p>
+          ) : (
+            ''
+          )}
+        </div>
         <button
           className={styles.submitButton}
           type='submit'

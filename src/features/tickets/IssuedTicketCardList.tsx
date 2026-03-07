@@ -259,7 +259,9 @@ const IssuedTicketCardList = ({
                     <span className={styles.serialBadge}>#{ticket.serial}</span>
                   )}
                   <div className={styles.ticketHeader}>
-                    <h3 className={`${styles.ticketClass} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}>
+                    <h3
+                      className={`${styles.ticketClass} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}
+                    >
                       {headlineLabel}
                       {!isAdmissionOnly && ticket.performanceTitle && (
                         <span className={styles.ticketTitle}>
@@ -267,7 +269,9 @@ const IssuedTicketCardList = ({
                         </span>
                       )}
                     </h3>
-                    <span className={`${styles.ticketSchedule} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}>
+                    <span
+                      className={`${styles.ticketSchedule} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}
+                    >
                       {ticket.scheduleName}
                     </span>
                   </div>
@@ -280,7 +284,7 @@ const IssuedTicketCardList = ({
                         <span
                           className={`${styles.ticketMetaValue} ${styles.ticketCodeValue}`}
                         >
-                          {ticket.code}
+                          {ticket.code.replace(/.{4}/g, '$&-').replace(/-$/, '')}
                         </span>
                       </div>
                     )}

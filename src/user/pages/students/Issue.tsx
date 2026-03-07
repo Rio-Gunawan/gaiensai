@@ -7,6 +7,7 @@ import IssueStepDetails from '../../../features/issue/IssueStepDetails';
 import IssueStepPerformance from '../../../features/issue/IssueStepPerformance';
 import IssueStepTicketType from '../../../features/issue/IssueStepTicketType';
 import { ISSUE_RESULT_STORAGE_KEY } from '../../../features/issue/issueResultStorage';
+import { useTurnstile } from '../../../hooks/useTurnstile';
 import { supabase } from '../../../lib/supabase';
 import type {
   RelationshipRow,
@@ -47,9 +48,9 @@ const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
       const payload = await response.json();
 
       if (payload && typeof payload === 'object') {
-        const maybeMessage = (
-          payload as { error?: unknown; message?: unknown; msg?: unknown }
-        ).error ??
+        const maybeMessage =
+          (payload as { error?: unknown; message?: unknown; msg?: unknown })
+            .error ??
           (payload as { message?: unknown }).message ??
           (payload as { msg?: unknown }).msg;
 
@@ -92,6 +93,13 @@ const Issue = () => {
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
+  const turnstileContainerId = 'issue-turnstile-widget';
+  const {
+    token: turnstileToken,
+    hasSiteKey: hasTurnstileSiteKey,
+    getToken: getTurnstileToken,
+    reset: resetTurnstile,
+  } = useTurnstile({ containerId: turnstileContainerId });
 
   useEffect(() => {
     const loadTicketTypes = async () => {
@@ -319,6 +327,13 @@ const Issue = () => {
       return;
     }
 
+    const tokenToVerify = getTurnstileToken();
+
+    if (!tokenToVerify) {
+      alert('Turnstile認証を完了してから発券してください。');
+      return;
+    }
+
     setIsIssuing(true);
 
     const { data: performanceTitle } =
@@ -337,12 +352,14 @@ const Issue = () => {
         performanceId: selectedPerformance.performanceId,
         scheduleId: selectedPerformance.scheduleId,
         issueCount,
+        turnstileToken: tokenToVerify,
       },
     });
 
     if (error) {
       const detailedMessage = await readFunctionErrorMessage(error);
       alert(`発券に失敗しました: ${detailedMessage}`);
+      resetTurnstile();
       setIsIssuing(false);
       return;
     }
@@ -355,6 +372,7 @@ const Issue = () => {
 
     if (!issuedTickets || issuedTickets.length === 0) {
       alert('発券結果を取得できませんでした。');
+      resetTurnstile();
       setIsIssuing(false);
       return;
     }
@@ -372,6 +390,7 @@ const Issue = () => {
     );
     setIssueCount(1);
     setSelectedRelationshipId(null);
+    resetTurnstile();
     setIsIssuing(false);
     navigate('/students/issue/result');
   };
@@ -487,6 +506,18 @@ const Issue = () => {
               {isIssuing ? '発券中...' : '発券する'}
             </button>
           </div>
+        </div>
+        <div className={styles.turnstileContainer}>
+          <div id={turnstileContainerId} className='cf-turnstile'></div>
+          {!hasTurnstileSiteKey ? (
+            <p className={styles.turnstileNote}>Turnstile site key が未設定です。</p>
+          ) : !turnstileToken ? (
+            <p className={styles.turnstileNote}>
+              発券前に Turnstile 認証を完了してください。
+            </p>
+          ) : (
+            <p className={styles.turnstileOk}>Turnstile 認証済みです。</p>
+          )}
         </div>
       </div>
     </div>

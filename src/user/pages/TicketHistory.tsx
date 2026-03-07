@@ -29,15 +29,49 @@ const TicketHistory = () => {
     [cacheVersion],
   );
   const tickets = useDecodedSerialTickets<TicketCardItem>(cachedTickets);
+  const validTickets = useMemo(
+    () => tickets.filter((ticket) => ticket.status === 'valid'),
+    [tickets],
+  );
+  const cancelledTickets = useMemo(
+    () => tickets.filter((ticket) => ticket.status === 'cancelled'),
+    [tickets],
+  );
+  const otherTickets = useMemo(
+    () =>
+      tickets.filter(
+        (ticket) => ticket.status !== 'valid' && ticket.status !== 'cancelled',
+      ),
+    [tickets],
+  );
 
   return (
     <>
       <h1 className={pageStyles.pageTitle}>チケット表示履歴</h1>
-      <TicketListContent
-        embedded={false}
-        tickets={tickets}
-        emptyMessage='この端末で表示したことのあるチケットはまだありません。'
-      />
+      <section>
+        <h2>有効なチケット</h2>
+        <TicketListContent
+          embedded={false}
+          tickets={validTickets}
+          emptyMessage='有効なチケットはありません。'
+        />
+      </section>
+      <section>
+        <h2>キャンセル済みチケット</h2>
+        <TicketListContent
+          embedded={false}
+          tickets={cancelledTickets}
+          emptyMessage='キャンセル済みチケットはありません。'
+        />
+      </section>
+      <section>
+        <h2>その他のチケット</h2>
+        <TicketListContent
+          embedded={false}
+          tickets={otherTickets}
+          emptyMessage='その他のチケットはありません。'
+        />
+      </section>
     </>
   );
 };

@@ -26,7 +26,10 @@ import { MdClose } from 'react-icons/md';
 import TicketListContent from '../../features/tickets/TicketListContent.tsx';
 import type { CachedTicketDisplay } from '../../types/types.ts';
 import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerialTickets.ts';
-import type { TicketCardItem } from '../../features/tickets/IssuedTicketCardList.tsx';
+import type {
+  TicketCardItem,
+  TicketCardStatus,
+} from '../../features/tickets/IssuedTicketCardList.tsx';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -39,10 +42,10 @@ type TicketDisplay = TicketDecodedDisplaySeed & {
   scheduleEndTime: string;
   ticketTypeLabel: string;
   relationshipName: string;
-  status?: TicketStatus;
+  status: TicketStatus;
 };
 
-type TicketStatus = 'valid' | 'used' | 'cancelled' | 'missing' | 'unknown';
+type TicketStatus = TicketCardStatus;
 
 type TicketValidityCheckResult = {
   status: TicketStatus;
@@ -264,6 +267,7 @@ const Ticket = () => {
     scheduleEndTime: '',
     ticketTypeLabel: '-',
     relationshipName: '-',
+    status: 'unknown',
   });
   const [loading, setLoading] = useState(true);
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -314,13 +318,18 @@ const Ticket = () => {
 
       const cached = readTicketDisplayCache<TicketDisplay>(code);
       if (cached) {
-        setTicket({
+        const validityResult = await checkTicketValidity(code);
+        const resolvedCachedTicket: TicketDisplay = {
           ...cached,
           signature,
           serial:
             typeof cached.serial === 'number' ? cached.serial : decoded.serial,
-        });
-        const validityResult = await checkTicketValidity(code);
+          status: validityResult.status,
+        };
+        setTicket(resolvedCachedTicket);
+        if (resolvedCachedTicket.status !== cached.status) {
+          writeTicketDisplayCache(code, resolvedCachedTicket);
+        }
         setTicketStatus(validityResult.status);
         if (validityResult.errorMessage) {
           nonBlockingErrors.push(validityResult.errorMessage);
@@ -548,6 +557,7 @@ const Ticket = () => {
         scheduleEndTime,
         ticketTypeLabel,
         relationshipName,
+        status: validityResult.status,
       };
       setTicket(resolvedTicket);
       if (!usedSnapshotFallback) {
@@ -812,7 +822,7 @@ const Ticket = () => {
   );
   const tickets = useDecodedSerialTickets<TicketCardItem>(cachedTickets)
     .filter((t) => t.code !== code)
-    .filter((t) => t.status !== 'cancelled');
+    .filter((t) => t.status === 'valid');
 
   return (
     <>

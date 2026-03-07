@@ -65,6 +65,7 @@ const IssueResult = () => {
             scheduleName: result.scheduleName,
             ticketTypeLabel: result.ticketTypeLabel,
             relationshipName: result.relationshipName,
+            status: 'valid',
           }))}
         />
       )}

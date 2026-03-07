@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import styles from './IssuedTicketCardList.module.css';
 import { Link } from 'wouter-preact';
 
+export type TicketCardStatus =
+  | 'valid'
+  | 'cancelled'
+  | 'used'
+  | 'missing'
+  | 'unknown';
+
 export type TicketCardItem = {
   code: string;
   signature: string;
@@ -12,7 +19,7 @@ export type TicketCardItem = {
   ticketTypeLabel: string;
   relationshipName: string;
   issuerName?: string;
-  status?: 'valid' | 'cancelled' | 'used' | 'missing' | 'unknown';
+  status: TicketCardStatus;
 };
 
 type IssuedTicketCardListProps = {

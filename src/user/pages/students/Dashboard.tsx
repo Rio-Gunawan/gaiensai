@@ -221,6 +221,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
             ? (relationshipMap.get(decoded.relationshipId) ??
               `間柄${decoded.relationshipId}`)
             : '-',
+          status: 'valid',
           relationshipId,
         };
       });

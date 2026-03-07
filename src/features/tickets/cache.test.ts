@@ -16,7 +16,10 @@ describe('ticketDisplayCache', () => {
 
   it('can write and read an entry', () => {
     writeTicketDisplayCache(sample.code, sample);
-    expect(readTicketDisplayCache<typeof sample>(sample.code)).toEqual(sample);
+    expect(readTicketDisplayCache<typeof sample>(sample.code)).toEqual({
+      ...sample,
+      status: 'unknown',
+    });
   });
 
   it('list returns entries in most-recent-first order', () => {
@@ -32,13 +35,19 @@ describe('ticketDisplayCache', () => {
     );
     const list = listTicketDisplayCache<{ code: string }>();
     expect(list.map((t) => t.code)).toEqual(['B', 'A']);
+    expect(
+      list.every(
+        (ticket) =>
+          (ticket as { status?: string }).status === 'unknown',
+      ),
+    ).toBe(true);
   });
 
   it('markTicketDisplayCacheCancelled sets status field', () => {
     // sample has extra fields, cast to unknown to satisfy generic
     writeTicketDisplayCache(sample.code, sample as unknown as { code: string });
     const before = readTicketDisplayCache<{ status?: string }>(sample.code);
-    expect(before?.status).toBeUndefined();
+    expect(before?.status).toBe('unknown');
     markTicketDisplayCacheCancelled(sample.code);
     const after = readTicketDisplayCache<{ status?: string }>(sample.code);
     expect(after?.status).toBe('cancelled');

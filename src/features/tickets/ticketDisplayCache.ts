@@ -1,8 +1,36 @@
+import type { TicketCardStatus } from './IssuedTicketCardList';
+
 const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
 const TICKET_CACHE_UPDATED_EVENT = 'ticket-display-cache:updated';
+const DEFAULT_TICKET_STATUS: TicketCardStatus = 'unknown';
 
 const getTicketCacheKey = (code: string): string =>
   `${TICKET_CACHE_PREFIX}${code}`;
+
+const isTicketCardStatus = (
+  value: unknown,
+): value is TicketCardStatus =>
+  value === 'valid' ||
+  value === 'cancelled' ||
+  value === 'used' ||
+  value === 'missing' ||
+  value === 'unknown';
+
+const normalizeCachedTicketStatus = <T>(ticket: T): T => {
+  if (!ticket || typeof ticket !== 'object') {
+    return ticket;
+  }
+
+  const rawStatus = (ticket as { status?: unknown }).status;
+  const status = isTicketCardStatus(rawStatus)
+    ? rawStatus
+    : DEFAULT_TICKET_STATUS;
+
+  return {
+    ...(ticket as Record<string, unknown>),
+    status,
+  } as T;
+};
 
 const notifyTicketDisplayCacheUpdated = (code: string): void => {
   window.dispatchEvent(
@@ -30,17 +58,21 @@ export const readTicketDisplayCache = <T>(code: string): T | null => {
       return null;
     }
     const parsed = JSON.parse(raw) as { ticket?: T };
-    return parsed.ticket ?? null;
+    if (!parsed.ticket) {
+      return null;
+    }
+    return normalizeCachedTicketStatus(parsed.ticket);
   } catch {
     return null;
   }
 };
 
 export const writeTicketDisplayCache = <T>(code: string, ticket: T): void => {
+  const normalizedTicket = normalizeCachedTicketStatus(ticket);
   window.localStorage.setItem(
     getTicketCacheKey(code),
     JSON.stringify({
-      ticket,
+      ticket: normalizedTicket,
       cachedAt: Date.now(),
     }),
   );
@@ -66,7 +98,7 @@ export const listTicketDisplayCache = <T>(): T[] => {
         continue;
       }
       items.push({
-        ticket: parsed.ticket,
+        ticket: normalizeCachedTicketStatus(parsed.ticket),
         cachedAt: Number(parsed.cachedAt ?? 0),
       });
     } catch {

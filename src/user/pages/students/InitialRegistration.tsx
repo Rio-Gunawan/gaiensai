@@ -240,7 +240,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
         <button
           className={styles.submitButton}
           type='submit'
-          disabled={loading}
+          disabled={loading || !turnstileToken || !hasTurnstileSiteKey}
         >
           {loading ? '登録中...' : '登録する'}
         </button>

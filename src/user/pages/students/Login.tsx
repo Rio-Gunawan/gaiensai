@@ -218,7 +218,10 @@ function Login() {
             onChange={(e) => setEmail(e.currentTarget.value)}
           />
           <br />
-          <button className={styles.loginButton} disabled={loading}>
+          <button
+            className={styles.loginButton}
+            disabled={loading || !turnstileToken || !hasTurnstileSiteKey}
+          >
             {loading ? (
               <span>読み込み中</span>
             ) : (

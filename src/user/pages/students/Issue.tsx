@@ -500,7 +500,7 @@ const Issue = () => {
               type='button'
               className={styles.generateButton}
               onClick={handleIssue}
-              disabled={!canSubmit || isIssuing}
+              disabled={!canSubmit || isIssuing || !turnstileToken}
               style={step !== 3 ? { display: 'none' } : undefined}
             >
               {isIssuing ? '発券中...' : '発券する'}
@@ -516,7 +516,7 @@ const Issue = () => {
               発券前に Turnstile 認証を完了してください。
             </p>
           ) : (
-            <p className={styles.turnstileOk}>Turnstile 認証済みです。</p>
+            ''
           )}
         </div>
       </div>

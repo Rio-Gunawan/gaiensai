@@ -228,3 +228,78 @@
   margin-bottom: 0.5em;
   font-size: 1.1rem;
 }
+
+.relationshipChangeSection {
+  text-align: center;
+}
+
+.relationshipModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.relationshipModal {
+  width: min(92%, 460px);
+  border-radius: 12px;
+  padding: 1.2rem;
+  background: var(--main-bg-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.relationshipModalTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.relationshipModalMessage {
+  margin: 0 0 0.8rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.relationshipField {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.relationshipSelect {
+  border: 1px solid var(--select-border-color);
+  border-radius: 8px;
+  background: var(--main-bg-color);
+  color: var(--main-text-color);
+  padding: 0.5rem 0.6rem;
+}
+
+.relationshipError {
+  color: var(--error-text-color);
+  margin: 0 0 0.8rem;
+  font-size: 0.9rem;
+}
+
+.relationshipModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.changeRelationshipConfirmButton {
+  border: 1px solid var(--accent-color);
+  border-radius: 8px;
+  background: var(--accent-color);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.5rem 0.8rem;
+}
+
+.changeRelationshipConfirmButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

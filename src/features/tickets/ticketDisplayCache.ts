@@ -1,7 +1,27 @@
 const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
+const TICKET_CACHE_UPDATED_EVENT = 'ticket-display-cache:updated';
 
 const getTicketCacheKey = (code: string): string =>
   `${TICKET_CACHE_PREFIX}${code}`;
+
+const notifyTicketDisplayCacheUpdated = (code: string): void => {
+  window.dispatchEvent(
+    new CustomEvent<string>(TICKET_CACHE_UPDATED_EVENT, { detail: code }),
+  );
+};
+
+export const subscribeTicketDisplayCacheUpdated = (
+  callback: (code: string) => void,
+): (() => void) => {
+  const listener = (event: Event) => {
+    const updatedCode = (event as CustomEvent<string>).detail;
+    callback(updatedCode ?? '');
+  };
+  window.addEventListener(TICKET_CACHE_UPDATED_EVENT, listener);
+  return () => {
+    window.removeEventListener(TICKET_CACHE_UPDATED_EVENT, listener);
+  };
+};
 
 export const readTicketDisplayCache = <T>(code: string): T | null => {
   try {
@@ -24,6 +44,7 @@ export const writeTicketDisplayCache = <T>(code: string, ticket: T): void => {
       cachedAt: Date.now(),
     }),
   );
+  notifyTicketDisplayCacheUpdated(code);
 };
 
 export const listTicketDisplayCache = <T>(): T[] => {
@@ -61,6 +82,7 @@ export const listTicketDisplayCache = <T>(): T[] => {
 export const deleteTicketDisplayCache = (code: string): void => {
   try {
     window.localStorage.removeItem(getTicketCacheKey(code));
+    notifyTicketDisplayCacheUpdated(code);
   } catch {
     // ignore
   }
@@ -85,6 +107,7 @@ export const markTicketDisplayCacheCancelled = (code: string): void => {
       getTicketCacheKey(code),
       JSON.stringify(parsed),
     );
+    notifyTicketDisplayCacheUpdated(code);
   } catch {
     // ignore
   }

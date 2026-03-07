@@ -10,6 +10,7 @@ import performancesSnapshot from '../../generated/performances-static.json';
 import {
   listTicketDisplayCache,
   readTicketDisplayCache,
+  subscribeTicketDisplayCacheUpdated,
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache';
 import {
@@ -60,6 +61,11 @@ type SnapshotSchedule = {
 };
 
 type SnapshotNamedMaster = {
+  id: number;
+  name: string;
+};
+
+type RelationshipOption = {
   id: number;
   name: string;
 };
@@ -172,6 +178,56 @@ const formatDateText = (date: string[]) => {
   return `${first.year}/${first.month}/${first.day}~${last.year}/${last.month}/${last.day}`;
 };
 
+const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
+  const fallback =
+    error instanceof Error ? error.message : '不明なエラーが発生しました。';
+
+  if (!error || typeof error !== 'object') {
+    return fallback;
+  }
+
+  const context = (error as { context?: unknown }).context;
+  if (!context) {
+    return fallback;
+  }
+
+  try {
+    const response =
+      context instanceof Response
+        ? context.clone()
+        : (context as {
+            json?: () => Promise<unknown>;
+            text?: () => Promise<string>;
+          });
+
+    if (typeof response.json === 'function') {
+      const payload = await response.json();
+      if (payload && typeof payload === 'object') {
+        const maybeMessage =
+          (payload as { error?: unknown; message?: unknown; msg?: unknown })
+            .error ??
+          (payload as { message?: unknown }).message ??
+          (payload as { msg?: unknown }).msg;
+
+        if (typeof maybeMessage === 'string' && maybeMessage.length > 0) {
+          return maybeMessage;
+        }
+      }
+    }
+
+    if (typeof response.text === 'function') {
+      const text = await response.text();
+      if (text.length > 0) {
+        return text;
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+};
+
 const Ticket = () => {
   const { config } = useEventConfig();
   const params = useParams();
@@ -180,6 +236,16 @@ const Ticket = () => {
   const [issuedShortUrl, setIssuedShortUrl] = useState('');
   const [isIssuingShortUrl, setIsIssuingShortUrl] = useState(false);
   const [showShortUrlCopySucceed, setShowShortUrlCopySucceed] = useState(false);
+  const [isRelationshipModalOpen, setIsRelationshipModalOpen] = useState(false);
+  const [relationships, setRelationships] = useState<RelationshipOption[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipError, setRelationshipError] = useState<string | null>(
+    null,
+  );
+  const [selectedRelationshipId, setSelectedRelationshipId] = useState<
+    number | null
+  >(null);
+  const [isChangingRelationship, setIsChangingRelationship] = useState(false);
   const [ticket, setTicket] = useState<TicketDisplay>({
     code: '',
     signature: '',
@@ -203,6 +269,7 @@ const Ticket = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
+  const [cacheVersion, setCacheVersion] = useState(0);
 
   const token = params.id;
 
@@ -493,10 +560,93 @@ const Ticket = () => {
     void loadTicket();
   }, [code, signature, config.date, token]);
 
+  useEffect(() => {
+    if (!isRelationshipModalOpen) {
+      return;
+    }
+
+    const loadRelationships = async () => {
+      setRelationshipLoading(true);
+      setRelationshipError(null);
+
+      const { data, error } = await supabase
+        .from('relationships')
+        .select('id, name')
+        .eq('is_accepting', true)
+        .order('id', { ascending: true });
+
+      if (error) {
+        setRelationshipError('間柄の取得に失敗しました。');
+        setRelationshipLoading(false);
+        return;
+      }
+
+      const options = (data ?? []) as RelationshipOption[];
+      setRelationships(options);
+      setSelectedRelationshipId(
+        (previous) => previous ?? ticket.relationshipId,
+      );
+      setRelationshipLoading(false);
+    };
+
+    void loadRelationships();
+  }, [isRelationshipModalOpen, ticket.relationshipId]);
+
   const ticketUrl = `https://${config.site_url}/t/${token}`;
   const canCancelTicket =
     !loading && !cancelLoading && ticketStatus === 'valid';
+  const canChangeRelationship =
+    !loading &&
+    !cancelLoading &&
+    !isChangingRelationship &&
+    ticketStatus === 'valid';
   const shortenerApiKey = import.meta.env.VITE_SHORTEN_URL_API_KEY;
+
+  const syncTicketCancelledStateToCache = async () => {
+    try {
+      const { writeTicketDisplayCache, readTicketDisplayCache } =
+        await import('../../features/tickets/ticketDisplayCache');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = readTicketDisplayCache<Record<string, any>>(code);
+      if (existing) {
+        existing.status = 'cancelled';
+        writeTicketDisplayCache(code, existing);
+      }
+    } catch {
+      // ignore cache update failures
+    }
+
+    try {
+      const { markCachedTicketCardCancelled } =
+        await import('./students/offlineCache.ts');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.id) {
+        markCachedTicketCardCancelled(user.id, code);
+      }
+    } catch {
+      // ignore absence of offline cache or auth issues
+    }
+  };
+
+  const applyTicketCancelledState = async () => {
+    setTicketStatus('cancelled');
+    await syncTicketCancelledStateToCache();
+    setErrorMessages((previous) => {
+      const kept = previous.filter(
+        (message) => message !== 'このチケットはキャンセルされています。',
+      );
+      return [...kept, 'このチケットはキャンセルされています。'];
+    });
+  };
+
+  const cancelTicketInBackend = async (): Promise<string | null> => {
+    const { error } = await supabase.rpc('cancel_own_ticket_by_code', {
+      p_code: code,
+    });
+    return error ? error.message : null;
+  };
 
   const handleIssueShortUrl = async () => {
     if (!shortenerApiKey) {
@@ -574,59 +724,91 @@ const Ticket = () => {
     }
 
     setCancelLoading(true);
-    const { error } = await supabase.rpc('cancel_own_ticket_by_code', {
-      p_code: code,
-    });
-
-    if (error) {
+    const cancelErrorMessage = await cancelTicketInBackend();
+    if (cancelErrorMessage) {
       setErrorMessages((previous) => [
         ...previous,
-        `キャンセルに失敗しました: ${error.message}`,
+        `キャンセルに失敗しました: ${cancelErrorMessage}`,
       ]);
       setCancelLoading(false);
       return;
     }
 
-    setTicketStatus('cancelled');
-
-    // update cached stores so TicketHistory/Dashboard update with status
-    try {
-      const { writeTicketDisplayCache, readTicketDisplayCache } =
-        await import('../../features/tickets/ticketDisplayCache');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = readTicketDisplayCache<Record<string, any>>(code);
-      if (existing) {
-        existing.status = 'cancelled';
-        writeTicketDisplayCache(code, existing);
-      }
-    } catch (e) {
-      // ignore cache update failures
-    }
-    try {
-      const { markCachedTicketCardCancelled } =
-        await import('./students/offlineCache.ts');
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.id) {
-        markCachedTicketCardCancelled(user.id, code);
-      }
-    } catch (e) {
-      // ignore absence of offline cache or auth issues
-    }
-
-    setErrorMessages((previous) => {
-      const kept = previous.filter(
-        (message) => message !== 'このチケットはキャンセルされています。',
-      );
-      return [...kept, 'このチケットはキャンセルされています。'];
-    });
+    await applyTicketCancelledState();
     setCancelLoading(false);
   };
 
+  const handleChangeRelationship = async () => {
+    if (!canChangeRelationship || !selectedRelationshipId) {
+      return;
+    }
+
+    if (selectedRelationshipId === ticket.relationshipId) {
+      setRelationshipError(
+        '現在の間柄と同じです。別の間柄を選択してください。',
+      );
+      return;
+    }
+
+    setRelationshipError(null);
+    setIsChangingRelationship(true);
+    try {
+      const cancelErrorMessage = await cancelTicketInBackend();
+      if (cancelErrorMessage) {
+        setRelationshipError(`キャンセルに失敗しました: ${cancelErrorMessage}`);
+        return;
+      }
+      await applyTicketCancelledState();
+
+      const { data, error } = await supabase.functions.invoke('issue-tickets', {
+        body: {
+          ticketTypeId: ticket.ticketTypeId,
+          relationshipId: selectedRelationshipId,
+          performanceId: ticket.performanceId,
+          scheduleId: ticket.scheduleId,
+          issueCount: 1,
+        },
+      });
+
+      if (error) {
+        const message = await readFunctionErrorMessage(error);
+        setRelationshipError(`再発行に失敗しました: ${message}`);
+        return;
+      }
+
+      const issuedTicket = (
+        data as {
+          issuedTickets?: Array<{ code: string; signature: string }>;
+        } | null
+      )?.issuedTickets?.[0];
+
+      if (!issuedTicket?.code || !issuedTicket.signature) {
+        setRelationshipError('再発行結果を取得できませんでした。');
+        return;
+      }
+
+      setIsRelationshipModalOpen(false);
+      navigate(`/t/${issuedTicket.code}.${issuedTicket.signature}`);
+    } finally {
+      setIsChangingRelationship(false);
+    }
+  };
+
+  useEffect(() => {
+    const refresh = () => setCacheVersion((previous) => previous + 1);
+    const unsubscribe = subscribeTicketDisplayCacheUpdated(() => {
+      refresh();
+    });
+    window.addEventListener('storage', refresh);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
   const cachedTickets = useMemo(
     () => listTicketDisplayCache<CachedTicketDisplay>(),
-    [],
+    [cacheVersion],
   );
   const tickets = useDecodedSerialTickets<TicketCardItem>(cachedTickets)
     .filter((t) => t.code !== code)
@@ -834,6 +1016,106 @@ const Ticket = () => {
           </li>
         </ul>
       </section>
+
+      <section>
+        <h3>間柄の変更</h3>
+        <div className={styles.relationshipChangeSection}>
+          <button
+            type='button'
+            disabled={!canChangeRelationship}
+            onClick={() => {
+              setRelationshipError(null);
+              setSelectedRelationshipId(ticket.relationshipId);
+              setIsRelationshipModalOpen(true);
+            }}
+          >
+            間柄を変更する
+          </button>
+        </div>
+      </section>
+
+      {isRelationshipModalOpen && (
+        <div
+          className={styles.relationshipModalOverlay}
+          role='presentation'
+          onClick={() => {
+            if (!isChangingRelationship) {
+              setIsRelationshipModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className={styles.relationshipModal}
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='relationship-change-modal-title'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2
+              id='relationship-change-modal-title'
+              className={styles.relationshipModalTitle}
+            >
+              間柄を変更する
+            </h2>
+            <p className={styles.relationshipModalMessage}>
+              一度このチケットをキャンセルしたのちに、間柄を変更して再発行します。続行しますか?
+            </p>
+
+            <label
+              className={styles.relationshipField}
+              htmlFor='relationship-select'
+            >
+              新しい間柄
+              <select
+                id='relationship-select'
+                className={styles.relationshipSelect}
+                value={selectedRelationshipId ?? ''}
+                onChange={(event) =>
+                  setSelectedRelationshipId(Number(event.currentTarget.value))
+                }
+                disabled={relationshipLoading || isChangingRelationship}
+              >
+                <option value='' disabled={true}>
+                  選択してください
+                </option>
+                {relationships.map((relationship) => (
+                  <option key={relationship.id} value={relationship.id}>
+                    {relationship.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {relationshipLoading && <p>間柄を読み込み中...</p>}
+            {relationshipError && (
+              <p className={styles.relationshipError}>{relationshipError}</p>
+            )}
+
+            <div className={styles.relationshipModalActions}>
+              <button
+                type='button'
+                className={styles.modalCloseButton}
+                onClick={() => setIsRelationshipModalOpen(false)}
+                disabled={isChangingRelationship}
+              >
+                キャンセル
+              </button>
+              <button
+                type='button'
+                className={styles.changeRelationshipConfirmButton}
+                onClick={handleChangeRelationship}
+                disabled={
+                  relationshipLoading ||
+                  isChangingRelationship ||
+                  !selectedRelationshipId
+                }
+              >
+                {isChangingRelationship ? '変更中...' : '続行する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section>
         <h3>他のチケット</h3>

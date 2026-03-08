@@ -48,7 +48,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
   const [ticketLoading, setTicketLoading] = useState(true);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketNotice, setTicketNotice] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [isOnline, setIsOnline] = useState(true);
   const [myTicketSortMode, setMyTicketSortMode] = useState<TicketListSortMode>('recent');
   const [guestTicketSortMode, setGuestTicketSortMode] = useState<TicketListSortMode>('recent');
   const [ticketDisplayCacheVersion, setTicketDisplayCacheVersion] = useState(0);
@@ -102,7 +102,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         if (cachedTickets) {
           setTicketCards(cachedTickets);
           setTicketNotice(
-            'オフラインのため、前回読み込んだ発券済みチケットを表示しています。',
+            'チケット情報の取得に失敗したため、前回読み込んだ発券済みチケットを表示しています。',
           );
           setTicketError(null);
           setTicketLoading(false);
@@ -131,6 +131,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         setTicketLoading(false);
         return;
       }
+      setIsOnline(true);
 
       const tickets = (ticketsData ?? []) as Array<{
         code: string;

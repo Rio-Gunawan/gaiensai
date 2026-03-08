@@ -111,6 +111,44 @@ const pwaManifestDisplay = pwaDisplayOptions.includes(
   ? (pwaManifestDisplayRaw as PwaDisplay)
   : 'standalone';
 
+const adminDevFallbackPlugin = () => ({
+  name: 'admin-dev-fallback',
+  apply: 'serve' as const,
+  configureServer(server: {
+    middlewares: {
+      use: (
+        handler: (
+          req: { url?: string; headers: Record<string, string | string[] | undefined> },
+          _res: unknown,
+          next: () => void,
+        ) => void,
+      ) => void;
+    };
+  }) {
+    server.middlewares.use((req, _res, next) => {
+      const url = req.url ?? '';
+      const acceptHeader = req.headers.accept;
+      const accept = Array.isArray(acceptHeader)
+        ? acceptHeader.join(',')
+        : (acceptHeader ?? '');
+
+      if (
+        url.startsWith('/admin/') &&
+        !url.startsWith('/admin/index.html') &&
+        !url.startsWith('/admin/@') &&
+        !url.startsWith('/admin/src/') &&
+        !url.includes('/assets/') &&
+        !url.match(/\.[a-z0-9]+$/i) &&
+        accept.includes('text/html')
+      ) {
+        req.url = '/admin/index.html';
+      }
+
+      next();
+    });
+  },
+});
+
 // https://vite.dev/config/
 export default defineConfig({
   build: {
@@ -123,6 +161,7 @@ export default defineConfig({
   },
   plugins: [
     preact(),
+    adminDevFallbackPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: pwaIncludeAssets,

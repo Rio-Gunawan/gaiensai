@@ -6,7 +6,7 @@ import styles from '../styles/sub-pages.module.css';
 const MainLayout = ({ children }: { children: ComponentChildren }) => {
   return (
     <>
-      <Header linkTo='/students'> 生徒用ページ</Header>
+      <Header> 生徒用ページ</Header>
       <main>
         <div className={styles.subPageShell}>{children}</div>
       </main>

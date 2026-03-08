@@ -1,4 +1,4 @@
-import MainLayout from '../layout/MainLayout';
+import AdminLayout from '../layout/AdminLayout';
 
 import { ScrollToTop } from '../utils/ScrollToTop';
 
@@ -12,7 +12,7 @@ import AdminHome from './pages/AdminHome';
 
 const App = () => {
   return (
-    <MainLayout>
+    <AdminLayout>
       <ScrollToTop />
       <div className={subPageStyles.subPageShell}>
         <Switch>
@@ -20,7 +20,7 @@ const App = () => {
           <Route component={NotFound} />
         </Switch>
       </div>
-    </MainLayout>
+    </AdminLayout>
   );
 };
 

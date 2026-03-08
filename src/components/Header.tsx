@@ -8,7 +8,15 @@ import iconUrl from '../assets/icon.webp';
 import styles from './Header.module.css';
 import { useEventConfig } from '../hooks/useEventConfig';
 
-const Header = ({linkTo = '/', children}: {linkTo?: string, children?: React.ReactNode}) => {
+const Header = ({
+  linkTo = '/',
+  isAdmin = false,
+  children,
+}: {
+  linkTo?: string;
+  isAdmin?: boolean;
+  children?: React.ReactNode;
+}) => {
   const [open, setOpen] = useState(false);
   const { config } = useEventConfig();
 
@@ -20,23 +28,36 @@ const Header = ({linkTo = '/', children}: {linkTo?: string, children?: React.Rea
 
   return (
     <>
-      <Link href={linkTo}>
+      {!isAdmin ? (
+        <Link href={linkTo}>
+          <header className={styles.header}>
+            <img alt='アイコン' src={iconUrl} width={64} />
+            {config.name}
+            {config.year}
+            {children}
+          </header>
+        </Link>
+      ) : (
         <header className={styles.header}>
           <img alt='アイコン' src={iconUrl} width={64} />
           {config.name}
           {config.year}
           {children}
         </header>
-      </Link>
+      )}
 
-      <button
-        className={styles.menuButton}
-        onClick={() => setOpen(true)}
-        aria-label='メニュー'
-      >
-        <RxHamburgerMenu />
-      </button>
-      <Drawer isOpen={open} onClose={() => setOpen(false)} />
+      {!isAdmin && (
+        <>
+          <button
+            className={styles.menuButton}
+            onClick={() => setOpen(true)}
+            aria-label='メニュー'
+          >
+            <RxHamburgerMenu />
+          </button>
+          <Drawer isOpen={open} onClose={() => setOpen(false)} />
+        </>
+      )}
     </>
   );
 };

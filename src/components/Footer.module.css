@@ -25,3 +25,15 @@
   margin: 0.5rem 0 0 0;
   font-size: 0.9rem;
 }
+
+.adminFooter {
+  background-color: var(--footer-bg-color);
+  color: var(--footer-text-color);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.adminFooter p {
+  margin: 0;
+  font-size: 0.9rem;
+}

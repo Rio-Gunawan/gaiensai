@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "update-config": "node ./scripts/update-last-update.mjs",
     "generate:index": "node scripts/generate-index-from-config.mjs",
     "generate:performances": "node scripts/generate-performances-static.mjs",
-    "build": "npm run generate:index && npm run generate:performances && tsc -b && vite build",
+    "build": "npm run update-config && npm run generate:index && npm run generate:performances && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "test:vitest": "vitest run",

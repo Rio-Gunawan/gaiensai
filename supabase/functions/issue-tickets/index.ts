@@ -361,13 +361,20 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       );
     }
 
-    if (counterError || counterData === null) {
+    if (counterError) {
       throw new HttpError(
         500,
         'チケットコードのカウンターの更新に失敗しました。外苑祭総務にお問い合わせください。',
       );
     }
 
+    if (counterData === null)
+    {
+      throw new HttpError(
+        500,
+        '一時的にエラーが発生しました。時間をおいてもう一度お試しください。',
+      );
+    }
     const endSerial = counterData as number;
     const issuedTickets = await issueWithRollback({
       adminClient: adminClient as unknown as RpcClient,

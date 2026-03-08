@@ -9,8 +9,8 @@
   -->
 
   <!--
-    - 外苑祭チケットシステム
-    - Web Site: https://gaiensai.pages.dev/
+    - 外苑祭チケットシステム管理画面
+    - Web Site: https://gaiensai.pages.dev/admin/
     - Git Repository: https://github.com/Rio-Gunawan/gaiensai
 
     - Copyright (c) 2026 Rio Gunawan(aoym 79th)
@@ -25,34 +25,34 @@
   <link rel="apple-touch-icon" href="/icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <meta name="description" content="東京都立青山高校外苑祭公式サイト。このサイトでは、外苑祭について知り、公演一覧やタイムスケジュールを見ることができます。また、もらった招待券を表示したり、青高生は招待券を発行することもできます。">
-  <meta name="author" content="外苑祭総務">
   <meta name="theme-color" content="#081b47">
-  <title>外苑祭2025 公式サイト</title>
+  <title>外苑祭2025 管理画面</title>
+
+  <!-- インデックスをブロック -->
+  <meta name="robots" content="noindex, nofollow">
 
   <!-- PWAマニフェスト関連のmetaタグ(共通) -->
   <meta name="mobile-web-app-capable" content="yes">
   <!-- PWAマニフェスト関連のmetaタグ(iOS用) -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="外苑祭2025 公式サイト" />
+  <meta name="apple-mobile-web-app-title" content="外苑祭2025 公式サイト 管理画面" />
 
-  <meta property="og:site_name" content="外苑祭2025 公式サイト" />
-  <meta property="og:title" content="外苑祭2025 公式サイト" />
+  <meta property="og:site_name" content="外苑祭2025 公式サイト 管理画面" />
+  <meta property="og:title" content="外苑祭2025 公式サイト 管理画面" />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://gaiensai.pages.dev/" />
+  <meta property="og:url" content="https://gaiensai.pages.dev/admin/" />
   <meta property="og:image" content="https://gaiensai.pages.dev/og.jpg" />
-  <meta property="og:description" content="東京都立青山高校外苑祭公式サイト。このサイトでは、外苑祭について知り、公演一覧やタイムスケジュールを見ることができます。また、もらった招待券を表示したり、青高生は招待券を発行することもできます。" />
-  <meta property="og:locale" content="ja_JP" />
-  <meta name="keywords" content="外苑祭,東京都立青山高校,文化祭,高校,熱狂が、幕をあける。" />
+  <meta property="og:description"
+    content="東京都立青山高校外苑祭公式サイト。このサイトでは、外苑祭について知り、公演一覧やタイムスケジュールを見ることができます。また、もらった招待券を表示したり、青高生は招待券を発行することもできます。" />
 
   <!-- Cloudflare Turnstile -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
 </head>
 
 <body>
-  <div id="app"></div>
-  <script type="module" src="/src/user/main.tsx"></script>
+  <div id="admin-app"></div>
+  <script type="module" src="/src/admin/main.tsx"></script>
 </body>
 
 </html>

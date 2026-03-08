@@ -1,6 +1,6 @@
 /*!
- * 外苑祭チケットシステム
- * Web Site: https://gaiensai.pages.dev/
+ * 外苑祭チケットシステム管理画面
+ * Web Site: https://gaiensai.pages.dev/admin/
  * Git Repository: https://github.com/Rio-Gunawan/gaiensai
  *
  * Copyright (c) 2026 Rio Gunawan(aoym 79th)
@@ -12,4 +12,4 @@
 import { render } from 'preact';
 import App from './App';
 
-render(<App />, document.getElementById('app')!);
+render(<App />, document.getElementById('admin-app')!);

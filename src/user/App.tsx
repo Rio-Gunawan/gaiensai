@@ -1,5 +1,6 @@
-import { useEffect } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter-preact';
+
+import { ScrollToTop } from '../utils/ScrollToTop';
 
 import LineCallback from '../features/auth/Line';
 import MainLayout from '../layout/MainLayout';
@@ -15,16 +16,6 @@ import '../styles/index.css';
 import subPageStyles from '../styles/sub-pages.module.css';
 import Login from './pages/students/Login';
 import Students from './pages/students/Students';
-
-const ScrollToTop = () => {
-  const [location] = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [location]);
-
-  return null;
-};
 
 const App = () => {
   const [location] = useLocation();

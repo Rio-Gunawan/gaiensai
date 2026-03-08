@@ -113,6 +113,14 @@ const pwaManifestDisplay = pwaDisplayOptions.includes(
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('index.html', import.meta.url)),
+        admin: fileURLToPath(new URL('admin/index.html', import.meta.url)),
+      },
+    },
+  },
   plugins: [
     preact(),
     VitePWA({

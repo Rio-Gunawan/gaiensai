@@ -6,7 +6,7 @@ import '../styles/color-settings.css';
 import '../styles/index.css';
 
 import subPageStyles from '../styles/sub-pages.module.css';
-import { Route, Switch, useLocation } from 'wouter-preact';
+import { Route, Router, Switch, useLocation } from 'wouter-preact';
 import NotFound from '../shared/NotFound';
 import AdminHome from './pages/AdminHome';
 import Scan from './pages/Scan';
@@ -18,26 +18,30 @@ const App = () => {
 
   if (isScanPage) {
     return (
-      <ScanLayout>
-        <ScrollToTop />
-        <Switch>
-          <Route path='/admin/scan' component={Scan} />
-          <Route component={NotFound} />
-        </Switch>
-      </ScanLayout>
+      <Router base='/admin/scan'>
+        <ScanLayout>
+          <ScrollToTop />
+          <Switch>
+            <Route path='/' component={Scan} />
+            <Route component={NotFound} />
+          </Switch>
+        </ScanLayout>
+      </Router>
     );
   }
 
   return (
-    <AdminLayout>
-      <ScrollToTop />
-      <div className={subPageStyles.subPageShell}>
-        <Switch>
-          <Route path='/admin' component={AdminHome} />
-          <Route component={NotFound} />
-        </Switch>
-      </div>
-    </AdminLayout>
+    <Router base='/admin'>
+      <AdminLayout>
+        <ScrollToTop />
+        <div className={subPageStyles.subPageShell}>
+          <Switch>
+            <Route path='/' component={AdminHome} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
+      </AdminLayout>
+    </Router>
   );
 };
 

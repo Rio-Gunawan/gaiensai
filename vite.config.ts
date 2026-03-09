@@ -163,6 +163,9 @@ export default defineConfig({
     preact(),
     adminDevFallbackPlugin(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: pwaIncludeAssets,
       manifest: {
@@ -185,22 +188,9 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,json,yaml}',
-        ],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*supabase\.co\/.*/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60,
-              },
-            },
-          },
         ],
       },
     }),

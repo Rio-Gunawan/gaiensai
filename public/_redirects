@@ -1,2 +1,5 @@
-/admin/*   /admin/index.html   200
-/*         /index.html         200
+# admin配下のリクエストはadmin用のindex.htmlへ
+/admin/* /admin/index.html 200
+
+# それ以外は一般用のindex.htmlへ
+/* /index.html 200

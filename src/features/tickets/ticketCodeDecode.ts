@@ -1,4 +1,5 @@
 import { decodeTicketCode } from '@ticket-codec';
+import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyCodeSignature.ts';
 
 export type TicketDecodedSeed = {
   relationshipId: number;
@@ -62,3 +63,26 @@ export const toTicketDecodedDisplaySeed = (
     year: String(decoded.year).padStart(2, '0'),
   };
 };
+
+export const verifyTicketSignature = async (
+  code: string,
+  signature: string,
+): Promise<boolean> =>
+  verifyCodeSignature(
+    code,
+    signature,
+    import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
+  );
+
+export const decodeAndVerifyTicket = async (
+  code: string,
+  signature: string,
+) => {
+  const [decodedRaw, signatureIsValid] = await Promise.all([
+    decodeTicketCodeWithEnv(code),
+    verifyTicketSignature(code, signature),
+  ]);
+  const decoded = toTicketDecodedDisplaySeed(decodedRaw);
+  return { decodedRaw, signatureIsValid, decoded };
+};
+

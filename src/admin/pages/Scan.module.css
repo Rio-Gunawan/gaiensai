@@ -1,0 +1,187 @@
+.videoWrapper {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100vh;
+  background: #000;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  object-fit: cover;
+}
+
+.scanOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.scanFrame {
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52);
+}
+
+.statusText {
+  margin-top: 0.75rem;
+}
+
+.errorText {
+  margin-top: 0.75rem;
+  color: #ff8b8b;
+}
+
+.resultCard {
+  box-sizing: border-box;
+  position: fixed;
+  width: calc(100vw - 1.5em);
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+
+  background-color: var(--scan-result-bg-color);
+  color: var(--scan-result-text-color);
+
+  margin: 0;
+  padding: 1rem;
+  border: 5px solid var(--scan-result-border-color);
+  border-radius: 14px;
+}
+
+.resultCardEnter {
+  animation: resultCardFadeIn 200ms ease-out forwards;
+}
+
+.resultCardExit {
+  animation: resultCardFadeOut 1000ms ease-in forwards;
+}
+
+.resultTitle {
+  margin: 0 0 1rem;
+  color: var(--success-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resultBody {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.primaryPerformance {
+  margin: 0;
+  font-size: min(10vw, 3.5rem);
+  color: var(--scan-result-primary-color);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.scheduleName {
+  display: inline-block;
+  margin-left: 0.5em;
+}
+
+.secondaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.secondaryItem {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--scan-result-border-color);
+  border-radius: 999px;
+  font-weight: 700;
+  background: color-mix(
+    in srgb,
+    var(--scan-result-border-color) 18%,
+    transparent
+  );
+}
+
+.tertiaryBlock {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tertiaryLine {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.rawValue {
+  margin: 0;
+  font-size: 0.76rem;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  opacity: 0.62;
+  overflow-wrap: anywhere;
+}
+
+@keyframes resultCardFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes resultCardFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.instructionBlock {
+  padding: 0.5rem 0;
+  border-radius: 8px;
+  color: var(--scan-result-instruction-color);
+}
+
+.instructionBlock p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (min-width: 800px) {
+  .primaryPerformance {
+    margin: 0.5em 0;
+  }
+
+  .secondaryRow {
+    margin: 0 0 1em;
+  }
+
+  .instructionBlock p {
+    font-size: 1.75rem;
+    padding: 0.75rem 0;
+  }
+}
+
+.resultCardError {
+  border-color: var(--error-border-color);
+  background-color: var(--scan-result-error-bg-color);
+}
+
+.resultCardError .resultTitle {
+  color: var(--error-text-color);
+}

@@ -37,6 +37,7 @@
         "npm:jsdom@^28.1.0",
         "npm:preact@^10.28.4",
         "npm:prettier@^3.2.2",
+        "npm:qr-scanner@^1.4.2",
         "npm:react-icons@^5.5.0",
         "npm:supabase@^2.70.5",
         "npm:typescript-eslint@^8.56.1",

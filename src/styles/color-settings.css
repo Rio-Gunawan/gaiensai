@@ -66,4 +66,12 @@
   /* NotFound surface helpers */
   --card-border-color: rgba(15, 23, 42, 0.08);
   --card-shadow-color: rgba(15, 23, 42, 0.15);
+
+  /* 読み取りページ */
+  --scan-result-bg-color: #accaaf;
+  --scan-result-text-color: #1b1b1b;
+  --scan-result-border-color: var(--success-color);
+  --scan-result-primary-color: #023a1d;
+  --scan-result-instruction-color: #3e3e3e;
+  --scan-result-error-bg-color: #edd0d0;
 }

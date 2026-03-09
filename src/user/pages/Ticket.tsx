@@ -15,11 +15,9 @@ import {
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache';
 import {
-  decodeTicketCodeWithEnv,
-  toTicketDecodedDisplaySeed,
+  decodeAndVerifyTicket,
   type TicketDecodedDisplaySeed,
 } from '../../features/tickets/ticketCodeDecode';
-import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyCodeSignature.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -85,16 +83,6 @@ type TicketSnapshot = {
 };
 
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
-
-const verifyTicketSignature = async (
-  code: string,
-  signature: string,
-): Promise<boolean> =>
-  verifyCodeSignature(
-    code,
-    signature,
-    import.meta.env.VITE_TICKET_SIGNING_PUBLIC_KEY_ED25519_BASE64,
-  );
 
 const checkTicketValidity = async (
   code: string,
@@ -300,11 +288,7 @@ const Ticket = () => {
       setErrorMessages([]);
       const nonBlockingErrors: string[] = [];
 
-      const [decodedRaw, signatureIsValid] = await Promise.all([
-        decodeTicketCodeWithEnv(code),
-        verifyTicketSignature(code, signature),
-      ]);
-      const decoded = toTicketDecodedDisplaySeed(decodedRaw);
+      const { decoded, signatureIsValid } = await decodeAndVerifyTicket(code, signature);
 
       if (!decoded) {
         setErrorMessages(['チケット情報の復元に失敗しました。']);

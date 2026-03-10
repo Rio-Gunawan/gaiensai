@@ -40,6 +40,7 @@
 .resultCard {
   box-sizing: border-box;
   position: fixed;
+  z-index: 9;
   width: calc(100vw - 1.5em);
   top: 50%;
   left: 50%;
@@ -68,6 +69,16 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.resultSuccessOverlay {
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--scan-result-success-overlay-bg-color);
 }
 
 .resultBody {
@@ -102,11 +113,9 @@
   border: 1px solid var(--scan-result-border-color);
   border-radius: 999px;
   font-weight: 700;
-  background: color-mix(
-    in srgb,
-    var(--scan-result-border-color) 18%,
-    transparent
-  );
+  background: color-mix(in srgb,
+      var(--scan-result-border-color) 18%,
+      transparent);
 }
 
 .tertiaryBlock {
@@ -135,6 +144,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -144,6 +154,7 @@
   from {
     opacity: 1;
   }
+
   to {
     opacity: 0;
   }
@@ -180,6 +191,16 @@
 .resultCardError {
   border-color: var(--error-border-color);
   background-color: var(--scan-result-error-bg-color);
+}
+
+.resultErrorOverlay {
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--scan-result-error-overlay-bg-color);
 }
 
 .resultCardError .resultTitle {

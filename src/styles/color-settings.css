@@ -74,4 +74,6 @@
   --scan-result-primary-color: #023a1d;
   --scan-result-instruction-color: #3e3e3e;
   --scan-result-error-bg-color: #edd0d0;
+  --scan-result-success-overlay-bg-color: #19684340;
+  --scan-result-error-overlay-bg-color: #60191963;
 }

@@ -336,89 +336,95 @@ const Scan = () => {
       )}
 
       {shouldRenderResultCard && decodedTicket && (
-        <section
-          className={`${styles.resultCard} ${
-            isResultCardExiting ? styles.resultCardExit : styles.resultCardEnter
-          }`}
-        >
-          <h2 className={styles.resultTitle}>
-            <FaCircleCheck />
-            読み取り成功
-          </h2>
-          <div className={styles.resultBody}>
-            <p className={styles.primaryPerformance}>
-              {resolvedTicket?.performanceName ?? '公演情報を解決中...'}
-              <span className={styles.scheduleName}>
-                {resolvedTicket?.scheduleName || '回情報なし'}
-              </span>
-            </p>
+        <>
+          <div className={styles.resultSuccessOverlay}></div>
+          <section
+            className={`${styles.resultCard} ${
+              isResultCardExiting
+                ? styles.resultCardExit
+                : styles.resultCardEnter
+            }`}
+          >
+            <h2 className={styles.resultTitle}>
+              <FaCircleCheck />
+              読み取り成功
+            </h2>
+            <div className={styles.resultBody}>
+              <p className={styles.primaryPerformance}>
+                {resolvedTicket?.performanceName ?? '公演情報を解決中...'}
+                <span className={styles.scheduleName}>
+                  {resolvedTicket?.scheduleName || '回情報なし'}
+                </span>
+              </p>
 
-            <div className={styles.secondaryRow}>
-              <span className={styles.secondaryItem}>
-                券種: {resolvedTicket?.ticketTypeLabel ?? '-'}
-              </span>
-              <span className={styles.secondaryItem}>
-                間柄: {resolvedTicket?.relationshipName ?? '-'}
-              </span>
-              <span className={styles.secondaryItem}>
-                所属: {decodedTicket.affiliation}
-              </span>
-            </div>
+              <div className={styles.secondaryRow}>
+                <span className={styles.secondaryItem}>
+                  券種: {resolvedTicket?.ticketTypeLabel ?? '-'}
+                </span>
+                <span className={styles.secondaryItem}>
+                  間柄: {resolvedTicket?.relationshipName ?? '-'}
+                </span>
+                <span className={styles.secondaryItem}>
+                  所属: {decodedTicket.affiliation}
+                </span>
+              </div>
 
-            <div className={styles.tertiaryBlock}>
-              {resolvedTicket?.performanceTitle && (
-                <p className={styles.tertiaryLine}>
-                  演目: {resolvedTicket.performanceTitle}
-                </p>
-              )}
-              {resolvedTicket &&
-                (resolvedTicket.scheduleDate ||
-                  resolvedTicket.scheduleTime ||
-                  resolvedTicket.scheduleEndTime) && (
+              <div className={styles.tertiaryBlock}>
+                {resolvedTicket?.performanceTitle && (
                   <p className={styles.tertiaryLine}>
-                    日時: {resolvedTicket.scheduleDate}
-                    {resolvedTicket.scheduleTime &&
-                    resolvedTicket.scheduleEndTime
-                      ? ` ${resolvedTicket.scheduleTime} - ${resolvedTicket.scheduleEndTime}`
-                      : ''}
+                    演目: {resolvedTicket.performanceTitle}
                   </p>
                 )}
-              {lastRawValue && (
-                <>
-                  <p className={styles.rawValue}>
-                    チケットコード: {lastRawValue.split('.')[0]}
-                  </p>
-                  <p className={styles.rawValue}>
-                    読み取り時刻: {new Date().toLocaleString()}
-                  </p>
-                  <p className={styles.rawValue}>Raw: {lastRawValue}</p>
-                </>
-              )}
-              <div className={styles.instructionBlock}>
-                <p>ようこそ!係員の指示に従ってご入場ください。</p>
+                {resolvedTicket &&
+                  (resolvedTicket.scheduleDate ||
+                    resolvedTicket.scheduleTime ||
+                    resolvedTicket.scheduleEndTime) && (
+                    <p className={styles.tertiaryLine}>
+                      日時: {resolvedTicket.scheduleDate}
+                      {resolvedTicket.scheduleTime &&
+                      resolvedTicket.scheduleEndTime
+                        ? ` ${resolvedTicket.scheduleTime} - ${resolvedTicket.scheduleEndTime}`
+                        : ''}
+                    </p>
+                  )}
+                {lastRawValue && (
+                  <>
+                    <p className={styles.rawValue}>
+                      チケットコード: {lastRawValue.split('.')[0]}
+                    </p>
+                    <p className={styles.rawValue}>
+                      読み取り時刻: {new Date().toLocaleString()}
+                    </p>
+                    <p className={styles.rawValue}>Raw: {lastRawValue}</p>
+                  </>
+                )}
+                <div className={styles.instructionBlock}>
+                  <p>ようこそ!係員の指示に従ってご入場ください。</p>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </>
       )}
 
       {shouldRenderResultCard && decodeError && (
-        <section
-          className={`${styles.resultCard} ${
-            isResultCardExiting ? styles.resultCardExit : styles.resultCardEnter
-          } ${styles.resultCardError}`}
-        >
-          <h2 className={styles.resultTitle}>
-            <FaCircleXmark />
-            読み取り失敗
-          </h2>
-          <Alert type='error' className={styles.errorText}>
-            {decodeError}
-          </Alert>
-          <div className={styles.tertiaryBlock}>
-            <p className={styles.rawValue}>Raw: {lastRawValue}</p>
-          </div>
-        </section>
+        <>
+          <div className={styles.resultErrorOverlay}></div>
+          <section
+            className={`${styles.resultCard} ${isResultCardExiting ? styles.resultCardExit : styles.resultCardEnter} ${styles.resultCardError}`}
+          >
+            <h2 className={styles.resultTitle}>
+              <FaCircleXmark />
+              読み取り失敗
+            </h2>
+            <Alert type='error' className={styles.errorText}>
+              {decodeError}
+            </Alert>
+            <div className={styles.tertiaryBlock}>
+              <p className={styles.rawValue}>Raw: {lastRawValue}</p>
+            </div>
+          </section>
+        </>
       )}
     </div>
   );

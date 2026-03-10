@@ -48,6 +48,9 @@ import { GrSchedulePlay } from 'react-icons/gr';
 import { IoIosWarning, IoMdTrain } from 'react-icons/io';
 import { PiMicrophoneStageFill } from 'react-icons/pi';
 
+// preload helper for code‑split routes
+import { preload, Students, Performances } from '../../routes';
+
 const prepareGallery: GalleryImage[] = [
   { src: prepare1, alt: '舞台準備の様子1', width: 300 },
   { src: prepare2, alt: '舞台準備の様子2', width: 300 },
@@ -204,7 +207,10 @@ const Home = () => {
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>生徒用ページ</h2>
         <p>
-          青高生の皆さんは、<a href='/students'>こちら</a>
+          青高生の皆さんは、
+          <a href='/students' onMouseEnter={() => preload(Students)}>
+            こちら
+          </a>
           からダッシュボードにアクセスしてください。
         </p>
       </NormalSection>
@@ -247,7 +253,11 @@ const Home = () => {
             <BiSolidFoodMenu />
             デジタルパンフレット
           </a>
-          <a href='/performances' className={styles.buttonLink}>
+          <a
+            href='/performances'
+            className={styles.buttonLink}
+            onMouseEnter={() => preload(Performances)}
+          >
             <PiMicrophoneStageFill />
             公演一覧
           </a>

@@ -1,4 +1,5 @@
 import styles from '../../styles/sub-pages.module.css';
+import { preload, Scan } from '../../routes';
 
 const adminHome = () => {
   return (
@@ -17,7 +18,9 @@ const adminHome = () => {
         </p>
         <ul>
           <li>
-            <a href='/admin/scan'>スキャンページ</a>
+            <a href='/admin/scan' onMouseEnter={() => preload(Scan)}>
+              スキャンページ
+            </a>
           </li>
         </ul>
       </section>

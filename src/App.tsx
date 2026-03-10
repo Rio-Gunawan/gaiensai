@@ -3,26 +3,32 @@ import {
   LocationProvider,
   Route,
   Router,
+  useLocation,
 } from 'preact-iso';
 
 import { ScrollToTop } from './utils/ScrollToTop';
-
+import { useEffect } from 'preact/hooks';
+import { preload } from './routes';
 import LineCallback from './features/auth/Line';
-import MainLayout from './layout/MainLayout';
 import NotFound from './shared/NotFound';
-import Home from './pages/user/Home';
-import Performances from './pages/user/Performances';
-import Ticket from './pages/user/Ticket';
-import TicketHistory from './pages/user/TicketHistory';
+
+// route components; Ticket and TicketHistory are still eager
+import {
+  MainLayout,
+  AdminLayout,
+  ScanLayout,
+  Home,
+  Performances,
+  Students,
+  AdminHome,
+  Scan,
+  Ticket,
+  TicketHistory,
+} from './routes';
 
 import './styles/color-settings.css';
 import './styles/index.css';
 import subPageStyles from './styles/sub-pages.module.css';
-import Students from './pages/user/students/Students';
-import AdminLayout from './layout/AdminLayout';
-import AdminHome from './pages/admin/AdminHome';
-import ScanLayout from './layout/ScanLayout';
-import Scan from './pages/admin/Scan';
 
 const userPageLayout = () => (
   <MainLayout>
@@ -38,7 +44,6 @@ const userPageLayout = () => (
     </div>
   </MainLayout>
 );
-
 
 const AdminPageLayout = () => (
   <AdminLayout>
@@ -61,6 +66,24 @@ const HomePageLayout = () => (
 );
 
 const App = () => {
+  const loc = useLocation();
+
+  // when the app first mounts (or path changes) prefetch the chunk for the current route
+  useEffect(() => {
+    const p = loc.url;
+    if (p === '/' || p === '') {
+      preload(Home);
+    } else if (p.startsWith('/students')) {
+      preload(Students);
+    } else if (p.startsWith('/performances')) {
+      preload(Performances);
+    } else if (p.startsWith('/admin/scan')) {
+      preload(AdminLayout, ScanLayout, Scan, AdminHome);
+    } else if (p.startsWith('/admin')) {
+      preload(AdminLayout, AdminHome);
+    }
+  }, [loc.url]);
+
   return (
     <LocationProvider>
       <ScrollToTop />

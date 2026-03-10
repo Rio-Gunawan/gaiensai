@@ -1,12 +1,18 @@
+import { preload, Home, Students, Performances } from '../routes';
+
 const GlobalNav = () => {
   return (
     <nav>
       <ul>
         <li>
-          <a href='/'>ホーム</a>
+          <a href='/' onMouseEnter={() => preload(Home)}>
+            ホーム
+          </a>
         </li>
         <li>
-          <a href='/students'>生徒用ページ</a>
+          <a href='/students' onMouseEnter={() => preload(Students)}>
+            生徒用ページ
+          </a>
         </li>
         <li>
           <a href='/t'>チケット</a>
@@ -15,7 +21,9 @@ const GlobalNav = () => {
           <a href='#'>パンフレット</a>
         </li>
         <li>
-          <a href='/performances'>公演一覧</a>
+          <a href='/performances' onMouseEnter={() => preload(Performances)}>
+            公演一覧
+          </a>
         </li>
         <li>
           <a href='#'>スケジュール</a>

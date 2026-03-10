@@ -5,7 +5,6 @@ import { resolve } from 'node:path';
 const rootDir = process.cwd();
 const configPath = resolve(rootDir, 'public/config.yaml');
 const outputPath = resolve(rootDir, 'index.html');
-const adminOutputPath = resolve(rootDir, 'admin/index.html');
 
 const parseScalar = (value) => {
   if (/^-?\d+$/.test(value)) {
@@ -157,66 +156,6 @@ const userHtml = `<!doctype html>
 </html>
 `;
 
-const adminHtml = `<!doctype html>
-<html lang="ja">
-
-<head prefix="og: https://ogp.me/ns#">
-  <!-- 重要
-    もし今index.htmlを直接変更しようとしている場合、その変更は反映されません。index.htmlを変更する必要がある場合は、
-    /scripts/generate-index-from-config.mjsに移動して、その中のconst html内を編集してください。
-    現在そのファイルを変更中の場合は、特に気にする必要はありません。
-  -->
-
-  <!--
-    - 外苑祭チケットシステム管理画面
-    - Web Site: ${baseUrl}/admin/
-    - Git Repository: https://github.com/Rio-Gunawan/gaiensai
-
-    - Copyright (c) 2026 Rio Gunawan(aoym 79th)
-    -  and Gaiensai Festival General Affairs Committee, Tokyo Metropolitan Aoyama High School
-    - Released under the MIT license.
-    - See https://github.com/Rio-Gunawan/gaiensai/blob/main/LICENSE
-  -->
-
-  <meta charset="UTF-8" />
-  <link rel="icon" href="/favicon.ico" type="image/vnd.microsoft.icon" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="apple-touch-icon" href="/icon.png">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <meta name="theme-color" content="#081b47">
-  <title>外苑祭2025 管理画面</title>
-
-  <!-- インデックスをブロック -->
-  <meta name="robots" content="noindex, nofollow">
-
-  <!-- PWAマニフェスト関連のmetaタグ(共通) -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <!-- PWAマニフェスト関連のmetaタグ(iOS用) -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="${escapeHtml(siteTitle)} 管理画面" />
-
-  <meta property="og:site_name" content="${escapeHtml(siteTitle)} 管理画面" />
-  <meta property="og:title" content="${escapeHtml(siteTitle)} 管理画面" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${baseUrl}/admin/" />
-  <meta property="og:image" content="${baseUrl}/og.jpg" />
-  <meta property="og:description" content="${escapeHtml(metaDescription)}" />
-
-  <!-- Cloudflare Turnstile -->
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
-</head>
-
-<body>
-  <div id="admin-app"></div>
-  <script type="module" src="/src/admin/main.tsx"></script>
-</body>
-
-</html>
-`;
-
 writeFileSync(outputPath, userHtml, 'utf8');
-writeFileSync(adminOutputPath, adminHtml, 'utf8');
 // eslint-disable-next-line no-console
-console.log(`Generated ${outputPath} and ${adminOutputPath} from ${configPath}`);
+console.log(`Generated ${outputPath} from ${configPath}`);

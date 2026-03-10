@@ -17,7 +17,7 @@ const adminHome = () => {
         </p>
         <ul>
           <li>
-            <a href='/scan'>スキャンページ</a>
+            <a href='/admin/scan'>スキャンページ</a>
           </li>
         </ul>
       </section>

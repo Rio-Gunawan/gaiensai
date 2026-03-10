@@ -65,38 +65,43 @@ const HomePageLayout = () => (
   </MainLayout>
 );
 
-const App = () => {
-  const loc = useLocation();
+const InnerApp = () => {
+  const { path } = useLocation();
 
   // when the app first mounts (or path changes) prefetch the chunk for the current route
   useEffect(() => {
-    const p = loc.url;
-    if (p === '/' || p === '') {
+    if (path === '/' || path === '') {
       preload(Home);
-    } else if (p.startsWith('/students')) {
+    } else if (path.startsWith('/students')) {
       preload(Students);
-    } else if (p.startsWith('/performances')) {
+    } else if (path.startsWith('/performances')) {
       preload(Performances);
-    } else if (p.startsWith('/admin/scan')) {
+    } else if (path.startsWith('/admin/scan')) {
       preload(AdminLayout, ScanLayout, Scan, AdminHome);
-    } else if (p.startsWith('/admin')) {
+    } else if (path.startsWith('/admin')) {
       preload(AdminLayout, AdminHome);
     }
-  }, [loc.url]);
+  }, [path]);
 
+  return (
+    <Router>
+      <Route path='/' component={HomePageLayout} />
+      <Route path='/students' component={Students} />
+      <Route path='/students/*' component={Students} />
+      <Route path='/admin/scan' component={AdminScanLayout} />
+      <Route path='/admin' component={AdminPageLayout} />
+      <Route path='/*' component={userPageLayout} />
+      <Route default component={NotFound} />
+    </Router>
+  );
+};
+
+const App = () => {
   return (
     <LocationProvider>
       <ScrollToTop />
       <ErrorBoundary>
-        <Router>
-          <Route path='/' component={HomePageLayout} />
-          <Route path='/students' component={Students} />
-          <Route path='/students/*' component={Students} />
-          <Route path='/admin/scan' component={AdminScanLayout} />
-          <Route path='/admin' component={AdminPageLayout} />
-          <Route path='/*' component={userPageLayout} />
-          <Route default component={NotFound} />
-        </Router>
+        <InnerApp />
       </ErrorBoundary>
     </LocationProvider>
   );

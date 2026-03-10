@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { MdArrowBack } from 'react-icons/md';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { useLocation } from 'preact-iso';
 
-import { Link } from 'wouter-preact';
 import IssueStepDetails from '../../../features/issue/IssueStepDetails';
 import IssueStepPerformance from '../../../features/issue/IssueStepPerformance';
 import IssueStepTicketType from '../../../features/issue/IssueStepTicketType';
@@ -100,6 +99,8 @@ const Issue = () => {
     getToken: getTurnstileToken,
     reset: resetTurnstile,
   } = useTurnstile({ containerId: turnstileContainerId });
+
+  const { route } = useLocation();
 
   useEffect(() => {
     const loadTicketTypes = async () => {
@@ -392,16 +393,16 @@ const Issue = () => {
     setSelectedRelationshipId(null);
     resetTurnstile();
     setIsIssuing(false);
-    navigate('/students/issue/result');
+    route('/students/issue/result');
   };
 
   return (
     <div className={styles.issuePage}>
       <div className={styles.topActions}>
-        <Link to='/students/dashboard' className={styles.topBackButton}>
+        <a href='/students/dashboard' className={styles.topBackButton}>
           <MdArrowBack />
           戻る
-        </Link>
+        </a>
       </div>{' '}
       <h1 className={styles.pageTitle}>チケット発券</h1>
       <div className={styles.sliderViewport}>
@@ -510,7 +511,9 @@ const Issue = () => {
         <div className={styles.turnstileContainer}>
           <div id={turnstileContainerId} className='cf-turnstile'></div>
           {!hasTurnstileSiteKey ? (
-            <p className={styles.turnstileNote}>Turnstile site key が未設定です。</p>
+            <p className={styles.turnstileNote}>
+              Turnstile site key が未設定です。
+            </p>
           ) : !turnstileToken ? (
             <p className={styles.turnstileNote}>
               発券前に Turnstile 認証を完了してください。

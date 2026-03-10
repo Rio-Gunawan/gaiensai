@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'preact/hooks';
-import { Link, Route, Switch, useLocation } from 'wouter-preact';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { Route, Router, useLocation } from 'preact-iso';
 import { supabase } from '../../../lib/supabase';
 
 import type { Session, UserData } from '../../../types/types';
 
-import NotFound from '../../../shared/NotFound';
 import Dashboard from './Dashboard';
 import InitialRegistration from './InitialRegistration';
 import Issue from './Issue';
 import IssueResult from './IssueResult';
+
+import StudentLayout from '../../../layout/StudentLayout';
+
 import {
   readCachedStudentProfile,
   writeCachedStudentProfile,
 } from './offlineCache';
 
 import styles from '../../../styles/sub-pages.module.css';
+import NotFound from '../../../shared/NotFound';
+import Login from './Login';
 
 type AuthState = Session | undefined;
 
 const Students = () => {
-  const [location] = useLocation();
+  const { path, route } = useLocation();
   const [session, setSession] = useState<AuthState>(undefined);
   const [userData, setUserData] = useState<UserData | undefined>(undefined);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -49,7 +52,7 @@ const Students = () => {
 
       if (!nextSession) {
         setUserData(null);
-        navigate('/students/login');
+        route('/students/login');
         return;
       }
 
@@ -121,18 +124,19 @@ const Students = () => {
       return;
     }
 
-    if (!userData && location !== '/students/initial-registration') {
-      navigate('/students/initial-registration');
+    if (!userData && path !== '/students/initial-registration') {
+      route('/students/initial-registration');
       return;
     }
 
     if (
       userData &&
-      (location === '/students' ||
-        location === '/students/initial-registration' ||
-        location === '/students/')
+      (path === '/students' ||
+        path === '/students/login' ||
+        path === '/students/initial-registration' ||
+        path === '/students/')
     ) {
-      navigate('/students/dashboard');
+      route('/students/dashboard');
     }
   }, [location, profileError, session, userData]);
 
@@ -161,15 +165,18 @@ const Students = () => {
     }
   };
 
-  if (session === undefined || (session && userData === undefined && !profileError)) {
+  if (
+    session === undefined ||
+    (session && userData === undefined && !profileError)
+  ) {
     return (
       <section>
         <h1 style={styles.pageTitle}>生徒用ページ</h1>
         <h2>読み込み中...</h2>
         <p>
           しばらく待ってもページが遷移しない場合は、
-          <Link to='/students/login'>ログインページ</Link>または
-          <Link to='/students/dashboard'>ダッシュボード</Link>
+          <a href='/students/login'>ログインページ</a>または
+          <a href='/students/dashboard'>ダッシュボード</a>
           のいずれかに直接アクセスしてみてください。
         </p>
         <p>不明点がありましたら、お気軽に外苑祭総務へお問い合わせください。</p>
@@ -178,7 +185,11 @@ const Students = () => {
   }
 
   if (!session) {
-    return null;
+    return (
+      <StudentLayout>
+        <Login />
+      </StudentLayout>
+    );
   }
 
   if (profileError && userData === undefined) {
@@ -198,29 +209,30 @@ const Students = () => {
 
   if (!userData) {
     return (
-      <Switch>
-        <Route path='/students/initial-registration'>
-          {() => <InitialRegistration onRegistered={handleRegistered} />}
-        </Route>
-        <Route component={NotFound} />
-      </Switch>
+      <StudentLayout>
+        <InitialRegistration onRegistered={handleRegistered} />
+      </StudentLayout>
     );
   }
 
   const registeredUserData = userData;
 
   return (
-    <Switch>
-      <Route path='/students/issue/result' component={IssueResult} />
-      <Route path='/students/issue' component={Issue} />
-      <Route path='/students/dashboard'>
-        {() => <Dashboard userData={registeredUserData} />}
-      </Route>
-      <Route path='/students'>
-        {() => <Dashboard userData={registeredUserData} />}
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
+    <StudentLayout>
+      <Router>
+        <Route path='/issue/result' component={IssueResult} />
+        <Route path='/issue' component={Issue} />
+        <Route
+          path='/dashboard'
+          component={() => <Dashboard userData={registeredUserData} />}
+        />
+        <Route
+          path='/'
+          component={() => <Dashboard userData={registeredUserData} />}
+        />
+        <Route default component={NotFound} />
+      </Router>
+    </StudentLayout>
   );
 };
 

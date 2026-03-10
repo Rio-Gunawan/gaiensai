@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
 import { MdArrowBack } from 'react-icons/md';
-import { Link } from 'wouter-preact';
 import IssuedTicketCardList from '../../../features/tickets/IssuedTicketCardList';
 import { useDecodedSerialTickets } from '../../../features/tickets/useDecodedSerialTickets';
 
@@ -39,43 +38,43 @@ const IssueResult = () => {
   return (
     <div className={styles.issuePage}>
       <div className={styles.topActions}>
-        <Link to='/students/issue' className={styles.topBackButton}>
+        <a href='/students/issue' className={styles.topBackButton}>
           <MdArrowBack />
           戻る
-        </Link>
+        </a>
       </div>
       <h1 className={styles.pageTitle}>発券完了</h1>
 
       {!result ? (
         <section className={styles.issuedSection}>
           <p>表示できる発券結果がありません。</p>
-          <Link to='/students/issue' className={styles.topBackButton}>
+          <a href='/students/issue' className={styles.topBackButton}>
             発券画面へ戻る
-          </Link>
+          </a>
         </section>
       ) : (
         <section className={styles.issuedSection}>
-        <IssuedTicketCardList
-          title='発券したチケット一覧'
-          showSortControl
-          showSerialNumber
-          showTicketCode
-          tickets={issuedTickets.map((ticket) => ({
-            ...ticket,
-            performanceName: result.performanceName,
-            performanceTitle: result.performanceTitle,
-            scheduleName: result.scheduleName,
-            ticketTypeLabel: result.ticketTypeLabel,
-            relationshipName: result.relationshipName,
-            status: 'valid',
-          }))}
-        />
-      </section>
+          <IssuedTicketCardList
+            title='発券したチケット一覧'
+            showSortControl
+            showSerialNumber
+            showTicketCode
+            tickets={issuedTickets.map((ticket) => ({
+              ...ticket,
+              performanceName: result.performanceName,
+              performanceTitle: result.performanceTitle,
+              scheduleName: result.scheduleName,
+              ticketTypeLabel: result.ticketTypeLabel,
+              relationshipName: result.relationshipName,
+              status: 'valid',
+            }))}
+          />
+        </section>
       )}
 
-      <Link to='/students/dashboard' className={styles.buttonLink}>
+      <a href='/students/dashboard' className={styles.buttonLink}>
         ダッシュボードへ戻る
-      </Link>
+      </a>
     </div>
   );
 };

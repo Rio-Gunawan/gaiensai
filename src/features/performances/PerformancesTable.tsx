@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { supabase } from '../../lib/supabase';
 import styles from './PerformancesTable.module.css';
 import { RiCircleLine, RiCloseLargeLine, RiTriangleLine } from 'react-icons/ri';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { useLocation } from 'preact-iso';
 
 import type { AvailableSeatSelection } from '../../types/types';
 
@@ -48,6 +48,8 @@ const PerformancesTable = ({
   );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { route } = useLocation();
 
   useEffect(() => {
     const load = async () => {
@@ -273,7 +275,7 @@ const PerformancesTable = ({
       scheduleId: String(selection.scheduleId),
     });
 
-    navigate(`/students/issue?${searchParams.toString()}`);
+    route(`/students/issue?${searchParams.toString()}`);
   };
 
   if (loading) {

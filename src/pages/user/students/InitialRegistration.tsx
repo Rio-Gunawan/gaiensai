@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { useLocation } from 'preact-iso';
 import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
 import Modal from '../../../components/ui/Modal';
@@ -20,6 +20,8 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const [loading, setLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { route } = useLocation();
   const {
     token: turnstileToken,
     hasSiteKey: hasTurnstileSiteKey,
@@ -40,7 +42,9 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       parsedGrade < 1 ||
       parsedGrade > config.grade_number
     ) {
-      setErrorMessage(`学年は 1〜${config.grade_number} の整数で入力してください。`);
+      setErrorMessage(
+        `学年は 1〜${config.grade_number} の整数で入力してください。`,
+      );
       return;
     }
 
@@ -123,7 +127,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       return;
     }
 
-    navigate('/students/dashboard');
+    route('/students/dashboard');
   };
 
   const handleDeleteAccount = async () => {
@@ -226,9 +230,14 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
         </label>
         {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
         <div className={styles.turnstileContainer}>
-          <div id='initial-registration-turnstile' className='cf-turnstile'></div>
+          <div
+            id='initial-registration-turnstile'
+            className='cf-turnstile'
+          ></div>
           {!hasTurnstileSiteKey ? (
-            <p className={styles.turnstileNote}>Turnstile site key が未設定です。</p>
+            <p className={styles.turnstileNote}>
+              Turnstile site key が未設定です。
+            </p>
           ) : !turnstileToken ? (
             <p className={styles.turnstileNote}>
               登録前に Turnstile 認証を完了してください。

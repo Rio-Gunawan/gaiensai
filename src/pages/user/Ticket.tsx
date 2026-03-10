@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { useParams } from 'wouter-preact';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { useLocation, type RoutePropsForPath } from 'preact-iso';
 
-import Alert from '../../components/ui/Alert';
-import QRCode from '../../components/ui/QRCode';
-import { useEventConfig } from '../../hooks/useEventConfig';
-import { supabase } from '../../lib/supabase';
+import Alert from '../../components/ui/Alert.tsx';
+import QRCode from '../../components/ui/QRCode.tsx';
+import { useEventConfig } from '../../hooks/useEventConfig.ts';
+import { supabase } from '../../lib/supabase.ts';
 import performancesSnapshot from '../../generated/performances-static.json';
 import {
   listTicketDisplayCache,
@@ -13,11 +12,11 @@ import {
   subscribeTicketDisplayCacheUpdated,
   touchTicketDisplayCacheOpenedAt,
   writeTicketDisplayCache,
-} from '../../features/tickets/ticketDisplayCache';
+} from '../../features/tickets/ticketDisplayCache.ts';
 import {
   decodeAndVerifyTicket,
   type TicketDecodedDisplaySeed,
-} from '../../features/tickets/ticketCodeDecode';
+} from '../../features/tickets/ticketCodeDecode.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -221,9 +220,8 @@ const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   return fallback;
 };
 
-const Ticket = () => {
+const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
   const { config } = useEventConfig();
-  const params = useParams();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
   const [isShortUrlModalOpen, setIsShortUrlModalOpen] = useState(false);
   const [issuedShortUrl, setIssuedShortUrl] = useState('');
@@ -266,10 +264,12 @@ const Ticket = () => {
   const [cacheVersion, setCacheVersion] = useState(0);
   const [sortMode, setSortMode] = useState<TicketListSortMode>('recent');
 
-  const token = params.id;
+  const token = props.id;
+
+  const { route } = useLocation();
 
   if (!token) {
-    navigate('/');
+    route('/');
     return null;
   }
 
@@ -288,7 +288,10 @@ const Ticket = () => {
       setErrorMessages([]);
       const nonBlockingErrors: string[] = [];
 
-      const { decoded, signatureIsValid } = await decodeAndVerifyTicket(code, signature);
+      const { decoded, signatureIsValid } = await decodeAndVerifyTicket(
+        code,
+        signature,
+      );
 
       if (!decoded) {
         setErrorMessages(['チケット情報の復元に失敗しました。']);
@@ -604,7 +607,7 @@ const Ticket = () => {
   const syncTicketCancelledStateToCache = async () => {
     try {
       const { writeTicketDisplayCache, readTicketDisplayCache } =
-        await import('../../features/tickets/ticketDisplayCache');
+        await import('../../features/tickets/ticketDisplayCache.ts');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = readTicketDisplayCache<Record<string, any>>(code);
       if (existing) {
@@ -787,7 +790,7 @@ const Ticket = () => {
       }
 
       setIsRelationshipModalOpen(false);
-      navigate(`/t/${issuedTicket.code}.${issuedTicket.signature}`);
+      route(`/t/${issuedTicket.code}.${issuedTicket.signature}`);
     } finally {
       setIsChangingRelationship(false);
     }

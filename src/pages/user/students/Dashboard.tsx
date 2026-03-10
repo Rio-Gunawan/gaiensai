@@ -12,20 +12,19 @@ import {
 
 import type { UserData } from '../../../types/types';
 import NormalSection from '../../../components/ui/NormalSection';
-import { type TicketCardItem, type TicketListSortMode } from '../../../features/tickets/IssuedTicketCardList';
+import {
+  type TicketCardItem,
+  type TicketListSortMode,
+} from '../../../features/tickets/IssuedTicketCardList';
 import TicketListContent from '../../../features/tickets/TicketListContent';
 import type { CachedTicketDisplay } from '../../../types/types';
 
 import subPageStyles from '../../../styles/sub-pages.module.css';
 import sharedStyles from '../../../styles/shared.module.css';
 import styles from './Dashboard.module.css';
-import { Link } from 'wouter-preact';
 import { IoMdAdd } from 'react-icons/io';
 import PerformancesTable from '../../../features/performances/PerformancesTable';
-import {
-  readCachedTicketCards,
-  writeCachedTicketCards,
-} from './offlineCache';
+import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
 
 type DashboardProps = {
@@ -33,7 +32,11 @@ type DashboardProps = {
 };
 
 type TicketSnapshot = {
-  performances?: Array<{ id: number; class_name: string; title?: string | null }>;
+  performances?: Array<{
+    id: number;
+    class_name: string;
+    title?: string | null;
+  }>;
   schedules?: Array<{ id: number; round_name: string }>;
   ticketTypes?: Array<{ id: number; name: string }>;
   relationships?: Array<{ id: number; name: string }>;
@@ -49,8 +52,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketNotice, setTicketNotice] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [myTicketSortMode, setMyTicketSortMode] = useState<TicketListSortMode>('recent');
-  const [guestTicketSortMode, setGuestTicketSortMode] = useState<TicketListSortMode>('recent');
+  const [myTicketSortMode, setMyTicketSortMode] =
+    useState<TicketListSortMode>('recent');
+  const [guestTicketSortMode, setGuestTicketSortMode] =
+    useState<TicketListSortMode>('recent');
   const [ticketDisplayCacheVersion, setTicketDisplayCacheVersion] = useState(0);
 
   useEffect(() => {
@@ -112,9 +117,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         return false;
       };
 
-      const [
-        { data: ticketsData, error: ticketsError },
-      ] = await Promise.all([
+      const [{ data: ticketsData, error: ticketsError }] = await Promise.all([
         supabase
           .from('tickets')
           .select('code, signature, relationship, created_at')
@@ -184,44 +187,46 @@ const Dashboard = ({ userData }: DashboardProps) => {
       );
 
       const scheduleMap = new Map(
-        ((ticketSnapshot.schedules ?? []) as Array<{
-          id: number;
-          round_name: string;
-        }>).map((schedule) => [schedule.id, schedule]),
+        (
+          (ticketSnapshot.schedules ?? []) as Array<{
+            id: number;
+            round_name: string;
+          }>
+        ).map((schedule) => [schedule.id, schedule]),
       );
 
       const ticketTypeMap = new Map(
-        ((ticketSnapshot.ticketTypes ?? []) as Array<{
-          id: number;
-          name: string;
-        }>).map((ticketType) => [
-          ticketType.id,
-          ticketType.name,
-        ]),
+        (
+          (ticketSnapshot.ticketTypes ?? []) as Array<{
+            id: number;
+            name: string;
+          }>
+        ).map((ticketType) => [ticketType.id, ticketType.name]),
       );
       const relationshipMap = new Map(
-        ((ticketSnapshot.relationships ?? []) as Array<{
-          id: number;
-          name: string;
-        }>).map((relationship) => [
-          relationship.id,
-          relationship.name,
-        ]),
+        (
+          (ticketSnapshot.relationships ?? []) as Array<{
+            id: number;
+            name: string;
+          }>
+        ).map((relationship) => [relationship.id, relationship.name]),
       );
 
       const snapshotPerformanceMap = new Map(
-        ((ticketSnapshot.performances ?? []) as Array<{
-          id: number;
-          class_name: string;
-          title?: string | null;
-        }>).map((performance) => [performance.id, performance]),
+        (
+          (ticketSnapshot.performances ?? []) as Array<{
+            id: number;
+            class_name: string;
+            title?: string | null;
+          }>
+        ).map((performance) => [performance.id, performance]),
       );
 
       const cards = decodedTickets.map(({ ticket, decoded }) => {
         const relationshipId = decoded?.relationshipId ?? ticket.relationship;
         const performance = decoded
-          ? performanceMap.get(decoded.performanceId) ??
-            snapshotPerformanceMap.get(decoded.performanceId)
+          ? (performanceMap.get(decoded.performanceId) ??
+            snapshotPerformanceMap.get(decoded.performanceId))
           : undefined;
         const schedule = decoded
           ? scheduleMap.get(decoded.scheduleId)
@@ -237,7 +242,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
           performanceTitle: performance?.title ?? null,
           scheduleName: isAdmissionOnly ? '' : (schedule?.round_name ?? '-'),
           ticketTypeLabel: decoded
-            ? (ticketTypeMap.get(decoded.ticketTypeId) ?? `券種${decoded.ticketTypeId}`)
+            ? (ticketTypeMap.get(decoded.ticketTypeId) ??
+              `券種${decoded.ticketTypeId}`)
             : '-',
           relationshipName: decoded
             ? (relationshipMap.get(decoded.relationshipId) ??
@@ -271,12 +277,18 @@ const Dashboard = ({ userData }: DashboardProps) => {
   }, [ticketCards, ticketDisplayCacheVersion]);
 
   const ownUseTickets = useMemo(
-    () => ticketCardsWithLastOpenedAt.filter((ticket) => ticket.relationshipId === 1),
+    () =>
+      ticketCardsWithLastOpenedAt.filter(
+        (ticket) => ticket.relationshipId === 1,
+      ),
     [ticketCardsWithLastOpenedAt],
   );
 
   const guestTickets = useMemo(
-    () => ticketCardsWithLastOpenedAt.filter((ticket) => ticket.relationshipId !== 1),
+    () =>
+      ticketCardsWithLastOpenedAt.filter(
+        (ticket) => ticket.relationshipId !== 1,
+      ),
     [ticketCardsWithLastOpenedAt],
   );
 
@@ -291,9 +303,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <h2 className={sharedStyles.normalH2}>
           {userData.affiliation} {userData.name} 様
         </h2>
-        <Link
-          to='/students/issue'
-          class={`${styles.buttonLink} ${!isOnline ? styles.buttonLinkDisabled : ''}`}
+        <a
+          href='/students/issue'
+          className={`${styles.buttonLink} ${!isOnline ? styles.buttonLinkDisabled : ''}`}
           aria-disabled={!isOnline}
           tabIndex={!isOnline ? -1 : 0}
           onClick={(event) => {
@@ -304,14 +316,18 @@ const Dashboard = ({ userData }: DashboardProps) => {
         >
           <IoMdAdd />
           新規チケット発行
-        </Link>
+        </a>
         {!isOnline && (
           <p className={styles.issueOfflineNote}>
             オフライン中は新規チケットを発行できません。
           </p>
         )}
       </section>
-      {ticketNotice && <Alert type='info'><p>{ticketNotice}</p></Alert>}
+      {ticketNotice && (
+        <Alert type='info'>
+          <p>{ticketNotice}</p>
+        </Alert>
+      )}
       <NormalSection>
         <h2>発券状況</h2>
         {ticketLoading ? (
@@ -321,9 +337,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         ) : ticketCards.length > 0 ? (
           <div className={styles.ticketSummary}>
             <div className={styles.ticketSummaryItem}>
-              <p className={styles.ticketSummaryNumber}>
-                {ticketCards.length}
-              </p>
+              <p className={styles.ticketSummaryNumber}>{ticketCards.length}</p>
               <p className={styles.ticketSummaryLabel}>合計発券枚数</p>
             </div>
             <div className={styles.ticketSummaryItem}>

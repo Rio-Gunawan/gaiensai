@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { RxHamburgerMenu } from 'react-icons/rx';
-import { Link, useLocation } from 'wouter-preact';
+import { useLocation } from 'preact-iso';
 
 import Drawer from './Drawer';
 
@@ -20,23 +20,23 @@ const Header = ({
   const [open, setOpen] = useState(false);
   const { config } = useEventConfig();
 
-  const [location] = useLocation();
+  const { path } = useLocation();
 
   useEffect(() => {
     setOpen(false);
-  }, [location]);
+  }, [path]);
 
   return (
     <>
       {!isAdmin ? (
-        <Link href={linkTo}>
+        <a href={linkTo}>
           <header className={styles.header}>
             <img alt='アイコン' src={iconUrl} width={64} />
             {config.name}
             {config.year}
             {children}
           </header>
-        </Link>
+        </a>
       ) : (
         <header className={styles.header}>
           <img alt='アイコン' src={iconUrl} width={64} />

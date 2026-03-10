@@ -38,7 +38,6 @@ import sign4 from '../../assets/sign/sign4.webp';
 import sign5 from '../../assets/sign/sign5.webp';
 
 import { useEffect, useMemo } from 'preact/hooks';
-import { Link } from 'wouter-preact';
 import type { GalleryImage } from '../../types/types';
 import { useEventConfig } from '../../hooks/useEventConfig';
 
@@ -205,7 +204,7 @@ const Home = () => {
       <NormalSection className={styles.scrollSection} data-scroll-section=''>
         <h2>生徒用ページ</h2>
         <p>
-          青高生の皆さんは、<Link to='/students'>こちら</Link>
+          青高生の皆さんは、<a href='/students'>こちら</a>
           からダッシュボードにアクセスしてください。
         </p>
       </NormalSection>
@@ -214,7 +213,7 @@ const Home = () => {
         <p>
           招待券は、お使いのデバイスで表示したことのあるもののみ表示できます。まだ閲覧していない場合は、招待URLよりアクセスしてください。
         </p>
-        <Link to='/t'>チケットを表示する</Link>
+        <a href='/t'>チケットを表示する</a>
       </NormalSection>
       <section
         className={`${styles.buttonLinkWrap} ${styles.scrollSection}`}
@@ -248,10 +247,10 @@ const Home = () => {
             <BiSolidFoodMenu />
             デジタルパンフレット
           </a>
-          <Link to='/performances' className={styles.buttonLink}>
+          <a href='/performances' className={styles.buttonLink}>
             <PiMicrophoneStageFill />
             公演一覧
-          </Link>
+          </a>
           <a href='#' className={styles.buttonLink}>
             <GrSchedulePlay />
             スケジュール

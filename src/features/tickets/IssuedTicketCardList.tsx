@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import styles from './IssuedTicketCardList.module.css';
-import { Link } from 'wouter-preact';
 
 export type TicketCardStatus =
   | 'valid'
@@ -284,7 +283,9 @@ const IssuedTicketCardList = ({
                         <span
                           className={`${styles.ticketMetaValue} ${styles.ticketCodeValue}`}
                         >
-                          {ticket.code.replace(/.{4}/g, '$&-').replace(/-$/, '')}
+                          {ticket.code
+                            .replace(/.{4}/g, '$&-')
+                            .replace(/-$/, '')}
                         </span>
                       </div>
                     )}
@@ -302,12 +303,12 @@ const IssuedTicketCardList = ({
                     </div>
                   </div>
                   {showTicketLink && (
-                    <Link
-                      to={`/t/${ticket.code}.${ticket.signature}`}
+                    <a
+                      href={`/t/${ticket.code}.${ticket.signature}`}
                       className={styles.ticketLinkButton}
                     >
                       チケットを表示
-                    </Link>
+                    </a>
                   )}
                 </article>
               );

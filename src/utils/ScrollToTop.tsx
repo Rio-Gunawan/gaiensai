@@ -1,13 +1,12 @@
-import { useEffect } from "preact/hooks";
-import { useLocation } from "wouter-preact";
-
+import { useEffect } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 
 export const ScrollToTop = () => {
-  const [location] = useLocation();
+  const { path } = useLocation();
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [location]);
+  }, [path]);
 
   return null;
 };

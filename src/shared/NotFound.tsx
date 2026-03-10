@@ -1,4 +1,3 @@
-import { Link } from 'wouter-preact';
 import styles from './NotFound.module.css';
 
 const NotFound = () => {
@@ -12,9 +11,9 @@ const NotFound = () => {
       <p className={styles.description}>
         リンクをたどるか、ホームに戻って別のページをご覧ください。
       </p>
-      <Link className={styles.returnLink} to='/'>
+      <a className={styles.returnLink} href='/'>
         ホームに戻る
-      </Link>
+      </a>
     </section>
   );
 };

@@ -1,7 +1,7 @@
 import NormalSection from '../../components/ui/NormalSection';
 import PerformancesTable from '../../features/performances/PerformancesTable';
 import type { SelectedPerformance } from '../../types/Issue.types';
-import styles from '../../user/pages/students/Issue.module.css';
+import styles from '../../pages/user/students/Issue.module.css';
 
 type IssueStepPerformanceProps = {
   selectedPerformance: SelectedPerformance;

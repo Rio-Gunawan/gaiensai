@@ -1,23 +1,21 @@
-import { Link } from "wouter-preact";
-
 const GlobalNav = () => {
   return (
     <nav>
       <ul>
         <li>
-          <Link href='/'>ホーム</Link>
+          <a href='/'>ホーム</a>
         </li>
         <li>
-          <Link href='/students'>生徒用ページ</Link>
+          <a href='/students'>生徒用ページ</a>
         </li>
         <li>
-          <Link href='/t'>チケット</Link>
+          <a href='/t'>チケット</a>
         </li>
         <li>
           <a href='#'>パンフレット</a>
         </li>
         <li>
-          <Link href='/performances'>公演一覧</Link>
+          <a href='/performances'>公演一覧</a>
         </li>
         <li>
           <a href='#'>スケジュール</a>

@@ -1,5 +1,5 @@
 import NormalSection from '../../components/ui/NormalSection';
-import styles from '../../user/pages/students/Issue.module.css';
+import styles from '../../pages/user/students/Issue.module.css';
 import type {
   RelationshipRow,
   SelectedPerformance,

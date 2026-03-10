@@ -1,14 +1,14 @@
 import { useEffect } from 'preact/hooks';
-import { useLocation } from 'wouter-preact';
+import { useLocation } from 'preact-iso';
 import { supabase } from '../../lib/supabase';
 
 const LineCallback = () => {
-  const [location, setLocation] = useLocation();
+  const { path, route } = useLocation();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const search = location.includes('?')
-        ? location.split('?')[1]
+      const search = path.includes('?')
+        ? path.split('?')[1]
         : window.location.search.replace(/^\?/, '');
       const params = new URLSearchParams(search);
       const code = params.get('code');
@@ -19,18 +19,15 @@ const LineCallback = () => {
       localStorage.removeItem('line_oauth_state');
       if (!code || !state || state !== storedState) {
         // エラー処理
-        setLocation('/students?error=invalid_state');
+        route('/students?error=invalid_state');
         return;
       }
 
       try {
         // 認証コードをEdge Functionに渡す
-        const { data, error } = await supabase.functions.invoke(
-          'line-auth',
-          {
-            body: { code },
-          }
-        );
+        const { data, error } = await supabase.functions.invoke('line-auth', {
+          body: { code },
+        });
 
         if (error) {
           throw error;
@@ -43,16 +40,21 @@ const LineCallback = () => {
         });
 
         // ログイン後、ホームページなどにリダイレクト
-        setLocation('/students');
+        route('/students');
       } catch (error) {
-        alert('LINE認証で、情報は取得できましたが、ログイン・登録に失敗しました。エラーメッセージ:' +  (error as Error).message);
-        setLocation(`/students?error=${encodeURIComponent((error as Error).message)}`);
+        alert(
+          'LINE認証で、情報は取得できましたが、ログイン・登録に失敗しました。エラーメッセージ:' +
+            (error as Error).message,
+        );
+        route(
+          `/students?error=${encodeURIComponent((error as Error).message)}`,
+        );
       }
     };
 
     // 実行は一度で十分 — locationがコールバックURLのときのみ処理
     handleAuthCallback();
-  }, [location, setLocation]);
+  }, [location, route]);
 
   return <section>LINE認証中...</section>;
 };

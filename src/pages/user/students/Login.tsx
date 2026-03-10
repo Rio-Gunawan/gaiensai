@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../../lib/supabase';
-import { navigate } from 'wouter-preact/use-browser-location';
+import { useLocation } from 'preact-iso';
 import { useTurnstile } from '../../../hooks/useTurnstile';
 
 import lineImageUrl from '../../../assets/line.webp';
@@ -21,6 +21,8 @@ function Login() {
   const [verifying, setVerifying] = useState(!!hasTokenHash);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  const { route } = useLocation();
   const {
     token: turnstileToken,
     hasSiteKey: hasTurnstileSiteKey,
@@ -71,7 +73,7 @@ function Login() {
 
   useEffect(() => {
     if (session) {
-      navigate('/students');
+      route('/students');
     }
   }, [session]);
 

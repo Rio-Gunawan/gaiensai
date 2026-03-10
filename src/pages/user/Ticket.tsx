@@ -29,6 +29,7 @@ import type {
   TicketCardStatus,
   TicketListSortMode,
 } from '../../features/tickets/IssuedTicketCardList.tsx';
+import { useTurnstile } from '../../hooks/useTurnstile.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -263,6 +264,15 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
   const [cacheVersion, setCacheVersion] = useState(0);
   const [sortMode, setSortMode] = useState<TicketListSortMode>('recent');
+
+
+  const turnstileContainerId = 'issue-turnstile-widget';
+  const {
+      token: turnstileToken,
+      hasSiteKey: hasTurnstileSiteKey,
+      getToken: getTurnstileToken,
+      reset: resetTurnstile,
+    } = useTurnstile({ containerId: turnstileContainerId });
 
   const token = props.id;
 
@@ -752,16 +762,16 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
       return;
     }
 
+    const tokenToVerify = getTurnstileToken();
+
+    if (!tokenToVerify) {
+      alert('Turnstile認証を完了してから発券してください。');
+      return;
+    }
+
     setRelationshipError(null);
     setIsChangingRelationship(true);
     try {
-      const cancelErrorMessage = await cancelTicketInBackend();
-      if (cancelErrorMessage) {
-        setRelationshipError(`キャンセルに失敗しました: ${cancelErrorMessage}`);
-        return;
-      }
-      await applyTicketCancelledState();
-
       const { data, error } = await supabase.functions.invoke('issue-tickets', {
         body: {
           ticketTypeId: ticket.ticketTypeId,
@@ -769,12 +779,15 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
           performanceId: ticket.performanceId,
           scheduleId: ticket.scheduleId,
           issueCount: 1,
+          // turnstileToken: tokenToVerify,
+          cancelCode: code,
         },
       });
 
       if (error) {
         const message = await readFunctionErrorMessage(error);
         setRelationshipError(`再発行に失敗しました: ${message}`);
+        resetTurnstile();
         return;
       }
 
@@ -786,13 +799,18 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
 
       if (!issuedTicket?.code || !issuedTicket.signature) {
         setRelationshipError('再発行結果を取得できませんでした。');
+        resetTurnstile();
         return;
       }
 
+      // Backend guarantees: either (cancel old + issue new) succeeds, or neither is applied.
+      // Mirror that state locally only after success.
+      await applyTicketCancelledState();
       setIsRelationshipModalOpen(false);
       route(`/t/${issuedTicket.code}.${issuedTicket.signature}`);
     } finally {
       setIsChangingRelationship(false);
+      resetTurnstile();
     }
   };
 
@@ -1060,7 +1078,7 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
               間柄を変更する
             </h2>
             <p className={styles.relationshipModalMessage}>
-              一度このチケットをキャンセルしたのちに、間柄を変更して再発行します。続行しますか?
+              間柄を変更して再発行します（再発行とキャンセルは一括で処理され、どちらか片方だけ成功することはありません）。続行しますか?
             </p>
 
             <label
@@ -1092,6 +1110,21 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
             {relationshipError && (
               <p className={styles.relationshipError}>{relationshipError}</p>
             )}
+
+            <div className={styles.turnstileContainer}>
+              <div id={turnstileContainerId} className='cf-turnstile'></div>
+              {!hasTurnstileSiteKey ? (
+                <p className={styles.turnstileNote}>
+                  Turnstile site key が未設定です。
+                </p>
+              ) : !turnstileToken ? (
+                <p className={styles.turnstileNote}>
+                  発券前に Turnstile 認証を完了してください。
+                </p>
+              ) : (
+                ''
+              )}
+            </div>
 
             <div className={styles.relationshipModalActions}>
               <button

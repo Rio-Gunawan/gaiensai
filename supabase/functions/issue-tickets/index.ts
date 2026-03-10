@@ -21,6 +21,9 @@ type IssueTicketsRequest = {
   scheduleId: number;
   issueCount: number;
   turnstileToken: string;
+  // If provided, the backend will (cancel old + issue new) transactionally.
+  // Intended for "relationship change" reissue.
+  cancelCode?: string;
 };
 
 const padNumber = (value: number, length: number): string =>
@@ -42,6 +45,7 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
   const scheduleId = Number(parsed.scheduleId);
   const issueCount = Number(parsed.issueCount);
   const turnstileToken = parsed.turnstileToken;
+  const cancelCodeRaw = parsed.cancelCode;
 
   if (
     !Number.isInteger(ticketTypeId) ||
@@ -79,6 +83,11 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     throw new HttpError(400, 'Turnstileトークンがありません。');
   }
 
+  const cancelCode =
+    typeof cancelCodeRaw === 'string' && cancelCodeRaw.trim().length > 0
+      ? cancelCodeRaw.trim()
+      : undefined;
+
   return {
     ticketTypeId,
     relationshipId,
@@ -86,6 +95,7 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     scheduleId,
     issueCount,
     turnstileToken: turnstileToken.trim(),
+    cancelCode,
   };
 };
 
@@ -284,6 +294,10 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
 
     validatePerformanceAndSchedule(body, admissionOnlyTicketTypeIds);
 
+    if (body.cancelCode && body.issueCount !== 1) {
+      throw new HttpError(400, '差し替え発券は1枚ずつのみ対応しています。');
+    }
+
     // Check per-user max tickets before reserving serial numbers to avoid
     // incrementing the counter when the user would exceed their limit.
     const { data: configRow, error: configError } = await adminClient
@@ -316,6 +330,73 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       );
     }
 
+    // For transactional "replace/reissue", validate the target ticket early and
+    // adjust the per-user ticket limit check to account for the cancellation.
+    let replaceTicketOffset = 0;
+    if (body.cancelCode) {
+      const { data: oldTicket, error: oldTicketError } = await adminClient
+        .from('tickets')
+        .select('id, user_id, status, ticket_type')
+        .eq('code', body.cancelCode)
+        .maybeSingle();
+
+      if (oldTicketError || !oldTicket) {
+        throw new HttpError(
+          409,
+          '差し替え対象のチケット情報の取得に失敗しました。時間をおいて再度お試しください。',
+        );
+      }
+
+      if (oldTicket.user_id !== user.id) {
+        throw new HttpError(403, '差し替え対象のチケットが不正です。');
+      }
+
+      if (oldTicket.status !== 'valid') {
+        throw new HttpError(409, '差し替え対象のチケットが有効ではありません。');
+      }
+
+      if (Number(oldTicket.ticket_type) !== body.ticketTypeId) {
+        throw new HttpError(
+          409,
+          '差し替え対象のチケット情報が一致しません。ページを更新してからやり直してください。',
+        );
+      }
+
+      if (body.ticketTypeId === 4) {
+        if (body.performanceId !== 0 || body.scheduleId !== 0) {
+          throw new HttpError(
+            409,
+            '差し替え対象のチケット情報が一致しません。ページを更新してからやり直してください。',
+          );
+        }
+      } else {
+        const { data: classTicket, error: classTicketError } = await adminClient
+          .from('class_tickets')
+          .select('class_id, round_id')
+          .eq('id', oldTicket.id)
+          .maybeSingle();
+
+        if (classTicketError || !classTicket) {
+          throw new HttpError(
+            409,
+            '差し替え対象のチケット情報の取得に失敗しました。時間をおいて再度お試しください。',
+          );
+        }
+
+        if (
+          Number(classTicket.class_id) !== body.performanceId ||
+          Number(classTicket.round_id) !== body.scheduleId
+        ) {
+          throw new HttpError(
+            409,
+            '差し替え対象のチケット情報が一致しません。ページを更新してからやり直してください。',
+          );
+        }
+      }
+
+      replaceTicketOffset = 1;
+    }
+
     const { count: existingCount, error: existingCountError } =
       await adminClient
         .from('tickets')
@@ -331,8 +412,9 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
     }
 
     const existing = Number(existingCount ?? 0);
+    const effectiveExisting = Math.max(0, existing - replaceTicketOffset);
 
-    if (existing + body.issueCount > maxTicketsPerUser) {
+    if (effectiveExisting + body.issueCount > maxTicketsPerUser) {
       throw new HttpError(
         409,
         `チケット発行上限を超えています（既に ${existing} 枚）。1ユーザあたり最大 ${maxTicketsPerUser} 枚です。
@@ -376,21 +458,92 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       );
     }
     const endSerial = counterData as number;
-    const issuedTickets = await issueWithRollback({
-      adminClient: adminClient as unknown as RpcClient,
-      userId: user.id,
-      issueCount: body.issueCount,
-      ticketTypeId: body.ticketTypeId,
-      relationshipId: body.relationshipId,
-      performanceId: body.performanceId,
-      scheduleId: body.scheduleId,
-      affiliation,
-      issuedYear,
-      basePrefix,
-      endSerial,
-      generateCode: generateTicketCode,
-      signTicketCode: signCode,
-    });
+    let issuedTickets: Array<{ code: string; signature: string }>;
+
+    if (!body.cancelCode) {
+      issuedTickets = await issueWithRollback({
+        adminClient: adminClient as unknown as RpcClient,
+        userId: user.id,
+        issueCount: body.issueCount,
+        ticketTypeId: body.ticketTypeId,
+        relationshipId: body.relationshipId,
+        performanceId: body.performanceId,
+        scheduleId: body.scheduleId,
+        affiliation,
+        issuedYear,
+        basePrefix,
+        endSerial,
+        generateCode: generateTicketCode,
+        signTicketCode: signCode,
+      });
+    } else {
+      const startSerial = endSerial - body.issueCount + 1;
+      let shouldRollbackCounter = true;
+
+      try {
+        const serial = startSerial; // issueCount is validated to be 1
+        const ticketData = {
+          affiliation,
+          relationship: body.relationshipId,
+          type: body.ticketTypeId,
+          performance: body.performanceId,
+          schedule: body.scheduleId,
+          year: new Date().getUTCFullYear(),
+          serial,
+        };
+
+        const code = await generateTicketCode(ticketData);
+        const signature = await signCode(code);
+
+        const { data, error } = await adminClient.rpc(
+          'reissue_ticket_change_relationship_with_codes',
+          {
+            p_user_id: user.id,
+            p_old_code: body.cancelCode,
+            p_ticket_type_id: body.ticketTypeId,
+            p_performance_id: body.performanceId,
+            p_schedule_id: body.scheduleId,
+            p_new_relationship_id: body.relationshipId,
+            p_issue_count: body.issueCount,
+            p_codes: [code],
+            p_signatures: [signature],
+          },
+        );
+
+        if (error) {
+          throw new HttpError(409, error.message);
+        }
+
+        issuedTickets = (data as Array<{ code: string; signature: string }>) ?? [];
+        shouldRollbackCounter = false;
+      } finally {
+        if (shouldRollbackCounter) {
+          const { data: rollbackApplied, error: rollbackError } =
+            await adminClient.rpc('rollback_ticket_code_counter', {
+              p_prefix: basePrefix,
+              p_decrement: body.issueCount,
+              p_expected_last_value: endSerial,
+            });
+
+          if (rollbackError) {
+            console.error('Failed to rollback ticket code counter', {
+              userId: user.id,
+              prefix: basePrefix,
+              issueCount: body.issueCount,
+              endSerial,
+              rollbackError,
+            });
+          } else if (rollbackApplied !== true) {
+            console.error('Counter rollback was skipped because state changed', {
+              userId: user.id,
+              prefix: basePrefix,
+              issueCount: body.issueCount,
+              endSerial,
+            });
+          }
+        }
+      }
+    }
 
     console.log('Issued tickets successfully', {
       userId: user.id,
@@ -399,6 +552,7 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       performanceId: body.performanceId,
       scheduleId: body.scheduleId,
       issueCount: body.issueCount,
+      cancelCode: body.cancelCode ?? null,
     });
 
     return new Response(

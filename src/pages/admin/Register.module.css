@@ -63,27 +63,8 @@
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
   max-width: 820px;
   margin: 0 auto;
-}
-
-.serverSection {
-  display: flex;
-  justify-content: center;
-}
-
-.serverInputGroup {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 14px;
-  background:
-    var(--translucent-b-bg-color);
-  border: 1px solid var(--scan-result-border-color);
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--scan-result-border-color) 35%, transparent);
 }
 
 .errorText {
@@ -261,4 +242,94 @@
 
 .resultCardError .resultTitle {
   color: var(--error-text-color);
+}
+
+.serverSection {
+  padding: 1rem 1.75rem;
+  border-radius: 16px;
+  background: color-mix(in srgb,
+      var(--translucent-b-bg-color) 95%,
+      transparent);
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+.serverUrlDisplay {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.serverUrlLabel {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--heading-text-color);
+  flex: 1;
+  min-width: 200px;
+}
+
+.serverUrl {
+  color: var(--main-text-color);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.9rem;
+  display: inline-block;
+  margin-left: 1em;
+  word-break: break-all;
+}
+
+.changeButton {
+  margin-left: 1em;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 2rem;
+  min-width: 300px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--heading-text-color);
+}
+
+.modalButtonGroup {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContainer {
+  background-color: var(--main-bg-color);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid var(--select-border-color);
+}
+
+.modalContent p {
+  margin: 0;
 }

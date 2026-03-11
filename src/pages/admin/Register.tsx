@@ -17,6 +17,8 @@ import { FaCircleCheck, FaCircleXmark } from 'react-icons/fa6';
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
 
+const STORAGE_KEY = 'scan_server_url';
+
 const Register = () => {
   const [scannedValue, setScannedValue] = useState<string>();
   const [decodedTicket, setDecodedTicket] =
@@ -33,9 +35,23 @@ const Register = () => {
   const [autoHideRequested, setAutoHideRequested] = useState(false);
 
   const [localServerUrl, setLocalServerUrl] = useState<string>();
+  const [showServerModal, setShowServerModal] = useState(false);
+  const [tempServerUrl, setTempServerUrl] = useState<string>('');
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
+
+  // ローカルストレージから URL を読み込み、初回設定をチェック
+  useEffect(() => {
+    const savedUrl = localStorage.getItem(STORAGE_KEY);
+    if (savedUrl) {
+      setLocalServerUrl(savedUrl);
+      setTempServerUrl(savedUrl);
+    } else {
+      // URL が未設定の場合、モーダルを表示
+      setShowServerModal(true);
+    }
+  }, []);
 
   useEffect(() => {
     let timeoutId: number | null = null;
@@ -167,6 +183,19 @@ const Register = () => {
     }
   };
 
+  const handleSaveServerUrl = () => {
+    if (tempServerUrl.trim()) {
+      localStorage.setItem(STORAGE_KEY, tempServerUrl);
+      setLocalServerUrl(tempServerUrl);
+      setShowServerModal(false);
+    }
+  };
+
+  const handleOpenServerModal = () => {
+    setTempServerUrl(localServerUrl || '');
+    setShowServerModal(true);
+  };
+
   async function useTicket(ticketId: string) {
     if (!localServerUrl) {
       setDecodeError('ローカルサーバーのURLを入力してください。');
@@ -191,23 +220,27 @@ const Register = () => {
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
       <section className={styles.serverSection}>
-        <div className={styles.serverInputGroup}>
-          <label className={styles.formLabel} htmlFor='server-url'>
-            読み取り履歴同期サーバーのURL
-          </label>
-          <input
-            id='server-url'
-            className={styles.textInput}
-            type='text'
-            value={localServerUrl}
-            onChange={(e) => setLocalServerUrl(e.currentTarget.value)}
-          />
+        <div className={styles.serverUrlDisplay}>
+          <p className={styles.serverUrlLabel}>
+            同期サーバー:
+            <span className={styles.serverUrl}>{localServerUrl}</span>
+          </p>
+          <button
+            type='button'
+            className={styles.changeButton}
+            onClick={handleOpenServerModal}
+          >
+            変更
+          </button>
         </div>
       </section>
       <section>
         <form onSubmit={handleRegister} className={styles.form}>
-          <label className={styles.formLabel} htmlFor='ticket-code'>チケットコード</label>
+          <label className={styles.formLabel} htmlFor='ticket-code'>
+            チケットコード
+          </label>
           <input
+            autoFocus
             id='ticket-code'
             className={styles.textInput}
             type='text'
@@ -312,6 +345,40 @@ const Register = () => {
             </div>
           </section>
         </>
+      )}
+
+      {showServerModal && (
+        <div className={styles.modalOverlay} onClick={() => undefined}>
+          <div className={styles.modalContainer}>
+            <div className={styles.modalContent}>
+              <h2 className={styles.modalTitle}>
+                読み取り履歴同期サーバーの設定
+              </h2>
+              <p>親となるコンピューターで付属のserver.exeを実行してローカルサーバーを立てた上で、そのURLを入力してください。</p>
+              <label className={styles.formLabel} htmlFor='server-url-input'>
+                サーバーURL
+              </label>
+              <input
+                id='server-url-input'
+                className={styles.textInput}
+                type='text'
+                value={tempServerUrl}
+                onChange={(e) => setTempServerUrl(e.currentTarget.value)}
+                placeholder='http://127.0.0.1:8000'
+                autoFocus
+              />
+              <div className={styles.modalButtonGroup}>
+                <button
+                  type='button'
+                  className={styles.submitButton}
+                  onClick={handleSaveServerUrl}
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

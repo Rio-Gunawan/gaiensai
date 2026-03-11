@@ -31,3 +31,6 @@ supabase/seed.sql
 
 # 自動生成ファイル
 generated/
+database/
+server
+server.exe

@@ -191,6 +191,20 @@ const Register = () => {
     }
   };
 
+  function buildApiUrl(localServerUrl: string) {
+    let url = localServerUrl.trim();
+
+    // http:// または https:// が無ければ追加
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'http://' + url;
+    }
+
+    // 末尾の / を削除
+    url = url.replace(/\/+$/, '');
+
+    return url + '/api';
+  }
+
   const handleOpenServerModal = () => {
     setTempServerUrl(localServerUrl || '');
     setShowServerModal(true);
@@ -201,7 +215,7 @@ const Register = () => {
       setDecodeError('ローカルサーバーのURLを入力してください。');
       return;
     }
-    const res = await fetch(localServerUrl, {
+    const res = await fetch(buildApiUrl(localServerUrl), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

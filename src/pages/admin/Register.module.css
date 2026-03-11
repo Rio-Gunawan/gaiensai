@@ -1,0 +1,229 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem;
+  border-radius: 16px;
+  background: color-mix(in srgb,
+      var(--translucent-b-bg-color) 95%,
+      transparent);
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+.formLabel {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--heading-text-color);
+}
+
+.textInput {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--select-border-color);
+  background: color-mix(in srgb,
+      var(--main-bg-color) 85%,
+      transparent);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.textInput:focus-visible {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent);
+}
+
+.submitButton {
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg,
+      var(--primary-color),
+      color-mix(in srgb, var(--primary-color) 70%, #000) 80%);
+  color: #fff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.submitButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.resultCard {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 9;
+  width: calc(100vw - 1.5em);
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+
+  background-color: var(--scan-result-bg-color);
+  color: var(--scan-result-text-color);
+
+  margin: 0;
+  padding: 1rem;
+  border: 5px solid var(--scan-result-border-color);
+  border-radius: 14px;
+}
+
+.resultCardEnter {
+  animation: resultCardFadeIn 200ms ease-out forwards;
+}
+
+.resultCardExit {
+  animation: resultCardFadeOut 1000ms ease-in forwards;
+}
+
+.resultTitle {
+  margin: 0 0 1rem;
+  color: var(--success-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resultSuccessOverlay {
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--scan-result-success-overlay-bg-color);
+}
+
+.resultBody {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.primaryPerformance {
+  margin: 0;
+  font-size: min(10vw, 3.5rem);
+  color: var(--scan-result-primary-color);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.scheduleName {
+  display: inline-block;
+  margin-left: 0.5em;
+}
+
+.secondaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.secondaryItem {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--scan-result-border-color);
+  border-radius: 999px;
+  font-weight: 700;
+  background: color-mix(in srgb,
+      var(--scan-result-border-color) 18%,
+      transparent);
+}
+
+.tertiaryBlock {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tertiaryLine {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.rawValue {
+  margin: 0;
+  font-size: 0.76rem;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  opacity: 0.62;
+  overflow-wrap: anywhere;
+}
+
+@keyframes resultCardFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes resultCardFadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.instructionBlock {
+  padding: 0.5rem 0;
+  border-radius: 8px;
+  color: var(--scan-result-instruction-color);
+}
+
+.instructionBlock p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (min-width: 800px) {
+  .primaryPerformance {
+    margin: 0.5em 0;
+  }
+
+  .secondaryRow {
+    margin: 0 0 1em;
+  }
+
+  .instructionBlock p {
+    font-size: 1.75rem;
+    padding: 0.75rem 0;
+  }
+}
+
+.resultCardError {
+  border-color: var(--error-border-color);
+  background-color: var(--scan-result-error-bg-color);
+}
+
+.resultErrorOverlay {
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--scan-result-error-overlay-bg-color);
+}
+
+.resultCardError .resultTitle {
+  color: var(--error-text-color);
+}

@@ -22,6 +22,7 @@ import {
   Students,
   AdminHome,
   Scan,
+  Register,
   Ticket,
   TicketHistory,
 } from './routes';
@@ -48,7 +49,11 @@ const userPageLayout = () => (
 const AdminPageLayout = () => (
   <AdminLayout>
     <div className={subPageStyles.subPageShell}>
-      <AdminHome />
+      <Router>
+        <Route path='/' component={AdminHome} />
+        <Route path='/register' component={Register} />
+        <Route default component={NotFound} />
+      </Router>
     </div>
   </AdminLayout>
 );
@@ -89,6 +94,7 @@ const InnerApp = () => {
       <Route path='/students' component={Students} />
       <Route path='/students/*' component={Students} />
       <Route path='/admin/scan' component={AdminScanLayout} />
+      <Route path='/admin/*' component={AdminPageLayout} />
       <Route path='/admin' component={AdminPageLayout} />
       <Route path='/*' component={userPageLayout} />
       <Route default component={NotFound} />

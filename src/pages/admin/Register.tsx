@@ -135,27 +135,52 @@ const Register = () => {
         return;
       }
 
-      setDecodedTicket(decoded);
+      const ticketStatus = await useTicket(code);
 
-      let master = ticketMaster;
-      if (!master) {
-        try {
-          master = await preloadScanTicketMaster();
-          setTicketMaster(master);
-        } catch {
-          master = null;
+      if (ticketStatus === 'success') {
+        setDecodedTicket(decoded);
+
+        let master = ticketMaster;
+        if (!master) {
+          try {
+            master = await preloadScanTicketMaster();
+            setTicketMaster(master);
+          } catch {
+            master = null;
+          }
         }
-      }
 
-      if (master) {
-        setResolvedTicket(resolveScanTicketDisplay(decoded, master));
+        if (master) {
+          setResolvedTicket(resolveScanTicketDisplay(decoded, master));
+        }
+      } else if (ticketStatus === 'duplicate') {
+        setDecodeError('このチケットは使用済みです。');
+      } else {
+        setDecodeError('使用済みかどうかを確認する際にエラーが発生しました。');
       }
-    } catch {
+    } catch (e) {
       setDecodeError(
         'QRコードは読めましたが、チケットコードの検証に失敗しました。',
       );
     }
   };
+
+  async function useTicket(ticketId: string) {
+    const res = await fetch('http://localhost:8000', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: ticketId,
+      }),
+    });
+
+    const result = await res.json();
+
+    return result.status;
+  }
+
   return (
     <div>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>

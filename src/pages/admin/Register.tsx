@@ -32,6 +32,8 @@ const Register = () => {
   const [isResultCardExiting, setIsResultCardExiting] = useState(false);
   const [autoHideRequested, setAutoHideRequested] = useState(false);
 
+  const [localServerUrl, setLocalServerUrl] = useState<string>();
+
   const hasResultContent =
     Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
 
@@ -166,7 +168,11 @@ const Register = () => {
   };
 
   async function useTicket(ticketId: string) {
-    const res = await fetch('http://localhost:8000', {
+    if (!localServerUrl) {
+      setDecodeError('ローカルサーバーのURLを入力してください。');
+      return;
+    }
+    const res = await fetch(localServerUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -182,12 +188,27 @@ const Register = () => {
   }
 
   return (
-    <div>
+    <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
+      <section className={styles.serverSection}>
+        <div className={styles.serverInputGroup}>
+          <label className={styles.formLabel} htmlFor='server-url'>
+            読み取り履歴同期サーバーのURL
+          </label>
+          <input
+            id='server-url'
+            className={styles.textInput}
+            type='text'
+            value={localServerUrl}
+            onChange={(e) => setLocalServerUrl(e.currentTarget.value)}
+          />
+        </div>
+      </section>
       <section>
         <form onSubmit={handleRegister} className={styles.form}>
-          <label className={styles.formLabel}>チケットコード</label>
+          <label className={styles.formLabel} htmlFor='ticket-code'>チケットコード</label>
           <input
+            id='ticket-code'
             className={styles.textInput}
             type='text'
             value={scannedValue}

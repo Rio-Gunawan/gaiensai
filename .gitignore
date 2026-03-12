@@ -34,3 +34,4 @@ generated/
 database/
 server
 server.exe
+coverage/

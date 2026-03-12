@@ -22,6 +22,11 @@ const adminHome = () => {
               スキャンページ
             </a>
           </li>
+          <li>
+            <a href='/admin/register' onMouseEnter={() => preload(Scan)}>
+              校内入場用チケット登録ページ
+            </a>
+          </li>
         </ul>
       </section>
     </div>

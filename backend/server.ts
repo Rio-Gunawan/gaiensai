@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { getLocalIP } from './ip.ts';
-import { useTicket } from './ticket.ts';
+import { useTicket, logTicketScan } from './ticket.ts';
 
 const ip = await getLocalIP();
 
@@ -56,6 +56,24 @@ Deno.serve(async (req) => {
     );
 
     return new Response(JSON.stringify(result), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  // ログ記録エンドポイント
+  if (url.pathname === '/api/log' && req.method === 'POST') {
+    const body = await req.json();
+    const { code, result } = body;
+
+    if (code && result) {
+      logTicketScan(code, result);
+      console.log('ログを記録しました。コード:', code, '結果:', result);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',

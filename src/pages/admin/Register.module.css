@@ -57,6 +57,23 @@
   filter: brightness(1.05);
 }
 
+.modalSecondaryButton {
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--select-border-color);
+  background: transparent;
+  color: var(--main-text-color);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.modalDescription {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--sub-text-color);
+}
+
 .pageShell {
   box-sizing: border-box;
   min-height: 100vh;
@@ -92,6 +109,20 @@
   border-radius: 14px;
 }
 
+.resultCardReentry {
+  background-color: var(--scan-result-reentry-bg-color);
+  color: var(--scan-result-reentry-text-color);
+  border-color: var(--scan-result-reentry-border-color);
+}
+
+.resultCardReentry .resultTitle {
+  color: var(--scan-result-reentry-text-color);
+}
+
+.resultCardReentry .primaryPerformance {
+  color: var(--scan-result-reentry-text-color);
+}
+
 .resultCardEnter {
   animation: resultCardFadeIn 200ms ease-out forwards;
 }
@@ -116,6 +147,10 @@
   width: 100vw;
   height: 100vh;
   background-color: var(--scan-result-success-overlay-bg-color);
+}
+
+.resultSuccessOverlayReentry {
+  background-color: var(--result-success-reentry-overlay-bg-color);
 }
 
 .resultBody {
@@ -153,6 +188,14 @@
   background: color-mix(in srgb,
       var(--scan-result-border-color) 18%,
       transparent);
+}
+
+.resultCardReentry .secondaryItem {
+  border-color: var(--scan-result-reentry-border-color);
+  background: color-mix(in srgb,
+      var(--scan-result-reentry-border-color) 18%,
+      transparent);
+  ;
 }
 
 .tertiaryBlock {

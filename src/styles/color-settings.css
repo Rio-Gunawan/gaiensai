@@ -76,4 +76,8 @@
   --scan-result-error-bg-color: #edd0d0;
   --scan-result-success-overlay-bg-color: #19684340;
   --scan-result-error-overlay-bg-color: #60191963;
+  --scan-result-reentry-text-color: #2f2f2f;
+  --scan-result-reentry-bg-color: #e2e1e1;
+  --scan-result-reentry-border-color: #9f9f9f;
+  --result-success-reentry-overlay-bg-color: #6a6a6a40;
 }

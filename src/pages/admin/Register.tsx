@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import baseStyles from '../../styles/sub-pages.module.css';
 import styles from './Register.module.css';
 import {
@@ -38,8 +38,36 @@ const Register = () => {
   const [showServerModal, setShowServerModal] = useState(false);
   const [tempServerUrl, setTempServerUrl] = useState<string>('');
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputServerRef = useRef<HTMLInputElement>(null);
+
   const hasResultContent =
     Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
+
+  const focus = () => {
+    if (showServerModal) {
+      setTimeout(() => inputServerRef.current?.focus(), 10);
+      inputRef.current?.blur();
+    } else {
+      setTimeout(() => inputRef.current?.focus(), 10);
+      inputServerRef.current?.blur();
+    }
+  };
+
+  useEffect(() => {
+    if (showServerModal) {
+      inputServerRef.current?.focus();
+      inputRef.current?.blur();
+    } else {
+      inputRef.current?.focus();
+      inputServerRef.current?.blur();
+    }
+
+    document.addEventListener('click', focus);
+    return () => {
+      document.removeEventListener('click', focus);
+    };
+  }, [showServerModal]);
 
   // ローカルストレージから URL を読み込み、初回設定をチェック
   useEffect(() => {
@@ -254,11 +282,14 @@ const Register = () => {
             チケットコード
           </label>
           <input
+            ref={inputRef}
+            onBlur={focus}
             autoFocus
             id='ticket-code'
             className={styles.textInput}
             type='text'
             value={scannedValue}
+            disabled={showServerModal}
             onChange={(e) => {
               setAutoHideRequested(false);
               setScannedValue(e.currentTarget.value);
@@ -368,17 +399,22 @@ const Register = () => {
               <h2 className={styles.modalTitle}>
                 読み取り履歴同期サーバーの設定
               </h2>
-              <p>親となるコンピューターで付属のserver.exeを実行してローカルサーバーを立てた上で、そのURLを入力してください。</p>
+              <p>
+                親となるコンピューターで付属のserver.exeを実行してローカルサーバーを立てた上で、そのURLを入力してください。
+              </p>
               <label className={styles.formLabel} htmlFor='server-url-input'>
                 サーバーURL
               </label>
               <input
+                ref={inputServerRef}
+                onBlur={focus}
                 id='server-url-input'
                 className={styles.textInput}
                 type='text'
                 value={tempServerUrl}
                 onChange={(e) => setTempServerUrl(e.currentTarget.value)}
                 placeholder='http://127.0.0.1:8000'
+                disabled={!showServerModal}
                 autoFocus
               />
               <div className={styles.modalButtonGroup}>

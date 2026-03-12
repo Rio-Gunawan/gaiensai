@@ -11,6 +11,12 @@ INSERT INTO ticket_scan_logs (ticket_code, scanned_at, result)
 VALUES (?, ?, ?)
 `);
 
+const getEntryCountStmt = db.prepare('SELECT COUNT(*) as count FROM tickets');
+const getRecentLogsStmt = db.prepare(`
+SELECT ticket_code, scanned_at, result FROM ticket_scan_logs
+ORDER BY id DESC LIMIT 5
+`);
+
 export function useTicket(id: string) {
   const now = new Date().toISOString();
   const existing = getTicket.get(id);
@@ -29,4 +35,18 @@ export function useTicket(id: string) {
 export function logTicketScan(code: string, result: string) {
   const now = new Date().toISOString();
   logScanStmt.run(code, now, result);
+}
+
+export function getEntryCount(): number {
+  const result = getEntryCountStmt.get() as { count: number };
+  return result.count;
+}
+
+export function getRecentScanLogs() {
+  const result = getRecentLogsStmt.all() as Array<{
+    ticket_code: string;
+    scanned_at: string;
+    result: string;
+  }>;
+  return result;
 }

@@ -1,6 +1,11 @@
 /* eslint-disable no-console */
 import { getLocalIP } from './ip.ts';
-import { useTicket, logTicketScan } from './ticket.ts';
+import {
+  useTicket,
+  logTicketScan,
+  getEntryCount,
+  getRecentScanLogs,
+} from './ticket.ts';
 
 const ip = await getLocalIP();
 
@@ -74,6 +79,28 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ ok: true }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  // 統計情報エンドポイント（入場者数）
+  if (url.pathname === '/api/stats' && req.method === 'GET') {
+    const count = getEntryCount();
+    return new Response(JSON.stringify({ entryCount: count }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  // 読み取り履歴エンドポイント
+  if (url.pathname === '/api/records' && req.method === 'GET') {
+    const records = getRecentScanLogs();
+    return new Response(JSON.stringify({ records }), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',

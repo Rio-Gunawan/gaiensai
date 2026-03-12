@@ -86,6 +86,15 @@ const Register = () => {
 
   const [pendingFullCode, setPendingFullCode] = useState<string>('');
 
+  const [entryCount, setEntryCount] = useState<number>(0);
+  const [scanRecords, setScanRecords] = useState<
+    Array<{
+      ticket_code: string;
+      scanned_at: string;
+      result: string;
+    }>
+  >([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const inputServerRef = useRef<HTMLInputElement>(null);
   const pendingDecodedRef = useRef<TicketDecodedDisplaySeed | null>(null);
@@ -129,6 +138,29 @@ const Register = () => {
       setShowServerModal(true);
     }
   }, []);
+
+  // 5秒ごとに入場者数と読み取り履歴を取得
+  useEffect(() => {
+    if (!localServerUrl) {
+      return () => {
+        // noop
+      };
+    }
+
+    // 初回は即座に取得
+    fetchEntryCount();
+    fetchScanRecords();
+
+    // その後5秒ごとに取得
+    const intervalId = window.setInterval(() => {
+      fetchEntryCount();
+      fetchScanRecords();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [localServerUrl]);
 
   useEffect(() => {
     let timeoutId: number | null = null;
@@ -472,6 +504,32 @@ const Register = () => {
     return { ticketStatus, ticketUsedAt, lastUsedAt: usedAt };
   }
 
+  async function fetchEntryCount() {
+    if (!localServerUrl) {
+      return;
+    }
+    try {
+      const res = await fetch(buildApiUrl(localServerUrl) + '/stats');
+      const data = await res.json();
+      setEntryCount(data.entryCount);
+    } catch {
+      // 統計情報の取得に失敗しても無視
+    }
+  }
+
+  async function fetchScanRecords() {
+    if (!localServerUrl) {
+      return;
+    }
+    try {
+      const res = await fetch(buildApiUrl(localServerUrl) + '/records');
+      const data = await res.json();
+      setScanRecords(data.records || []);
+    } catch {
+      // 読み取り履歴の取得に失敗しても無視
+    }
+  }
+
   return (
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
@@ -514,6 +572,61 @@ const Register = () => {
             登録
           </button>
         </form>
+      </section>
+
+      <section className={styles.statsSection}>
+        <div className={styles.statCard}>
+          <p className={styles.statLabel}>現在の入場者数</p>
+          <p className={styles.statValue}>{entryCount}人</p>
+        </div>
+      </section>
+
+      <section className={styles.recordsSection}>
+        <h2 className={styles.recordsTitle}>直近5件の読み取り履歴</h2>
+        {scanRecords.length > 0 ? (
+          <div className={styles.recordsList}>
+            {scanRecords.map((record, index) => (
+              <div key={index} className={styles.recordItem}>
+                <div className={styles.recordCode}>
+                  <span className={styles.recordLabel}>コード:</span>
+                  <span className={styles.recordValue}>
+                    {record.ticket_code}
+                  </span>
+                </div>
+                <div className={styles.recordDateTime}>
+                  <span className={styles.recordLabel}>時刻:</span>
+                  <span className={styles.recordValue}>
+                    {new Date(record.scanned_at).toLocaleString()}
+                  </span>
+                </div>
+                <div
+                  className={`${styles.recordResult} ${
+                    record.result === 'success'
+                      ? styles.resultSuccess
+                      : record.result === 'reentry'
+                        ? styles.resultReentry
+                        : styles.resultFailed
+                  }`}
+                >
+                  <span className={styles.recordLabel}>結果:</span>
+                  <span className={styles.recordValue}>
+                    {record.result === 'success'
+                      ? '成功'
+                      : record.result === 'duplicate'
+                        ? '重複'
+                        : record.result === 'reentry'
+                          ? '再入場'
+                          : record.result === 'failed'
+                            ? 'エラー'
+                            : record.result}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.noRecords}>読み取り履歴がまだありません</p>
+        )}
       </section>
 
       {shouldRenderResultCard && decodedTicket && (

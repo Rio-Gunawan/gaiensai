@@ -28,7 +28,7 @@
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^25.4.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.3",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^17.3.0",
     "jsdom": "^28.1.0",

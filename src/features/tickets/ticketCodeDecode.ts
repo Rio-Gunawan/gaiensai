@@ -1,5 +1,6 @@
 import { decodeTicketCode } from '@ticket-codec';
 import { verifyCodeSignature } from '../../../supabase/functions/_shared/verifyCodeSignature.ts';
+import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
 
 export type TicketDecodedSeed = {
   relationshipId: number;
@@ -82,7 +83,8 @@ export const decodeAndVerifyTicket = async (
     decodeTicketCodeWithEnv(code),
     verifyTicketSignature(code, signature),
   ]);
+  const isTicketThisYear =
+    decodedRaw?.year === new Date().getFullYear() % 2 ** Number(YEAR_BITS);
   const decoded = toTicketDecodedDisplaySeed(decodedRaw);
-  return { decodedRaw, signatureIsValid, decoded };
+  return { decodedRaw, signatureIsValid, decoded, isTicketThisYear };
 };
-

@@ -41,7 +41,11 @@ function assertBitRange(name: string, value: number, bits: bigint): void {
 
 function packData(data: TicketData): bigint {
   const convertedAffiliation = encodeAffiliation(data.affiliation); // 11 bit
-  assertBitRange('convertedAffiliation', convertedAffiliation, AFFILIATION_BITS);
+  assertBitRange(
+    'convertedAffiliation',
+    convertedAffiliation,
+    AFFILIATION_BITS,
+  );
   assertBitRange('relationship', data.relationship, RELATIONSHIP_BITS);
   assertBitRange('type', data.type, TYPE_BITS);
   assertBitRange('performance', data.performance, PERFORMANCE_BITS);
@@ -129,7 +133,7 @@ export async function generateTicketCode(data: TicketData): Promise<string> {
   const macKey = await importHmacKey(RAW_MAC_KEY);
   const cipherKey = await importHmacKey(RAW_CIPHER_KEY);
 
-  data.year = data.year % Number(YEAR_BITS); // 年は下3bitのみ使用
+  data.year = data.year % 2 ** Number(YEAR_BITS); // 年は下3bitのみ使用
 
   const data36 = packData(data);
   const mac10 = await generateMAC10(data36, macKey);

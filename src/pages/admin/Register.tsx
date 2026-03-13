@@ -286,10 +286,18 @@ const Register = () => {
         return;
       }
 
-      const { decoded, signatureIsValid } = await decodeAndVerifyTicket(
+      const { decoded, signatureIsValid, isTicketThisYear } = await decodeAndVerifyTicket(
         code,
         signature,
       );
+
+      if (!isTicketThisYear) {
+        await logTicketToServer(scannedValue, 'wrongYear', localServerUrl);
+        setDecodeError(
+          '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
+        );
+        return;
+      }
 
       if (!decoded) {
         await logTicketToServer(scannedValue, 'failed', localServerUrl);
@@ -618,7 +626,11 @@ const Register = () => {
                           ? '再入場'
                           : record.result === 'failed'
                             ? 'エラー'
-                            : record.result}
+                            : record.result === 'unverified'
+                              ? '署名検証エラー'
+                              : record.result === 'wrongYear'
+                              ? '異なる年度のチケット'
+                              : record.result}
                   </span>
                 </div>
               </div>

@@ -13,6 +13,7 @@ import {
   signCode,
 } from '@shared/generateTicketCode.ts';
 import { issueWithRollback, type RpcClient } from './issueWithRollback.ts';
+import { YEAR_BITS } from '@shared/ticketDataType.ts';
 
 type IssueTicketsRequest = {
   ticketTypeId: number;
@@ -79,7 +80,10 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     throw new HttpError(400, 'Cannot issue more than 100 tickets at a time');
   }
 
-  if (typeof turnstileToken !== 'string' || turnstileToken.trim().length === 0) {
+  if (
+    typeof turnstileToken !== 'string' ||
+    turnstileToken.trim().length === 0
+  ) {
     throw new HttpError(400, 'Turnstileトークンがありません。');
   }
 
@@ -174,7 +178,9 @@ const validatePerformanceAndSchedule = (
   }
 };
 
-export const handleIssueTicketsRequest = async (req: Request): Promise<Response> => {
+export const handleIssueTicketsRequest = async (
+  req: Request,
+): Promise<Response> => {
   const corsHeaders = getCorsHeaders(req);
 
   // CORSプリフライトリクエストへの対応
@@ -352,7 +358,10 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       }
 
       if (oldTicket.status !== 'valid') {
-        throw new HttpError(409, '差し替え対象のチケットが有効ではありません。');
+        throw new HttpError(
+          409,
+          '差し替え対象のチケットが有効ではありません。',
+        );
       }
 
       if (Number(oldTicket.ticket_type) !== body.ticketTypeId) {
@@ -422,8 +431,8 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
       );
     }
 
-    // チケットコードのプレフィックスを生成（学年クラス番号 + チケット種別 + 間柄 + 公演ID + 回ID + 発行年の下2桁）
-    const issuedYear = new Date().getUTCFullYear() % 100;
+    // チケットコードのプレフィックスを生成（学年クラス番号 + チケット種別 + 間柄 + 公演ID + 回ID + 発行年をYEAR_BITSで割ったあまり）
+    const issuedYear = new Date().getUTCFullYear() % 2 ** Number(YEAR_BITS);
     const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
     const basePrefix = encodeBase58(BigInt(concatenated));
 
@@ -446,12 +455,12 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
     if (counterError) {
       throw new HttpError(
         500,
-        'チケットコードのカウンターの更新に失敗しました。外苑祭総務にお問い合わせください。',
+        'チケットコードのカウンターの更新に失敗しました。しばらく時間を置いてから、もう一度お試しください。:' +
+          counterError.message,
       );
     }
 
-    if (counterData === null)
-    {
+    if (counterData === null) {
       throw new HttpError(
         500,
         '一時的にエラーが発生しました。時間をおいてもう一度お試しください。',
@@ -514,7 +523,8 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
           throw new HttpError(409, error.message);
         }
 
-        issuedTickets = (data as Array<{ code: string; signature: string }>) ?? [];
+        issuedTickets =
+          (data as Array<{ code: string; signature: string }>) ?? [];
         shouldRollbackCounter = false;
       } finally {
         if (shouldRollbackCounter) {
@@ -534,12 +544,15 @@ export const handleIssueTicketsRequest = async (req: Request): Promise<Response>
               rollbackError,
             });
           } else if (rollbackApplied !== true) {
-            console.error('Counter rollback was skipped because state changed', {
-              userId: user.id,
-              prefix: basePrefix,
-              issueCount: body.issueCount,
-              endSerial,
-            });
+            console.error(
+              'Counter rollback was skipped because state changed',
+              {
+                userId: user.id,
+                prefix: basePrefix,
+                issueCount: body.issueCount,
+                endSerial,
+              },
+            );
           }
         }
       }

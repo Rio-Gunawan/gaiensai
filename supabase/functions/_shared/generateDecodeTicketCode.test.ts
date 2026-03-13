@@ -41,7 +41,8 @@ const assertTicketDataEqual = (
     actual.type !== expected.type ||
     actual.performance !== expected.performance ||
     actual.schedule !== expected.schedule ||
-    actual.year % Number(YEAR_BITS) !== expected.year % Number(YEAR_BITS) ||
+    actual.year % 2 ** Number(YEAR_BITS) !==
+      expected.year % 2 ** Number(YEAR_BITS) ||
     actual.serial !== expected.serial
   ) {
     throw new Error(

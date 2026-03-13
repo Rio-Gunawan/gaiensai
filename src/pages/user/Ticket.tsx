@@ -221,7 +221,7 @@ const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   return fallback;
 };
 
-const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
+const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
   const { config } = useEventConfig();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
   const [isShortUrlModalOpen, setIsShortUrlModalOpen] = useState(false);
@@ -261,18 +261,18 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
   const [loading, setLoading] = useState(true);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
   const [cacheVersion, setCacheVersion] = useState(0);
   const [sortMode, setSortMode] = useState<TicketListSortMode>('recent');
 
-
   const turnstileContainerId = 'issue-turnstile-widget';
   const {
-      token: turnstileToken,
-      hasSiteKey: hasTurnstileSiteKey,
-      getToken: getTurnstileToken,
-      reset: resetTurnstile,
-    } = useTurnstile({ containerId: turnstileContainerId });
+    token: turnstileToken,
+    hasSiteKey: hasTurnstileSiteKey,
+    getToken: getTurnstileToken,
+    reset: resetTurnstile,
+  } = useTurnstile({ containerId: turnstileContainerId });
 
   const token = props.id;
 
@@ -298,10 +298,8 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
       setErrorMessages([]);
       const nonBlockingErrors: string[] = [];
 
-      const { decoded, signatureIsValid } = await decodeAndVerifyTicket(
-        code,
-        signature,
-      );
+      const { decoded, signatureIsValid, isTicketThisYear } =
+        await decodeAndVerifyTicket(code, signature);
 
       if (!decoded) {
         setErrorMessages(['チケット情報の復元に失敗しました。']);
@@ -314,6 +312,10 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
         nonBlockingErrors.push(
           'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
         );
+      }
+
+      if (!isTicketThisYear) {
+        setWarningMessages(['今年度のチケットではありません。']);
       }
 
       touchTicketDisplayCacheOpenedAt(code);
@@ -337,6 +339,9 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
           nonBlockingErrors.push(validityResult.errorMessage);
         }
         setErrorMessages(nonBlockingErrors);
+        if (!isTicketThisYear) {
+          setWarningMessages(['今年度のチケットではありません。']);
+        }
         setLoading(false);
         return;
       }
@@ -566,6 +571,9 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
         writeTicketDisplayCache(code, resolvedTicket);
       }
       setErrorMessages(nonBlockingErrors);
+      if (!isTicketThisYear) {
+        setWarningMessages(['今年度のチケットではありません。']);
+      }
       setLoading(false);
     };
 
@@ -840,6 +848,19 @@ const Ticket = ( props: RoutePropsForPath<'/t/:id'>) => {
       <Alert type='warning'>
         <p>必ずスクリーンショットで保存してください。</p>
       </Alert>
+      {warningMessages.length > 0 && (
+        <Alert type='error'>
+          {warningMessages.length === 1 ? (
+            <p>{warningMessages[0]}</p>
+          ) : (
+            <ul>
+              {warningMessages.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
+        </Alert>
+      )}
       {loading && <p>読み込み中...</p>}
       <div className={styles.ticketContainer}>
         <span className={styles.serialBadge}>#{ticket.serial}</span>

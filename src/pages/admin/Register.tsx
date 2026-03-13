@@ -629,7 +629,7 @@ const Register = () => {
                             : record.result === 'unverified'
                               ? '署名検証エラー'
                               : record.result === 'wrongYear'
-                              ? '異なる年度のチケット'
+                              ? '年度確認エラー'
                               : record.result}
                   </span>
                 </div>

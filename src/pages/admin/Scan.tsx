@@ -138,10 +138,15 @@ const Scan = () => {
           );
           return;
         }
-        const { decoded, signatureIsValid } = await decodeAndVerifyTicket(
-          code,
-          signature,
-        );
+        const { decoded, signatureIsValid, isTicketThisYear } =
+          await decodeAndVerifyTicket(code, signature);
+
+        if (!isTicketThisYear) {
+          setDecodeError(
+            '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
+          );
+          return;
+        }
 
         if (!decoded) {
           setDecodeError(

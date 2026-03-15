@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { getLocalIP } from './ip.ts';
 import {
   useTicket,
@@ -10,14 +9,15 @@ import {
   updateTicketUsedAndCount,
   deleteScanLogAndUpdateTicket,
 } from './ticket.ts';
+import { logOperation } from './operationLog.ts';
 
 const ip = await getLocalIP();
 
-console.log('ローカルサーバーが起動しました。');
-console.log('Local: http://localhost:8000');
+logOperation('backend/server.ts:startup', 'ローカルサーバーが起動しました。');
+logOperation('backend/server.ts:startup', 'Local: http://localhost:8000');
 
 if (ip) {
-  console.log(`LAN:   http://${ip}:8000`);
+  logOperation('backend/server.ts:startup', `LAN:   http://${ip}:8000`);
 }
 
 function contentType(path: string) {
@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
 
     const result = useTicket(id, body.count ?? 1);
 
-    console.log(
+    logOperation(
+      'backend/server.ts:api',
       'リクエストを受け付けました。チケットID: ',
       body.id,
       '検証結果: ',
@@ -83,7 +84,8 @@ Deno.serve(async (req) => {
 
     if (code && result) {
       const logId = logTicketScan(code, result, count);
-      console.log(
+      logOperation(
+        'backend/server.ts:api/log',
         'ログを記録しました。コード:',
         code,
         '結果:',
@@ -112,14 +114,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { logId, code, count } = body;
 
-    console.log('人数を更新します。ログID:', logId, code, count);
-
     if (logId && count !== undefined) {
       updateScanLogCount(logId, count);
       if (code) {
         updateTicketCount(code, count);
       }
-      console.log(
+      logOperation(
+        'backend/server.ts:api/count',
         '人数を更新しました。ログID:',
         logId,
         'コード:',
@@ -144,7 +145,13 @@ Deno.serve(async (req) => {
 
     if (code !== undefined) {
       updateTicketUsedAndCount(code, count);
-      console.log('再入場を確定しました。コード:', code, '人数:', count);
+      logOperation(
+        'backend/server.ts:api/reentry',
+        '再入場を確定しました。コード:',
+        code,
+        '人数:',
+        count,
+      );
     }
 
     return new Response(JSON.stringify({ ok: true }), {
@@ -184,7 +191,11 @@ Deno.serve(async (req) => {
 
     if (logId) {
       const result = deleteScanLogAndUpdateTicket(logId);
-      console.log('読み取り履歴を削除しました。', result);
+      logOperation(
+        'backend/server.ts:api/records/delete',
+        '読み取り履歴を削除しました。',
+        result,
+      );
       return new Response(JSON.stringify(result), {
         headers: {
           ...corsHeaders,

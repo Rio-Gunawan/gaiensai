@@ -24,6 +24,16 @@ CREATE TABLE IF NOT EXISTS ticket_scan_logs (
 )
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS operation_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  location TEXT NOT NULL,
+  message TEXT NOT NULL,
+  details TEXT
+)
+`);
+
 // 既存テーブルに count カラムがない場合は追加
 try {
   db.exec(`ALTER TABLE tickets ADD COLUMN count INTEGER NOT NULL DEFAULT 1`);

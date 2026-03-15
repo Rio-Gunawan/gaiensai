@@ -372,6 +372,7 @@ const Register = () => {
       const logId = await logTicketToServer(code, 'success', 1, localServerUrl);
       setCurrentLogId(logId);
       await fetchScanRecords();
+      await fetchEntryCount();
       return;
     }
 
@@ -398,6 +399,7 @@ const Register = () => {
         setCurrentLogId(logId);
         await updateReentryCount(code.split('.')[0], 1);
         await fetchScanRecords();
+        await fetchEntryCount();
         await handleResolvedTicket(decoded, { reentry: true });
         return;
       }
@@ -441,6 +443,7 @@ const Register = () => {
       setCurrentLogId(logId);
       await updateReentryCount(code, 1);
       await fetchScanRecords();
+      await fetchEntryCount();
     }
     await handleResolvedTicket(decoded, { reentry: true });
   };
@@ -660,6 +663,7 @@ const Register = () => {
           record.id === targetLogId ? { ...record, count: next } : record,
         ),
       );
+      await fetchEntryCount();
     }
   };
 
@@ -679,6 +683,7 @@ const Register = () => {
       }),
     );
     await updateCountOnServer(logId, code, next);
+    await fetchEntryCount();
   };
 
   return (

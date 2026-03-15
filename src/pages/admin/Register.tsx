@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import baseStyles from '../../styles/sub-pages.module.css';
 import styles from './Register.module.css';
 import {
@@ -112,30 +112,40 @@ const Register = () => {
   const hasResultContent =
     Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
 
-  const focus = () => {
+  const focus = useCallback(() => {
     if (showServerModal) {
       setTimeout(() => inputServerRef.current?.focus(), 10);
       inputRef.current?.blur();
     } else {
-      setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
       inputServerRef.current?.blur();
     }
-  };
+  }, [showServerModal]);
 
   useEffect(() => {
-    if (showServerModal) {
-      inputServerRef.current?.focus();
-      inputRef.current?.blur();
-    } else {
-      inputRef.current?.focus();
-      inputServerRef.current?.blur();
-    }
+    // 初期表示時やモーダルの表示が切り替わった時にフォーカスを当てる
+    focus();
 
-    document.addEventListener('click', focus);
-    return () => {
-      document.removeEventListener('click', focus);
+    const handleClick = (e: MouseEvent) => {
+      // ボタンやリンク、入力欄をクリックした場合は、意図的な操作なのでフォーカスを奪わない
+      if (
+        e.target instanceof HTMLElement &&
+        (e.target.closest('button') ||
+          e.target.closest('a') ||
+          e.target.closest('input'))
+      ) {
+        setTimeout(() => focus(), 10);
+        return;
+      }
+      // それ以外の場所をクリックしたら、スキャナ入力のためにフォーカスを戻す
+      focus();
     };
-  }, [showServerModal]);
+
+    document.addEventListener('click', handleClick);
+    return () => {
+      document.removeEventListener('click', handleClick);
+    };
+  }, [focus]);
 
   // ローカルストレージから URL を読み込み、初回設定をチェック
   useEffect(() => {
@@ -359,12 +369,7 @@ const Register = () => {
       await handleResolvedTicket(decoded);
       setEntryCountValue(1);
       setCurrentTicketCode(code.split('.')[0]);
-      const logId = await logTicketToServer(
-        code,
-        'success',
-        1,
-        localServerUrl,
-      );
+      const logId = await logTicketToServer(code, 'success', 1, localServerUrl);
       setCurrentLogId(logId);
       await fetchScanRecords();
       return;
@@ -702,7 +707,6 @@ const Register = () => {
           </label>
           <input
             ref={inputRef}
-            onBlur={focus}
             autoFocus
             id='ticket-code'
             className={styles.textInput}

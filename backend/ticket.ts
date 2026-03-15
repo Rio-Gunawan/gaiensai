@@ -15,6 +15,14 @@ INSERT INTO ticket_scan_logs (ticket_code, scanned_at, result, count)
 VALUES (?, ?, ?, ?)
 `);
 
+const getScanLogByIdStmt = db.prepare(`
+SELECT id, ticket_code FROM ticket_scan_logs WHERE id = ?
+`);
+
+const deleteScanLogByIdStmt = db.prepare(`
+DELETE FROM ticket_scan_logs WHERE id = ?
+`);
+
 const getEntryCountStmt = db.prepare('SELECT SUM(count) as total FROM tickets');
 const getRecentLogsStmt = db.prepare(`
 SELECT id, ticket_code, scanned_at, result, count FROM ticket_scan_logs
@@ -29,8 +37,17 @@ const updateTicketCountStmt = db.prepare(`
 UPDATE tickets SET count = ? WHERE id = ?
 `);
 
+const deleteTicketByIdStmt = db.prepare(`
+DELETE FROM tickets WHERE id = ?
+`);
+
 const getMaxScanLogCountStmt = db.prepare(`
 SELECT MAX(count) as maxCount FROM ticket_scan_logs
+WHERE ticket_code LIKE ? || '.%' OR ticket_code = ?
+`);
+
+const getScanLogCountByCodeStmt = db.prepare(`
+SELECT COUNT(*) as total FROM ticket_scan_logs
 WHERE ticket_code LIKE ? || '.%' OR ticket_code = ?
 `);
 
@@ -111,4 +128,39 @@ export function updateTicketCount(raw: string, count: number) {
   const maxCount = scanLogResult?.maxCount ?? 0;
 
   updateTicketCountStmt.run(maxCount, code);
+}
+
+// 手順: 1. ticket_scan_logsから該当のidの読み取り履歴を削除.
+//      2. ticket_scan_logsで、削除したチケットコードがまだ他にあるかを確認.
+//      3. ある場合は、ticketsの人数を更新(ticket_scan_logsの人数のうちの最大値).
+//      4. ない場合は、ticketsで該当のチケットコードを削除.
+
+export function deleteScanLogAndUpdateTicket(logId: number) {
+  const target = getScanLogByIdStmt.get(logId) as
+    | { id: number; ticket_code: string }
+    | undefined;
+
+  if (!target) {
+    return { ok: false, code: null, remaining: 0 };
+  }
+
+  const code = target.ticket_code.split('.')[0];
+  deleteScanLogByIdStmt.run(logId);
+
+  const remainingResult = getScanLogCountByCodeStmt.get(code, code) as
+    | { total: number | null }
+    | undefined;
+  const remaining = remainingResult?.total ?? 0;
+
+  if (remaining > 0) {
+    const scanLogResult = getMaxScanLogCountStmt.get(code, code) as
+      | { maxCount: number | null }
+      | undefined;
+    const maxCount = scanLogResult?.maxCount ?? 0;
+    updateTicketCountStmt.run(maxCount, code);
+  } else {
+    deleteTicketByIdStmt.run(code);
+  }
+
+  return { ok: true, code, remaining };
 }

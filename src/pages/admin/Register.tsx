@@ -15,6 +15,7 @@ import {
   type ScanTicketMaster,
 } from '../../features/tickets/scanTicketMaster';
 import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
+import { TiDelete } from 'react-icons/ti';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -88,6 +89,10 @@ const Register = () => {
   const [tempServerUrl, setTempServerUrl] = useState<string>('');
   const [showMissingSignatureModal, setShowMissingSignatureModal] =
     useState(false);
+  const [showDeleteLogModal, setShowDeleteLogModal] = useState(false);
+  const [pendingDeleteLogId, setPendingDeleteLogId] = useState<number | null>(
+    null,
+  );
 
   const [pendingFullCode, setPendingFullCode] = useState<string>('');
 
@@ -686,6 +691,49 @@ const Register = () => {
     await fetchEntryCount();
   };
 
+  const handleDeleteLog = async (logId: number) => {
+    if (!logId) {
+      return;
+    }
+    if (!localServerUrl) {
+      return;
+    }
+    try {
+      await fetch(buildApiUrl(localServerUrl) + '/records', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          logId,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      setScanRecords((prev) => prev.filter((record) => record.id !== logId));
+      await fetchEntryCount();
+    } catch {
+      // 何もしない。
+    }
+  };
+
+  const requestDeleteLog = (logId: number) => {
+    setPendingDeleteLogId(logId);
+    setShowDeleteLogModal(true);
+  };
+
+  const handleDeleteLogConfirm = async () => {
+    if (pendingDeleteLogId === null) {
+      return;
+    }
+    await handleDeleteLog(pendingDeleteLogId);
+    setPendingDeleteLogId(null);
+    setShowDeleteLogModal(false);
+  };
+
+  const handleDeleteLogCancel = () => {
+    setPendingDeleteLogId(null);
+    setShowDeleteLogModal(false);
+  };
+
   return (
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
@@ -821,6 +869,16 @@ const Register = () => {
                                 ? '年度確認エラー'
                                 : record.result}
                   </span>
+                </div>
+                <div className={styles.deleteLog}>
+                  <button
+                    type='button'
+                    className={styles.deleteButton}
+                    onClick={() => requestDeleteLog(record.id)}
+                  >
+                    <TiDelete />
+                    読み取り履歴を削除
+                  </button>
                 </div>
               </div>
             ))}
@@ -1011,6 +1069,39 @@ const Register = () => {
                   onClick={handleMissingSignatureContinue}
                 >
                   続行
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteLogModal && (
+        <div className={styles.modalOverlay} onClick={() => undefined}>
+          <div
+            className={styles.modalContainer}
+            role='dialog'
+            aria-modal='true'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.modalContent}>
+              <h2 className={styles.modalTitle}>読み取り履歴を削除</h2>
+              <p className={styles.modalDescription}>
+                この履歴を削除しますか?一度削除した履歴は戻せません。ただし、操作履歴はすべてログに記録されています。
+              </p>
+              <div className={styles.modalButtonGroup}>
+                <button
+                  type='button'
+                  className={styles.modalSecondaryButton}
+                  onClick={handleDeleteLogCancel}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type='button'
+                  className={styles.submitButton}
+                  onClick={handleDeleteLogConfirm}
+                >
+                  削除
                 </button>
               </div>
             </div>

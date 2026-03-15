@@ -8,6 +8,7 @@ import {
   updateScanLogCount,
   updateTicketCount,
   updateTicketUsedAndCount,
+  deleteScanLogAndUpdateTicket,
 } from './ticket.ts';
 
 const ip = await getLocalIP();
@@ -176,6 +177,30 @@ Deno.serve(async (req) => {
     });
   }
 
+  // 読み取り履歴削除エンドポイント
+  if (url.pathname === '/api/records' && req.method === 'DELETE') {
+    const body = await req.json();
+    const { logId } = body;
+
+    if (logId) {
+      const result = deleteScanLogAndUpdateTicket(logId);
+      console.log('読み取り履歴を削除しました。', result);
+      return new Response(JSON.stringify(result), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: false }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
   // 静的ファイル
   const path = url.pathname === '/' ? '/index.html' : url.pathname;
   const filePath = './dist' + path;
@@ -200,6 +225,6 @@ Deno.serve(async (req) => {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };

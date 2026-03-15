@@ -36,6 +36,11 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
+.textInputRules {
+  margin: 0;
+  font-size: small;
+}
+
 .submitButton {
   padding: 0.85rem 1.5rem;
   border-radius: 999px;
@@ -206,7 +211,7 @@
 
 .tertiaryLine {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.3rem;
   font-weight: bold;
 }
 
@@ -499,4 +504,113 @@
   text-align: center;
   color: var(--sub-text-color);
   font-size: 0.95rem;
+}
+
+.entryCountDisplay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.entryCountButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.entryCountButton:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+.entryCountButton:active {
+  transform: scale(0.95);
+}
+
+.entryCountValue {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--scan-result-primary-color);
+}
+
+.entryCountUnit {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+@media (min-width: 800px) {
+  .entryCountDisplay {
+    position: absolute;
+    top: 50%;
+    right: 2em;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    align-items: end;
+  }
+
+  .entryCountValue {
+    font-size: 15rem;
+    margin: 0;
+    padding: 0;
+    line-height: 0.8;
+  }
+}
+
+
+.recordEntryCount {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem 0;
+}
+
+.recordCountButton {
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  width: 2.5em;
+  height: 2.5em;
+  font-size: 1rem;
+  font-weight: 700;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.recordCountButton:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+.recordCountButton:active {
+  transform: scale(0.95);
+}
+
+.recordCountValue {
+  font-weight: 700;
+  color: var(--heading-text-color);
+  min-width: 50px;
+  text-align: center;
 }

@@ -14,7 +14,7 @@ import {
   type ResolvedScanTicketDisplay,
   type ScanTicketMaster,
 } from '../../features/tickets/scanTicketMaster';
-import { FaCircleCheck, FaCircleXmark } from 'react-icons/fa6';
+import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -24,10 +24,11 @@ const STORAGE_KEY = 'scan_server_url';
 async function logTicketToServer(
   code: string,
   result: string,
+  count: number,
   localServerUrl?: string,
 ) {
   if (!localServerUrl) {
-    return;
+    return null;
   }
   try {
     let url = localServerUrl.trim();
@@ -36,7 +37,7 @@ async function logTicketToServer(
     }
     url = url.replace(/\/+$/, '');
 
-    await fetch(url + '/api/log', {
+    const res = await fetch(url + '/api/log', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,10 +45,14 @@ async function logTicketToServer(
       body: JSON.stringify({
         code: code.replace('-', ''),
         result,
+        count,
       }),
     });
+    const data = await res.json();
+    return typeof data?.logId === 'number' ? data.logId : null;
   } catch {
     // ログ送信失敗は無視
+    return null;
   }
 }
 
@@ -87,11 +92,16 @@ const Register = () => {
   const [pendingFullCode, setPendingFullCode] = useState<string>('');
 
   const [entryCount, setEntryCount] = useState<number>(0);
+  const [entryCountValue, setEntryCountValue] = useState<number>(1);
+  const [currentLogId, setCurrentLogId] = useState<number | null>(null);
+  const [currentTicketCode, setCurrentTicketCode] = useState<string>('');
   const [scanRecords, setScanRecords] = useState<
     Array<{
+      id: number;
       ticket_code: string;
       scanned_at: string;
       result: string;
+      count: number;
     }>
   >([]);
 
@@ -233,6 +243,9 @@ const Register = () => {
       setResolvedTicket(null);
       setDecodeError(undefined);
       setScannedValue('');
+      setEntryCountValue(1);
+      setCurrentLogId(null);
+      setCurrentTicketCode('');
       setAutoHideRequested(false);
     }, RESULT_EXIT_DURATION_MS);
 
@@ -269,11 +282,14 @@ const Register = () => {
     if (!scannedValue) {
       return null;
     }
+    setCurrentLogId(null);
+    setCurrentTicketCode('');
+    setEntryCountValue(1);
 
     try {
       const [code, signature] = scannedValue.split('.');
       if (!code) {
-        await logTicketToServer(scannedValue, 'failed', localServerUrl);
+        await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
         setDecodeError(
           'QRコードは読めましたが、チケットコードとしては不正な形式です。',
         );
@@ -286,29 +302,27 @@ const Register = () => {
         return;
       }
 
-      const { decoded, signatureIsValid, isTicketThisYear } = await decodeAndVerifyTicket(
-        code,
-        signature,
-      );
-
-      if (!isTicketThisYear) {
-        await logTicketToServer(scannedValue, 'wrongYear', localServerUrl);
-        setDecodeError(
-          '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
-        );
-        return;
-      }
+      const { decoded, signatureIsValid, isTicketThisYear } =
+        await decodeAndVerifyTicket(code, signature);
 
       if (!decoded) {
-        await logTicketToServer(scannedValue, 'failed', localServerUrl);
+        await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
         setDecodeError(
           'デコードに失敗しました。チケットコードが正しいか確認してください。',
         );
         return;
       }
 
+      if (!isTicketThisYear) {
+        await logTicketToServer(scannedValue, 'wrongYear', 1, localServerUrl);
+        setDecodeError(
+          '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
+        );
+        return;
+      }
+
       if (!signatureIsValid) {
-        await logTicketToServer(scannedValue, 'unverified', localServerUrl);
+        await logTicketToServer(scannedValue, 'unverified', 1, localServerUrl);
         setDecodeError(
           'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
         );
@@ -325,7 +339,7 @@ const Register = () => {
         scannedValue,
       );
     } catch (e) {
-      await logTicketToServer(scannedValue, 'failed', localServerUrl);
+      await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
       setDecodeError(
         'QRコードは読めましたが、チケットコードの検証に失敗しました。',
       );
@@ -343,7 +357,16 @@ const Register = () => {
       pendingDecodedRef.current = null;
       setDuplicateInfo(null);
       await handleResolvedTicket(decoded);
-      await logTicketToServer(code, 'success', localServerUrl);
+      setEntryCountValue(1);
+      setCurrentTicketCode(code.split('.')[0]);
+      const logId = await logTicketToServer(
+        code,
+        'success',
+        1,
+        localServerUrl,
+      );
+      setCurrentLogId(logId);
+      await fetchScanRecords();
       return;
     }
 
@@ -359,7 +382,17 @@ const Register = () => {
       if (wasBeforeToday) {
         pendingDecodedRef.current = null;
         setDuplicateInfo(null);
-        await logTicketToServer(code, 'reentry', localServerUrl);
+        setEntryCountValue(1);
+        setCurrentTicketCode(code.split('.')[0]);
+        const logId = await logTicketToServer(
+          code,
+          'reentry',
+          1,
+          localServerUrl,
+        );
+        setCurrentLogId(logId);
+        await updateReentryCount(code.split('.')[0], 1);
+        await fetchScanRecords();
         await handleResolvedTicket(decoded, { reentry: true });
         return;
       }
@@ -379,7 +412,7 @@ const Register = () => {
     }
 
     setDecodeError('使用済みかどうかを確認する際にエラーが発生しました。');
-    await logTicketToServer(code, 'failed', localServerUrl);
+    await logTicketToServer(code, 'failed', 1, localServerUrl);
   };
 
   const handleReentryConfirm = async () => {
@@ -392,7 +425,17 @@ const Register = () => {
     }
     const code = scannedValue?.split('.')[0];
     if (code) {
-      await logTicketToServer(scannedValue, 'reentry', localServerUrl);
+      setEntryCountValue(1);
+      setCurrentTicketCode(code);
+      const logId = await logTicketToServer(
+        scannedValue,
+        'reentry',
+        1,
+        localServerUrl,
+      );
+      setCurrentLogId(logId);
+      await updateReentryCount(code, 1);
+      await fetchScanRecords();
     }
     await handleResolvedTicket(decoded, { reentry: true });
   };
@@ -403,7 +446,7 @@ const Register = () => {
     setDuplicateInfo(null);
     setDecodeError('再入場はキャンセルされました。');
     if (scannedValue) {
-      await logTicketToServer(scannedValue, 'duplicate', localServerUrl);
+      await logTicketToServer(scannedValue, 'duplicate', 1, localServerUrl);
     }
   };
 
@@ -423,7 +466,7 @@ const Register = () => {
       const decoded = toTicketDecodedDisplaySeed(decodedRaw);
 
       if (!decoded) {
-        await logTicketToServer(pendingFullCode, 'failed', localServerUrl);
+        await logTicketToServer(pendingFullCode, 'failed', 1, localServerUrl);
         setDecodeError(
           'デコードに失敗しました。チケットコードが正しいか確認してください。',
         );
@@ -441,7 +484,7 @@ const Register = () => {
         pendingSignatureCode,
       );
     } catch {
-      await logTicketToServer(pendingFullCode, 'failed', localServerUrl);
+      await logTicketToServer(pendingFullCode, 'failed', 1, localServerUrl);
       setDecodeError(
         'QRコードは読めましたが、チケットコードの検証に失敗しました。',
       );
@@ -538,6 +581,101 @@ const Register = () => {
     }
   }
 
+  function clampCount(next: number) {
+    return next < 1 ? 1 : next;
+  }
+
+  async function updateCountOnServer(
+    logId: number | null,
+    code: string,
+    count: number,
+  ) {
+    if (!localServerUrl || logId === null) {
+      return;
+    }
+    try {
+      await fetch(buildApiUrl(localServerUrl) + '/count', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          logId,
+          code,
+          count,
+        }),
+      });
+    } catch {
+      // 人数更新の失敗は無視
+    }
+  }
+
+  async function updateReentryCount(code: string, count: number) {
+    if (!localServerUrl) {
+      return;
+    }
+    try {
+      await fetch(buildApiUrl(localServerUrl) + '/reentry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code,
+          count,
+        }),
+      });
+    } catch {
+      // 再入場更新の失敗は無視
+    }
+  }
+
+  const handleEntryCountChange = async (delta: number) => {
+    const next = clampCount(entryCountValue + delta);
+    setEntryCountValue(next);
+    if (!currentTicketCode) {
+      return;
+    }
+
+    let targetLogId = currentLogId;
+    if (targetLogId === null) {
+      const matched = scanRecords.find(
+        (record) => record.ticket_code.split('.')[0] === currentTicketCode,
+      );
+      if (matched) {
+        targetLogId = matched.id;
+        setCurrentLogId(matched.id);
+      }
+    }
+
+    if (targetLogId !== null) {
+      await updateCountOnServer(targetLogId, currentTicketCode, next);
+      setScanRecords((prev) =>
+        prev.map((record) =>
+          record.id === targetLogId ? { ...record, count: next } : record,
+        ),
+      );
+    }
+  };
+
+  const handleRecordCountChange = async (
+    logId: number,
+    code: string,
+    delta: number,
+  ) => {
+    let next = 1;
+    setScanRecords((prev) =>
+      prev.map((record) => {
+        if (record.id !== logId) {
+          return record;
+        }
+        next = clampCount((record.count ?? 1) + delta);
+        return { ...record, count: next };
+      }),
+    );
+    await updateCountOnServer(logId, code, next);
+  };
+
   return (
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
@@ -576,6 +714,9 @@ const Register = () => {
               setScannedValue(e.currentTarget.value);
             }}
           />
+          <p className={styles.textInputRules}>
+            大文字・小文字は区別します。ハイフンはあっても無くても可。
+          </p>
           <button type='submit' className={styles.submitButton}>
             登録
           </button>
@@ -593,14 +734,53 @@ const Register = () => {
         <h2 className={styles.recordsTitle}>直近5件の読み取り履歴</h2>
         {scanRecords.length > 0 ? (
           <div className={styles.recordsList}>
-            {scanRecords.map((record, index) => (
-              <div key={index} className={styles.recordItem}>
+            {scanRecords.map((record) => (
+              <div key={record.id} className={styles.recordItem}>
+                <div className={styles.recordId}>
+                  <span className={styles.recordLabel}>ID:</span>
+                  <span className={styles.recordValue}>{record.id}</span>
+                </div>
                 <div className={styles.recordCode}>
                   <span className={styles.recordLabel}>コード:</span>
                   <span className={styles.recordValue}>
                     {record.ticket_code}
                   </span>
                 </div>
+                {(record.result === 'success' ||
+                  record.result === 'reentry') && (
+                  <div className={styles.recordEntryCount}>
+                    <span className={styles.recordLabel}>人数:</span>
+                    <button
+                      type='button'
+                      className={styles.recordCountButton}
+                      onClick={() =>
+                        handleRecordCountChange(
+                          record.id,
+                          record.ticket_code,
+                          -1,
+                        )
+                      }
+                    >
+                      <FaMinus />
+                    </button>
+                    <span className={styles.recordCountValue}>
+                      {record.count ?? 1} 人
+                    </span>
+                    <button
+                      type='button'
+                      className={styles.recordCountButton}
+                      onClick={() =>
+                        handleRecordCountChange(
+                          record.id,
+                          record.ticket_code,
+                          1,
+                        )
+                      }
+                    >
+                      <FaPlus />
+                    </button>
+                  </div>
+                )}
                 <div className={styles.recordDateTime}>
                   <span className={styles.recordLabel}>時刻:</span>
                   <span className={styles.recordValue}>
@@ -629,8 +809,8 @@ const Register = () => {
                             : record.result === 'unverified'
                               ? '署名検証エラー'
                               : record.result === 'wrongYear'
-                              ? '年度確認エラー'
-                              : record.result}
+                                ? '年度確認エラー'
+                                : record.result}
                   </span>
                 </div>
               </div>
@@ -666,6 +846,26 @@ const Register = () => {
                   {resolvedTicket?.scheduleName || '回情報なし'}
                 </span>
               </p>
+              <div className={styles.entryCountDisplay}>
+                <button
+                  type='button'
+                  className={styles.entryCountButton}
+                  onClick={() => handleEntryCountChange(-1)}
+                >
+                  <FaMinus />
+                </button>
+                <div className={styles.entryCountValue}>
+                  {entryCountValue}
+                  <span className={styles.entryCountUnit}>名</span>
+                </div>
+                <button
+                  type='button'
+                  className={styles.entryCountButton}
+                  onClick={() => handleEntryCountChange(1)}
+                >
+                  <FaPlus />
+                </button>
+              </div>
 
               <div className={styles.secondaryRow}>
                 <span className={styles.secondaryItem}>

@@ -5,6 +5,9 @@ import {
   logTicketScan,
   getEntryCount,
   getRecentScanLogs,
+  updateScanLogCount,
+  updateTicketCount,
+  updateTicketUsedAndCount,
 } from './ticket.ts';
 
 const ip = await getLocalIP();
@@ -51,13 +54,17 @@ Deno.serve(async (req) => {
   // API
   if (url.pathname === '/api' && req.method === 'POST') {
     const body = await req.json();
-    const result = useTicket(body.id);
+    const id = body.id.split('.')[0].replace('-', '');
+
+    const result = useTicket(id, body.count ?? 1);
 
     console.log(
       'リクエストを受け付けました。チケットID: ',
       body.id,
       '検証結果: ',
       result,
+      '人数:',
+      body.count ?? 1,
     );
 
     return new Response(JSON.stringify(result), {
@@ -71,11 +78,72 @@ Deno.serve(async (req) => {
   // ログ記録エンドポイント
   if (url.pathname === '/api/log' && req.method === 'POST') {
     const body = await req.json();
-    const { code, result } = body;
+    const { code, result, count = 1 } = body;
 
     if (code && result) {
-      logTicketScan(code, result);
-      console.log('ログを記録しました。コード:', code, '結果:', result);
+      const logId = logTicketScan(code, result, count);
+      console.log(
+        'ログを記録しました。コード:',
+        code,
+        '結果:',
+        result,
+        '人数:',
+        count ?? 1,
+      );
+      return new Response(JSON.stringify({ ok: true, logId }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: false }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  // 人数更新エンドポイント
+  if (url.pathname === '/api/count' && req.method === 'POST') {
+    const body = await req.json();
+    const { logId, code, count } = body;
+
+    console.log('人数を更新します。ログID:', logId, code, count);
+
+    if (logId && count !== undefined) {
+      updateScanLogCount(logId, count);
+      if (code) {
+        updateTicketCount(code, count);
+      }
+      console.log(
+        '人数を更新しました。ログID:',
+        logId,
+        'コード:',
+        code,
+        '人数:',
+        count,
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  // 再入場確定エンドポイント（used_at と count を更新）
+  if (url.pathname === '/api/reentry' && req.method === 'POST') {
+    const body = await req.json();
+    const { code, count = 1 } = body;
+
+    if (code !== undefined) {
+      updateTicketUsedAndCount(code, count);
+      console.log('再入場を確定しました。コード:', code, '人数:', count);
     }
 
     return new Response(JSON.stringify({ ok: true }), {

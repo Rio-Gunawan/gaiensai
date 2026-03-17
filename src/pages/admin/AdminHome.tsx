@@ -27,6 +27,11 @@ const adminHome = () => {
               校内入場用チケット登録ページ
             </a>
           </li>
+          <li>
+            <a href='/admin/history' onMouseEnter={() => preload(Scan)}>
+              チケットスキャン履歴
+            </a>
+          </li>
         </ul>
       </section>
     </div>

@@ -427,9 +427,18 @@
   margin-top: 1rem;
 }
 
-.recordsTitle {
+.recordsTitleRow {
   margin: 0 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  ;
+}
+
+.recordsTitle {
   font-size: 1.1rem;
+  margin: 0 1em 0 0;
   font-weight: 700;
   color: var(--heading-text-color);
 }

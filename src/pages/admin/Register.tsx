@@ -16,6 +16,7 @@ import {
 } from '../../features/tickets/scanTicketMaster';
 import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
 import { TiDelete } from 'react-icons/ti';
+import { ServerUrlModal } from '../../components/admin/ServerUrlModal';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -86,7 +87,6 @@ const Register = () => {
 
   const [localServerUrl, setLocalServerUrl] = useState<string>();
   const [showServerModal, setShowServerModal] = useState(false);
-  const [tempServerUrl, setTempServerUrl] = useState<string>('');
   const [showMissingSignatureModal, setShowMissingSignatureModal] =
     useState(false);
   const [showDeleteLogModal, setShowDeleteLogModal] = useState(false);
@@ -111,7 +111,6 @@ const Register = () => {
   >([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const inputServerRef = useRef<HTMLInputElement>(null);
   const pendingDecodedRef = useRef<TicketDecodedDisplaySeed | null>(null);
 
   const hasResultContent =
@@ -119,11 +118,9 @@ const Register = () => {
 
   const focus = useCallback(() => {
     if (showServerModal) {
-      setTimeout(() => inputServerRef.current?.focus(), 10);
       inputRef.current?.blur();
     } else {
       setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
-      inputServerRef.current?.blur();
     }
   }, [showServerModal]);
 
@@ -157,7 +154,6 @@ const Register = () => {
     const savedUrl = localStorage.getItem(STORAGE_KEY);
     if (savedUrl) {
       setLocalServerUrl(savedUrl);
-      setTempServerUrl(savedUrl);
     } else {
       // URL が未設定の場合、モーダルを表示
       setShowServerModal(true);
@@ -514,10 +510,10 @@ const Register = () => {
     );
   };
 
-  const handleSaveServerUrl = () => {
-    if (tempServerUrl.trim()) {
-      localStorage.setItem(STORAGE_KEY, tempServerUrl);
-      setLocalServerUrl(tempServerUrl);
+  const handleSaveServerUrl = (url: string) => {
+    if (url.trim()) {
+      localStorage.setItem(STORAGE_KEY, url);
+      setLocalServerUrl(url);
       setShowServerModal(false);
     }
   };
@@ -537,7 +533,6 @@ const Register = () => {
   }
 
   const handleOpenServerModal = () => {
-    setTempServerUrl(localServerUrl || '');
     setShowServerModal(true);
   };
 
@@ -788,7 +783,10 @@ const Register = () => {
       </section>
 
       <section className={styles.recordsSection}>
-        <h2 className={styles.recordsTitle}>直近5件の読み取り履歴</h2>
+        <div className={styles.recordsTitleRow}>
+          <h2 className={styles.recordsTitle}>直近5件の読み取り履歴</h2>
+          <a href='./history'>すべての履歴</a>
+        </div>
         {scanRecords.length > 0 ? (
           <div className={styles.recordsList}>
             {scanRecords.map((record) => (
@@ -1004,44 +1002,11 @@ const Register = () => {
         </>
       )}
 
-      {showServerModal && (
-        <div className={styles.modalOverlay} onClick={() => undefined}>
-          <div className={styles.modalContainer}>
-            <div className={styles.modalContent}>
-              <h2 className={styles.modalTitle}>
-                読み取り履歴同期サーバーの設定
-              </h2>
-              <p>
-                親となるコンピューターで付属のserver.exeを実行してローカルサーバーを立てた上で、そのURLを入力してください。
-              </p>
-              <label className={styles.formLabel} htmlFor='server-url-input'>
-                サーバーURL
-              </label>
-              <input
-                ref={inputServerRef}
-                onBlur={focus}
-                id='server-url-input'
-                className={styles.textInput}
-                type='text'
-                value={tempServerUrl}
-                onChange={(e) => setTempServerUrl(e.currentTarget.value)}
-                placeholder='http://127.0.0.1:8000'
-                disabled={!showServerModal}
-                autoFocus
-              />
-              <div className={styles.modalButtonGroup}>
-                <button
-                  type='button'
-                  className={styles.submitButton}
-                  onClick={handleSaveServerUrl}
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ServerUrlModal
+        isOpen={showServerModal}
+        currentUrl={localServerUrl}
+        onSave={handleSaveServerUrl}
+      />
       {showMissingSignatureModal && (
         <div className={styles.modalOverlay} onClick={() => undefined}>
           <div

@@ -8,7 +8,7 @@ import {
 
 import { ScrollToTop } from './utils/ScrollToTop';
 import { useEffect } from 'preact/hooks';
-import { preload } from './routes';
+import { preload, ScanHistory } from './routes';
 import LineCallback from './features/auth/Line';
 import NotFound from './shared/NotFound';
 
@@ -52,6 +52,7 @@ const AdminPageLayout = () => (
       <Router>
         <Route path='/' component={AdminHome} />
         <Route path='/register' component={Register} />
+        <Route path='/history' component={ScanHistory} />
         <Route default component={NotFound} />
       </Router>
     </div>

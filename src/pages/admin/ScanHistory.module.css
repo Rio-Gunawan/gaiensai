@@ -1,0 +1,167 @@
+.pageShell {
+  padding: 0 1rem 3rem;
+}
+
+.tableSection {
+  background: var(--normal-section-bg-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.metaItem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.metaLabel {
+  font-size: 0.85rem;
+}
+
+.metaValue {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.refreshButton {
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.refreshButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.refreshButton:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+}
+
+.errorText {
+  color: #b91c1c;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.emptyText {
+  color: #475569;
+  margin: 0;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--table-border-color);
+  border-radius: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+  font-size: 0.95rem;
+}
+
+.table thead {
+  background: var(--main-bg-color);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.85rem 0.75rem;
+  border: 1px solid var(--table-border-color);
+  white-space: nowrap;
+}
+
+.table th {
+  font-weight: 700;
+  color: var(--heading-text-color);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: none;
+}
+
+.table th:first-child,
+.table td:first-child {
+  border-left: none;
+}
+
+.table th:last-child,
+.table td:last-child {
+  border-right: none;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table .cellId,
+.cellCount {
+  width: 80px;
+  text-align: center;
+}
+
+.cellCode {
+  font-family: 'Roboto Mono', 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-size: 0.9rem;
+}
+
+.resultBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.resultSuccess {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.resultReentry {
+  background: var(--reentry-bg-color);
+  color: var(--reentry-text-color);
+}
+
+.resultDuplicate {
+  background: var(--warning-bg-color);
+  color: var(--warning-text-color);
+}
+
+.resultFailed {
+  background: var(--error-bg-color);
+  color: var(--error-text-color);
+}
+
+@media (max-width: 640px) {
+  .tableSection {
+    padding: 1rem;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+}

@@ -29,6 +29,7 @@
   --warn-border-color: #959300;
   --info-border-color: #003878;
   --select-border-color: rgba(255, 255, 255, 0.24);
+  --table-border-color: rgba(255, 255, 255, 0.1);
 
   /* helpers */
   --white: #ffffff;
@@ -66,6 +67,17 @@
   /* NotFound surface helpers */
   --card-border-color: rgba(15, 23, 42, 0.08);
   --card-shadow-color: rgba(15, 23, 42, 0.15);
+
+  /* status color */
+  --success-text-color: #2ecc71;
+  --warning-text-color: #f1c40f;
+  --error-text-color: #e74c3c;
+  --reentry-text-color: #afafaf;
+  --success-bg-color: rgba(46, 204, 113, 0.15);
+  --warning-bg-color: rgba(116, 109, 84, 0.15);
+  --error-bg-color: rgba(231, 76, 60, 0.15);
+  --reentry-bg-color: rgb(65, 65, 65);
+
 
   /* 読み取りページ */
   --scan-result-bg-color: #accaaf;

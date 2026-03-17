@@ -15,6 +15,7 @@ export const Students = lazy(() => import('./pages/user/students/Students'));
 export const AdminHome = lazy(() => import('./pages/admin/AdminHome'));
 export const Scan = lazy(() => import('./pages/admin/Scan'));
 export const Register = lazy( () => import('./pages/admin/Register'));
+export const ScanHistory = lazy(() => import('./pages/admin/ScanHistory'));
 
 // re-export the eagerly-loaded routes so callers can treat them uniformly
 export { Ticket, TicketHistory };

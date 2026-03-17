@@ -161,18 +161,18 @@
 }
 
 .statusCircle {
-  background-color: rgba(46, 204, 113, 0.15);
-  color: #2ecc71;
+  background-color: var(--success-bg-color);
+  color: var(--success-text-color);
 }
 
 .statusTriangle {
-  background-color: rgba(241, 196, 15, 0.15);
-  color: #f1c40f;
+  background-color: var(--warning-bg-color);
+  color: var(--warning-text-color);
 }
 
 .statusCross {
-  background-color: rgba(231, 76, 60, 0.15);
-  color: #e74c3c;
+  background-color: var(--error-bg-color);
+  color: var(--error-text-color);
 }
 
 @media (max-width: 720px) {

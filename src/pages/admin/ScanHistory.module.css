@@ -6,7 +6,8 @@
   background: var(--normal-section-bg-color);
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--primary-color) 15%, transparent);
+  border: 1px solid var(--table-border-color);
 }
 
 .metaRow {
@@ -14,7 +15,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   flex-wrap: wrap;
 }
 
@@ -52,18 +53,13 @@
 
 .refreshButton:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-color) 25%, transparent);
 }
 
 .errorText {
-  color: #b91c1c;
+  color: var(--error-text-color);
   font-weight: 600;
   margin: 0 0 1rem;
-}
-
-.emptyText {
-  color: #475569;
-  margin: 0;
 }
 
 .tableWrapper {
@@ -75,7 +71,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 680px;
+  min-width: 860px;
   font-size: 0.95rem;
 }
 
@@ -120,6 +116,17 @@
   text-align: center;
 }
 
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+}
+
+.cellActions {
+  width: 180px;
+}
+
 .cellCode {
   font-family: 'Roboto Mono', 'IBM Plex Mono', 'SFMono-Regular', monospace;
   font-size: 0.9rem;
@@ -132,13 +139,13 @@
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #0f172a;
-  background: #e2e8f0;
+  color: var(--main-text-color);
+  background: color-mix(in srgb, var(--main-text-color) 10%, transparent);
 }
 
 .resultSuccess {
-  background: rgba(46, 204, 113, 0.15);
-  color: #2ecc71;
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+  color: var(--success-color);
 }
 
 .resultReentry {
@@ -156,12 +163,142 @@
   color: var(--error-text-color);
 }
 
+.iconButton {
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.recordCountButton {
+  border: 1px solid var(--select-border-color);
+  background: var(--normal-section-bg-color);
+
+  border-radius: 50%;
+  padding: 0;
+  width: 2em;
+  height: 2em;
+  font-size: 1rem;
+  font-weight: 700;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.recordCountButton:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+.recordCountButton:active {
+  transform: scale(0.95);
+}
+
+.deleteButton {
+  color: #fff;
+  background: var(--error-text-color);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tableWrapper[data-scroll-fade="start"] {
+  mask-image: linear-gradient(to right, black calc(100% - 5rem), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 5rem), transparent);
+}
+
+.tableWrapper[data-scroll-fade="end"] {
+  mask-image: linear-gradient(to right, transparent, black 5rem);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5rem);
+}
+
+.tableWrapper[data-scroll-fade="middle"] {
+  mask-image: linear-gradient(to right, transparent, black 5rem, black calc(100% - 5rem), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5rem, black calc(100% - 5rem), transparent);
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 1rem;
+}
+
+.modalContainer {
+  width: min(520px, 100%);
+  background: var(--main-bg-color);
+  border-radius: 16px;
+  border: 1px solid var(--table-border-color);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modalContent {
+  padding: 1.25rem;
+}
+
+.modalTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.modalDescription {
+  margin: 0 0 1rem;
+  color: var(--sub-text-color);
+}
+
+.modalButtonGroup {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modalSecondaryButton {
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--select-border-color);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modalPrimaryButton {
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--error-text-color);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   .tableSection {
     padding: 1rem;
   }
 
   .table {
-    min-width: 560px;
+    min-width: 760px;
   }
+}
+
+.scrollHint {
+  display: block;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--main-text-color);
+  opacity: 0.7;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }

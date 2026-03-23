@@ -598,8 +598,9 @@
 }
 
 .recordCountButton {
+  border: 1px solid var(--select-border-color);
+  background: var(--normal-section-bg-color);
   border-radius: 50%;
-  border: none;
   padding: 0;
   width: 2.5em;
   height: 2.5em;

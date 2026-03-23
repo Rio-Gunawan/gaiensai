@@ -17,11 +17,21 @@ import {
 import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
 import { TiDelete } from 'react-icons/ti';
 import { ServerUrlModal } from '../../components/admin/ServerUrlModal';
+import {
+  buildScanApiUrl,
+  SCAN_SERVER_URL_STORAGE_KEY,
+  clampCount,
+  deleteScanRecordOnServer,
+  fetchEntryCountFromServer,
+  fetchScanRecordsFromServer,
+  logTicketToServer as postTicketLogToServer,
+  updateRecordCountOnServer,
+  updateReentryCountOnServer,
+  type ScanRecord,
+} from '../../features/admin/scanSync';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
-
-const STORAGE_KEY = 'scan_server_url';
 
 async function logTicketToServer(
   code: string,
@@ -33,25 +43,7 @@ async function logTicketToServer(
     return null;
   }
   try {
-    let url = localServerUrl.trim();
-    if (!/^https?:\/\//i.test(url)) {
-      url = 'http://' + url;
-    }
-    url = url.replace(/\/+$/, '');
-
-    const res = await fetch(url + '/api/log', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code: code.replace('-', ''),
-        result,
-        count,
-      }),
-    });
-    const data = await res.json();
-    return typeof data?.logId === 'number' ? data.logId : null;
+    return await postTicketLogToServer(localServerUrl, code, result, count);
   } catch {
     // ログ送信失敗は無視
     return null;
@@ -100,15 +92,7 @@ const Register = () => {
   const [entryCountValue, setEntryCountValue] = useState<number>(1);
   const [currentLogId, setCurrentLogId] = useState<number | null>(null);
   const [currentTicketCode, setCurrentTicketCode] = useState<string>('');
-  const [scanRecords, setScanRecords] = useState<
-    Array<{
-      id: number;
-      ticket_code: string;
-      scanned_at: string;
-      result: string;
-      count: number;
-    }>
-  >([]);
+  const [scanRecords, setScanRecords] = useState<ScanRecord[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingDecodedRef = useRef<TicketDecodedDisplaySeed | null>(null);
@@ -151,7 +135,7 @@ const Register = () => {
 
   // ローカルストレージから URL を読み込み、初回設定をチェック
   useEffect(() => {
-    const savedUrl = localStorage.getItem(STORAGE_KEY);
+    const savedUrl = localStorage.getItem(SCAN_SERVER_URL_STORAGE_KEY);
     if (savedUrl) {
       setLocalServerUrl(savedUrl);
     } else {
@@ -512,25 +496,11 @@ const Register = () => {
 
   const handleSaveServerUrl = (url: string) => {
     if (url.trim()) {
-      localStorage.setItem(STORAGE_KEY, url);
+      localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, url);
       setLocalServerUrl(url);
       setShowServerModal(false);
     }
   };
-
-  function buildApiUrl(localServerUrl: string) {
-    let url = localServerUrl.trim();
-
-    // http:// または https:// が無ければ追加
-    if (!/^https?:\/\//i.test(url)) {
-      url = 'http://' + url;
-    }
-
-    // 末尾の / を削除
-    url = url.replace(/\/+$/, '');
-
-    return url + '/api';
-  }
 
   const handleOpenServerModal = () => {
     setShowServerModal(true);
@@ -541,7 +511,7 @@ const Register = () => {
       setDecodeError('ローカルサーバーのURLを入力してください。');
       return { ticketStatus: null, ticketUsedAt: null, lastUsedAt: null };
     }
-    const res = await fetch(buildApiUrl(localServerUrl), {
+    const res = await fetch(buildScanApiUrl(localServerUrl), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -568,9 +538,8 @@ const Register = () => {
       return;
     }
     try {
-      const res = await fetch(buildApiUrl(localServerUrl) + '/stats');
-      const data = await res.json();
-      setEntryCount(data.entryCount);
+      const next = await fetchEntryCountFromServer(localServerUrl);
+      setEntryCount(next);
     } catch {
       // 統計情報の取得に失敗しても無視
     }
@@ -581,16 +550,11 @@ const Register = () => {
       return;
     }
     try {
-      const res = await fetch(buildApiUrl(localServerUrl) + '/records');
-      const data = await res.json();
-      setScanRecords(data.records || []);
+      const next = await fetchScanRecordsFromServer(localServerUrl);
+      setScanRecords(next);
     } catch {
       // 読み取り履歴の取得に失敗しても無視
     }
-  }
-
-  function clampCount(next: number) {
-    return next < 1 ? 1 : next;
   }
 
   async function updateCountOnServer(
@@ -602,17 +566,7 @@ const Register = () => {
       return;
     }
     try {
-      await fetch(buildApiUrl(localServerUrl) + '/count', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          logId,
-          code,
-          count,
-        }),
-      });
+      await updateRecordCountOnServer(localServerUrl, logId, code, count);
     } catch {
       // 人数更新の失敗は無視
     }
@@ -623,16 +577,7 @@ const Register = () => {
       return;
     }
     try {
-      await fetch(buildApiUrl(localServerUrl) + '/reentry', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          count,
-        }),
-      });
+      await updateReentryCountOnServer(localServerUrl, code, count);
     } catch {
       // 再入場更新の失敗は無視
     }
@@ -694,15 +639,7 @@ const Register = () => {
       return;
     }
     try {
-      await fetch(buildApiUrl(localServerUrl) + '/records', {
-        method: 'DELETE',
-        body: JSON.stringify({
-          logId,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      await deleteScanRecordOnServer(localServerUrl, logId);
       setScanRecords((prev) => prev.filter((record) => record.id !== logId));
       await fetchEntryCount();
     } catch {

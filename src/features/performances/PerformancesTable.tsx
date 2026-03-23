@@ -51,6 +51,49 @@ const PerformancesTable = ({
 
   const { route } = useLocation();
 
+  const tableWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) {
+      return;
+    }
+
+    const updateScrollState = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = wrapper;
+
+      // スクロール可能かどうか判定
+      const isScrollable = scrollWidth > clientWidth;
+
+      if (!isScrollable) {
+        wrapper.removeAttribute('data-scroll-fade');
+        return;
+      }
+
+      // 端の判定（1px程度の誤差を許容）
+      const isAtStart = scrollLeft <= 1;
+      const isAtEnd = Math.abs(scrollWidth - clientWidth - scrollLeft) <= 1;
+
+      if (isAtStart) {
+        wrapper.setAttribute('data-scroll-fade', 'start');
+      } else if (isAtEnd) {
+        wrapper.setAttribute('data-scroll-fade', 'end');
+      } else {
+        wrapper.setAttribute('data-scroll-fade', 'middle');
+      }
+    };
+
+    // 初期化とイベントリスナー設定
+    updateScrollState();
+    wrapper.addEventListener('scroll', updateScrollState);
+    window.addEventListener('resize', updateScrollState);
+
+    return () => {
+      wrapper.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [performances, schedules, remainingSeatMap, selectedPerformanceId, selectedScheduleId]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -394,7 +437,7 @@ const PerformancesTable = ({
         </span>
       </div>
       <p className={styles.scrollHint}>← 横にスクロールできます →</p>
-      <div className={styles.tableWrapper}>
+      <div className={styles.tableWrapper} ref={tableWrapperRef}>
         <table className={styles.table}>
           <thead>
             <tr className={styles.tr}>

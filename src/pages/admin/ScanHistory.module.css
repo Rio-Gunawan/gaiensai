@@ -145,6 +145,9 @@
 .table .cellId,
 .cellCount {
   width: 80px;
+}
+
+td.cellCount {
   text-align: center;
 }
 
@@ -152,7 +155,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5em;
+  gap: 0.8em;
 }
 
 .cellActions {

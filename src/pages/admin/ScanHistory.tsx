@@ -16,6 +16,7 @@ import {
 import baseStyles from '../../styles/sub-pages.module.css';
 import styles from './ScanHistory.module.css';
 import Alert from '../../components/ui/Alert';
+import BackButton from '../../components/ui/BackButton';
 
 const ScanHistory = () => {
   const [localServerUrl, setLocalServerUrl] = useState<string | null>(null);
@@ -89,16 +90,16 @@ const ScanHistory = () => {
   }, []);
 
   async function fetchEntryCount() {
-      if (!localServerUrl) {
-        return;
-      }
-      try {
-        const next = await fetchEntryCountFromServer(localServerUrl);
-        setEntryCount(next);
-      } catch {
-        // 統計情報の取得に失敗しても無視
-      }
+    if (!localServerUrl) {
+      return;
     }
+    try {
+      const next = await fetchEntryCountFromServer(localServerUrl);
+      setEntryCount(next);
+    } catch {
+      // 統計情報の取得に失敗しても無視
+    }
+  }
 
   useEffect(() => {
     if (!localServerUrl) {
@@ -224,6 +225,7 @@ const ScanHistory = () => {
 
   return (
     <div className={`${baseStyles.subPageShell} ${styles.pageShell}`}>
+      <BackButton />
       <h1 className={baseStyles.pageTitle}>読み取り履歴</h1>
       {error && <Alert type='error'>{error}</Alert>}
       <section className={styles.metaRow}>

@@ -3,28 +3,6 @@
   gap: 1rem;
 }
 
-/* 戻るボタン */
-
-.topActions {
-  display: flex;
-  justify-content: flex-start;
-  margin: 1.2rem 1rem 0;
-}
-
-.topBackButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: none;
-  padding-left: 0.5rem;
-}
-
-.topBackButton svg {
-  font-size: 1.1rem;
-}
-
 /* ページタイトル */
 
 .pageTitle {

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { MdArrowBack } from 'react-icons/md';
 import { useLocation } from 'preact-iso';
 
 import IssueStepDetails from '../../../features/issue/IssueStepDetails';
@@ -15,6 +14,7 @@ import type {
   TicketTypeOption,
 } from '../../../types/Issue.types';
 import styles from './Issue.module.css';
+import BackButton from '../../../components/ui/BackButton';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
@@ -398,12 +398,7 @@ const Issue = () => {
 
   return (
     <div className={styles.issuePage}>
-      <div className={styles.topActions}>
-        <a href='/students/dashboard' className={styles.topBackButton}>
-          <MdArrowBack />
-          戻る
-        </a>
-      </div>{' '}
+      <BackButton href='/students/dashboard' />
       <h1 className={styles.pageTitle}>チケット発券</h1>
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>

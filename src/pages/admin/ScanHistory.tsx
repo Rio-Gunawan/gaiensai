@@ -11,9 +11,11 @@ import {
   scanResultLabels,
   type ScanRecord,
   updateRecordCountOnServer,
+  fetchEntryCountFromServer,
 } from '../../features/admin/scanSync';
 import baseStyles from '../../styles/sub-pages.module.css';
 import styles from './ScanHistory.module.css';
+import Alert from '../../components/ui/Alert';
 
 const ScanHistory = () => {
   const [localServerUrl, setLocalServerUrl] = useState<string | null>(null);
@@ -26,6 +28,8 @@ const ScanHistory = () => {
   const [pendingDeleteLogId, setPendingDeleteLogId] = useState<number | null>(
     null,
   );
+
+  const [entryCount, setEntryCount] = useState<number>(0);
 
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +88,18 @@ const ScanHistory = () => {
     }
   }, []);
 
+  async function fetchEntryCount() {
+      if (!localServerUrl) {
+        return;
+      }
+      try {
+        const next = await fetchEntryCountFromServer(localServerUrl);
+        setEntryCount(next);
+      } catch {
+        // 統計情報の取得に失敗しても無視
+      }
+    }
+
   useEffect(() => {
     if (!localServerUrl) {
       return () => {
@@ -115,11 +131,14 @@ const ScanHistory = () => {
     };
 
     fetchRecords();
+    fetchEntryCount();
     const intervalId = window.setInterval(fetchRecords, 5000);
+    const intervalId2 = window.setInterval(fetchEntryCount, 5000);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      window.clearInterval(intervalId2);
     };
   }, [localServerUrl, refreshToken]);
 
@@ -206,39 +225,41 @@ const ScanHistory = () => {
   return (
     <div className={`${baseStyles.subPageShell} ${styles.pageShell}`}>
       <h1 className={baseStyles.pageTitle}>読み取り履歴</h1>
-      <section className={styles.tableSection}>
-        <div className={styles.metaRow}>
-          <div className={styles.metaItem}>
-            <span className={styles.metaLabel}>同期サーバー</span>
-            <span className={styles.metaValue}>
-              {localServerUrl ?? '未設定'}
-            </span>
-            <button
-              type='button'
-              className={styles.changeButton}
-              onClick={handleOpenServerModal}
-            >
-              変更
-            </button>
-          </div>
+      {error && <Alert type='error'>{error}</Alert>}
+      <section className={styles.metaRow}>
+        <div className={styles.metaItem}>
+          <span className={styles.metaLabel}>同期サーバー</span>
+          <span className={styles.metaValue}>{localServerUrl ?? '未設定'}</span>
           <button
             type='button'
-            className={styles.refreshButton}
-            onClick={() => {
-              if (!localServerUrl) {
-                return;
-              }
-              setRefreshToken((value) => value + 1);
-            }}
-            disabled={!hasServerUrl || isLoading}
+            className={styles.changeButton}
+            onClick={handleOpenServerModal}
           >
-            <TbReload />
-            更新
+            変更
           </button>
         </div>
-
-        {error && <p className={styles.errorText}>{error}</p>}
-
+        <button
+          type='button'
+          className={styles.refreshButton}
+          onClick={() => {
+            if (!localServerUrl) {
+              return;
+            }
+            setRefreshToken((value) => value + 1);
+          }}
+          disabled={!hasServerUrl || isLoading}
+        >
+          <TbReload />
+          更新
+        </button>
+      </section>
+      <section className={styles.statsSection}>
+        <div className={styles.statCard}>
+          <p className={styles.statLabel}>現在の入場者数</p>
+          <p className={styles.statValue}>{entryCount}人</p>
+        </div>
+      </section>
+      <section className={styles.tableSection}>
         {rows.length === 0 && !error ? (
           <p className={styles.emptyText}>
             {isLoading

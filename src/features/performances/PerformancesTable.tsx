@@ -59,6 +59,8 @@ const PerformancesTable = ({
       return;
     }
 
+    let rafId: number | null = null;
+
     const updateScrollState = () => {
       const { scrollLeft, scrollWidth, clientWidth } = wrapper;
 
@@ -85,12 +87,26 @@ const PerformancesTable = ({
 
     // 初期化とイベントリスナー設定
     updateScrollState();
+
+    // 非表示→表示直後のレイアウト確定後にも再計測する
+    rafId = window.requestAnimationFrame(updateScrollState);
+
     wrapper.addEventListener('scroll', updateScrollState);
     window.addEventListener('resize', updateScrollState);
 
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollState();
+    });
+    resizeObserver.observe(wrapper);
+
     return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+
       wrapper.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
+      resizeObserver.disconnect();
     };
   }, [performances, schedules, remainingSeatMap, selectedPerformanceId, selectedScheduleId]);
 

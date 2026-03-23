@@ -33,8 +33,15 @@ export function clampCount(next: number) {
   return next < 1 ? 1 : next;
 }
 
-export async function fetchScanRecordsFromServer(localServerUrl: string) {
-  const res = await fetch(buildScanApiUrl(localServerUrl) + '/records');
+export async function fetchScanRecordsFromServer(
+  localServerUrl: string,
+  options?: { all?: boolean },
+) {
+  const recordsUrl =
+    buildScanApiUrl(localServerUrl) +
+    '/records' +
+    (options?.all ? '?all=1' : '');
+  const res = await fetch(recordsUrl);
   const data = await res.json();
   return Array.isArray(data.records) ? (data.records as ScanRecord[]) : [];
 }

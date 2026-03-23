@@ -3,7 +3,7 @@ import {
   useTicket,
   logTicketScan,
   getEntryCount,
-  getRecentScanLogs,
+  getScanLogs,
   updateScanLogCount,
   updateTicketCount,
   updateTicketUsedAndCount,
@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
 
   // 読み取り履歴エンドポイント
   if (url.pathname === '/api/records' && req.method === 'GET') {
-    const records = getRecentScanLogs();
+    const all = url.searchParams.get('all');
+    const records = getScanLogs({ all: all === '1' || all === 'true' });
     return new Response(JSON.stringify({ records }), {
       headers: {
         ...corsHeaders,

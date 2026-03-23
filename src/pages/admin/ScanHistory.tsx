@@ -97,7 +97,9 @@ const ScanHistory = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const next = await fetchScanRecordsFromServer(localServerUrl);
+        const next = await fetchScanRecordsFromServer(localServerUrl, {
+          all: true,
+        });
         if (!cancelled) {
           setRecords(next);
         }

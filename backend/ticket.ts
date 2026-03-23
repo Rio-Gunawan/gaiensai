@@ -29,6 +29,11 @@ SELECT id, ticket_code, scanned_at, result, count FROM ticket_scan_logs
 ORDER BY id DESC LIMIT 5
 `);
 
+const getAllLogsStmt = db.prepare(`
+SELECT id, ticket_code, scanned_at, result, count FROM ticket_scan_logs
+ORDER BY id DESC
+`);
+
 const updateScanLogCountStmt = db.prepare(`
 UPDATE ticket_scan_logs SET count = ? WHERE id = ?
 `);
@@ -96,15 +101,32 @@ export function getEntryCount(): number {
   return result.total ?? 0;
 }
 
-export function getRecentScanLogs() {
-  const result = getRecentLogsStmt.all() as Array<{
+function mapScanLogs(
+  result: unknown,
+): Array<{
+  id: number;
+  ticket_code: string;
+  scanned_at: string;
+  result: string;
+  count: number;
+}> {
+  return result as Array<{
     id: number;
     ticket_code: string;
     scanned_at: string;
     result: string;
     count: number;
   }>;
-  return result;
+}
+
+export function getScanLogs(options?: { all?: boolean }) {
+  const result = options?.all ? getAllLogsStmt.all() : getRecentLogsStmt.all();
+  return mapScanLogs(result);
+}
+
+export function getRecentScanLogs() {
+  const result = getRecentLogsStmt.all();
+  return mapScanLogs(result);
 }
 
 export function updateScanLogCount(logId: number, count: number) {

@@ -103,7 +103,7 @@ const Register = () => {
   const isOfflineRef = useRef(false);
 
   const hasResultContent =
-    Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
+    Boolean(decodedTicket || decodeError) && !autoHideRequested;
 
   const refreshFromLocalCache = useCallback(() => {
     const allCachedRecords = readCachedScanRecords();

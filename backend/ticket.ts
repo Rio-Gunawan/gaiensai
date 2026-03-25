@@ -58,7 +58,8 @@ WHERE ticket_code LIKE ? || '.%' OR ticket_code = ?
 
 const getScanLogCountByCodeStmt = db.prepare(`
 SELECT COUNT(*) as total FROM ticket_scan_logs
-WHERE ticket_code LIKE ? || '.%' OR ticket_code = ?
+WHERE (ticket_code LIKE ? || '.%' OR ticket_code = ?)
+  AND result IN ('success', 'reentry')
 `);
 
 export function checkTicketExists(id: string) {
@@ -106,9 +107,7 @@ export function getEntryCount(): number {
   return result.total ?? 0;
 }
 
-function mapScanLogs(
-  result: unknown,
-): Array<{
+function mapScanLogs(result: unknown): Array<{
   id: number;
   ticket_code: string;
   scanned_at: string;

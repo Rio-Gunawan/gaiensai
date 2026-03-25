@@ -18,37 +18,39 @@ import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
 import { TiDelete } from 'react-icons/ti';
 import { ServerUrlModal } from '../../components/admin/ServerUrlModal';
 import {
-  buildScanApiUrl,
   SCAN_SERVER_URL_STORAGE_KEY,
+  isScanServerUnavailableError,
   clampCount,
   deleteScanRecordOnServer,
   fetchEntryCountFromServer,
   fetchScanRecordsFromServer,
   logTicketToServer as postTicketLogToServer,
+  useTicketOnServer,
   updateRecordCountOnServer,
   updateReentryCountOnServer,
   type ScanRecord,
 } from '../../features/admin/scanSync';
+import {
+  appendScanRecordToCache,
+  clearPendingOperationsForLog,
+  dropPendingOperation,
+  enqueuePendingCountUpdate,
+  enqueuePendingDeleteLog,
+  enqueuePendingScanLog,
+  estimateEntryCountFromRecords,
+  inferOfflineTicketStatus,
+  getPendingOperationCount,
+  readCachedScanRecords,
+  readPendingSyncOperations,
+  removeCachedRecord,
+  replaceCachedRecordId,
+  replaceCachedRecordsWithServerRecords,
+  updateCachedRecordCount,
+  updatePendingScanLogCount,
+} from '../../features/admin/offlineScanCache';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
-
-async function logTicketToServer(
-  code: string,
-  result: string,
-  count: number,
-  localServerUrl?: string,
-) {
-  if (!localServerUrl) {
-    return null;
-  }
-  try {
-    return await postTicketLogToServer(localServerUrl, code, result, count);
-  } catch {
-    // ログ送信失敗は無視
-    return null;
-  }
-}
 
 type DuplicateInfo = {
   ticketUsedAt: string;
@@ -93,12 +95,33 @@ const Register = () => {
   const [currentLogId, setCurrentLogId] = useState<number | null>(null);
   const [currentTicketCode, setCurrentTicketCode] = useState<string>('');
   const [scanRecords, setScanRecords] = useState<ScanRecord[]>([]);
+  const [isServerOffline, setIsServerOffline] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingDecodedRef = useRef<TicketDecodedDisplaySeed | null>(null);
+  const isOfflineRef = useRef(false);
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError || scannedValue) && !autoHideRequested;
+
+  const refreshFromLocalCache = useCallback(() => {
+    const allCachedRecords = readCachedScanRecords();
+    setScanRecords(allCachedRecords.slice(0, 5));
+    setEntryCount(estimateEntryCountFromRecords(allCachedRecords));
+    setPendingSyncCount(getPendingOperationCount());
+  }, []);
+
+  const markServerOffline = useCallback(() => {
+    isOfflineRef.current = true;
+    setIsServerOffline(true);
+    refreshFromLocalCache();
+  }, [refreshFromLocalCache]);
+
+  const markServerOnline = useCallback(() => {
+    isOfflineRef.current = false;
+    setIsServerOffline(false);
+  }, []);
 
   const focus = useCallback(() => {
     if (showServerModal) {
@@ -142,9 +165,100 @@ const Register = () => {
       // URL が未設定の場合、モーダルを表示
       setShowServerModal(true);
     }
-  }, []);
+    refreshFromLocalCache();
+  }, [refreshFromLocalCache]);
 
-  // 5秒ごとに入場者数と読み取り履歴を取得
+  const syncPendingOperations = useCallback(async () => {
+    if (!localServerUrl) {
+      return;
+    }
+
+    const operations = readPendingSyncOperations();
+    if (operations.length === 0) {
+      setPendingSyncCount(0);
+      return;
+    }
+
+    for (const operation of operations) {
+      try {
+        if (operation.type === 'scanLog') {
+          if (operation.result === 'success' || operation.result === 'reentry') {
+            await useTicketOnServer(localServerUrl, operation.ticketId, operation.count);
+          }
+
+          const serverLogId = await postTicketLogToServer(
+            localServerUrl,
+            operation.ticketCode,
+            operation.result,
+            operation.count,
+          );
+
+          if (operation.result === 'reentry') {
+            await updateReentryCountOnServer(
+              localServerUrl,
+              operation.ticketId,
+              operation.count,
+            );
+          }
+
+          if (serverLogId !== null && operation.localRecordId < 0) {
+            replaceCachedRecordId(operation.localRecordId, serverLogId);
+          }
+        } else if (operation.type === 'countUpdate') {
+          await updateRecordCountOnServer(
+            localServerUrl,
+            operation.logId,
+            operation.code,
+            operation.count,
+          );
+        } else if (operation.type === 'deleteLog') {
+          await deleteScanRecordOnServer(localServerUrl, operation.logId);
+        }
+
+        dropPendingOperation(operation.opId);
+      } catch (error) {
+        if (isScanServerUnavailableError(error)) {
+          markServerOffline();
+          break;
+        }
+        break;
+      }
+    }
+
+    setPendingSyncCount(getPendingOperationCount());
+  }, [localServerUrl, markServerOffline]);
+
+  const refreshFromServer = useCallback(async () => {
+    if (!localServerUrl) {
+      return;
+    }
+
+    try {
+      await syncPendingOperations();
+      const [records, count] = await Promise.all([
+        fetchScanRecordsFromServer(localServerUrl),
+        fetchEntryCountFromServer(localServerUrl),
+      ]);
+      const merged = replaceCachedRecordsWithServerRecords(records);
+      setScanRecords(merged.slice(0, 5));
+      setEntryCount(count);
+      setPendingSyncCount(getPendingOperationCount());
+      markServerOnline();
+    } catch (error) {
+      if (isScanServerUnavailableError(error)) {
+        markServerOffline();
+        return;
+      }
+      refreshFromLocalCache();
+    }
+  }, [
+    localServerUrl,
+    markServerOffline,
+    markServerOnline,
+    refreshFromLocalCache,
+    syncPendingOperations,
+  ]);
+
   useEffect(() => {
     if (!localServerUrl) {
       return () => {
@@ -152,20 +266,21 @@ const Register = () => {
       };
     }
 
-    // 初回は即座に取得
-    fetchEntryCount();
-    fetchScanRecords();
-
-    // その後5秒ごとに取得
+    void refreshFromServer();
     const intervalId = window.setInterval(() => {
-      fetchEntryCount();
-      fetchScanRecords();
+      void refreshFromServer();
     }, 5000);
+
+    const handleOnline = () => {
+      void refreshFromServer();
+    };
+    window.addEventListener('online', handleOnline);
 
     return () => {
       window.clearInterval(intervalId);
+      window.removeEventListener('online', handleOnline);
     };
-  }, [localServerUrl]);
+  }, [localServerUrl, refreshFromServer]);
 
   useEffect(() => {
     let timeoutId: number | null = null;
@@ -284,7 +399,7 @@ const Register = () => {
     try {
       const [code, signature] = scannedValue.split('.');
       if (!code) {
-        await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
+        await saveScanResult(scannedValue, 'failed', 1);
         setDecodeError(
           'QRコードは読めましたが、チケットコードとしては不正な形式です。',
         );
@@ -301,7 +416,7 @@ const Register = () => {
         await decodeAndVerifyTicket(code, signature);
 
       if (!decoded) {
-        await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
+        await saveScanResult(scannedValue, 'failed', 1);
         setDecodeError(
           'デコードに失敗しました。チケットコードが正しいか確認してください。',
         );
@@ -309,7 +424,7 @@ const Register = () => {
       }
 
       if (!isTicketThisYear) {
-        await logTicketToServer(scannedValue, 'wrongYear', 1, localServerUrl);
+        await saveScanResult(scannedValue, 'wrongYear', 1);
         setDecodeError(
           '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
         );
@@ -317,7 +432,7 @@ const Register = () => {
       }
 
       if (!signatureIsValid) {
-        await logTicketToServer(scannedValue, 'unverified', 1, localServerUrl);
+        await saveScanResult(scannedValue, 'unverified', 1);
         setDecodeError(
           'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
         );
@@ -334,7 +449,7 @@ const Register = () => {
         scannedValue,
       );
     } catch (e) {
-      await logTicketToServer(scannedValue, 'failed', 1, localServerUrl);
+      await saveScanResult(scannedValue, 'failed', 1);
       setDecodeError(
         'QRコードは読めましたが、チケットコードの検証に失敗しました。',
       );
@@ -354,10 +469,8 @@ const Register = () => {
       await handleResolvedTicket(decoded);
       setEntryCountValue(1);
       setCurrentTicketCode(code.split('.')[0]);
-      const logId = await logTicketToServer(code, 'success', 1, localServerUrl);
+      const logId = await saveScanResult(code, 'success', 1);
       setCurrentLogId(logId);
-      await fetchScanRecords();
-      await fetchEntryCount();
       return;
     }
 
@@ -375,16 +488,8 @@ const Register = () => {
         setDuplicateInfo(null);
         setEntryCountValue(1);
         setCurrentTicketCode(code.split('.')[0]);
-        const logId = await logTicketToServer(
-          code,
-          'reentry',
-          1,
-          localServerUrl,
-        );
+        const logId = await saveScanResult(code, 'reentry', 1);
         setCurrentLogId(logId);
-        await updateReentryCount(code.split('.')[0], 1);
-        await fetchScanRecords();
-        await fetchEntryCount();
         await handleResolvedTicket(decoded, { reentry: true });
         return;
       }
@@ -404,7 +509,7 @@ const Register = () => {
     }
 
     setDecodeError('使用済みかどうかを確認する際にエラーが発生しました。');
-    await logTicketToServer(code, 'failed', 1, localServerUrl);
+    await saveScanResult(code, 'failed', 1);
   };
 
   const handleReentryConfirm = async () => {
@@ -419,16 +524,8 @@ const Register = () => {
     if (code) {
       setEntryCountValue(1);
       setCurrentTicketCode(code);
-      const logId = await logTicketToServer(
-        scannedValue,
-        'reentry',
-        1,
-        localServerUrl,
-      );
+      const logId = await saveScanResult(scannedValue, 'reentry', 1);
       setCurrentLogId(logId);
-      await updateReentryCount(code, 1);
-      await fetchScanRecords();
-      await fetchEntryCount();
     }
     await handleResolvedTicket(decoded, { reentry: true });
   };
@@ -439,7 +536,7 @@ const Register = () => {
     setDuplicateInfo(null);
     setDecodeError('再入場はキャンセルされました。');
     if (scannedValue) {
-      await logTicketToServer(scannedValue, 'duplicate', 1, localServerUrl);
+      await saveScanResult(scannedValue, 'duplicate', 1);
     }
   };
 
@@ -459,7 +556,7 @@ const Register = () => {
       const decoded = toTicketDecodedDisplaySeed(decodedRaw);
 
       if (!decoded) {
-        await logTicketToServer(pendingFullCode, 'failed', 1, localServerUrl);
+        await saveScanResult(pendingFullCode, 'failed', 1);
         setDecodeError(
           'デコードに失敗しました。チケットコードが正しいか確認してください。',
         );
@@ -477,7 +574,7 @@ const Register = () => {
         pendingSignatureCode,
       );
     } catch {
-      await logTicketToServer(pendingFullCode, 'failed', 1, localServerUrl);
+      await saveScanResult(pendingFullCode, 'failed', 1);
       setDecodeError(
         'QRコードは読めましたが、チケットコードの検証に失敗しました。',
       );
@@ -499,6 +596,7 @@ const Register = () => {
       localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, url);
       setLocalServerUrl(url);
       setShowServerModal(false);
+      markServerOnline();
     }
   };
 
@@ -511,50 +609,61 @@ const Register = () => {
       setDecodeError('ローカルサーバーのURLを入力してください。');
       return { ticketStatus: null, ticketUsedAt: null, lastUsedAt: null };
     }
-    const res = await fetch(buildScanApiUrl(localServerUrl), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: ticketId,
-      }),
+    try {
+      const result = await useTicketOnServer(localServerUrl, ticketId);
+      markServerOnline();
+      return result;
+    } catch (error) {
+      if (!isScanServerUnavailableError(error)) {
+        throw error;
+      }
+      markServerOffline();
+      return inferOfflineTicketStatus(ticketId);
+    }
+  }
+
+  async function saveScanResult(code: string, result: string, count: number) {
+    const scannedAt = new Date().toISOString();
+    const normalizedCode = code.replace(/-/g, '');
+    const ticketId = normalizedCode.split('.')[0];
+    let logId: number | null = null;
+    let shouldQueue = true;
+
+    if (localServerUrl && !isOfflineRef.current) {
+      try {
+        logId = await postTicketLogToServer(localServerUrl, code, result, count);
+        if (result === 'reentry') {
+          await updateReentryCountOnServer(localServerUrl, ticketId, count);
+        }
+        shouldQueue = false;
+        markServerOnline();
+      } catch (error) {
+        if (isScanServerUnavailableError(error)) {
+          markServerOffline();
+        }
+      }
+    }
+
+    const saved = appendScanRecordToCache({
+      id: logId ?? undefined,
+      ticket_code: normalizedCode,
+      scanned_at: scannedAt,
+      result,
+      count,
     });
 
-    const result = await res.json();
-
-    const ticketStatus = result.status as string;
-    const usedAt =
-      result.usedAt && !Number.isNaN(new Date(result.usedAt).getTime())
-        ? new Date(result.usedAt)
-        : null;
-    const ticketUsedAt = usedAt ? usedAt.toLocaleString() : '不明';
-
-    return { ticketStatus, ticketUsedAt, lastUsedAt: usedAt };
-  }
-
-  async function fetchEntryCount() {
-    if (!localServerUrl) {
-      return;
+    if (shouldQueue) {
+      enqueuePendingScanLog({
+        localRecordId: saved.id,
+        ticketCode: normalizedCode,
+        result,
+        count,
+        scannedAt,
+      });
     }
-    try {
-      const next = await fetchEntryCountFromServer(localServerUrl);
-      setEntryCount(next);
-    } catch {
-      // 統計情報の取得に失敗しても無視
-    }
-  }
 
-  async function fetchScanRecords() {
-    if (!localServerUrl) {
-      return;
-    }
-    try {
-      const next = await fetchScanRecordsFromServer(localServerUrl);
-      setScanRecords(next);
-    } catch {
-      // 読み取り履歴の取得に失敗しても無視
-    }
+    refreshFromLocalCache();
+    return saved.id;
   }
 
   async function updateCountOnServer(
@@ -562,25 +671,32 @@ const Register = () => {
     code: string,
     count: number,
   ) {
-    if (!localServerUrl || logId === null) {
+    if (logId === null) {
       return;
     }
+    updateCachedRecordCount(logId, count);
+    if (logId < 0) {
+      updatePendingScanLogCount(logId, count);
+      refreshFromLocalCache();
+      return;
+    }
+
+    if (!localServerUrl || isOfflineRef.current) {
+      enqueuePendingCountUpdate(logId, code, count);
+      refreshFromLocalCache();
+      return;
+    }
+
     try {
       await updateRecordCountOnServer(localServerUrl, logId, code, count);
-    } catch {
-      // 人数更新の失敗は無視
+      markServerOnline();
+    } catch (error) {
+      enqueuePendingCountUpdate(logId, code, count);
+      if (isScanServerUnavailableError(error)) {
+        markServerOffline();
+      }
     }
-  }
-
-  async function updateReentryCount(code: string, count: number) {
-    if (!localServerUrl) {
-      return;
-    }
-    try {
-      await updateReentryCountOnServer(localServerUrl, code, count);
-    } catch {
-      // 再入場更新の失敗は無視
-    }
+    refreshFromLocalCache();
   }
 
   const handleEntryCountChange = async (delta: number) => {
@@ -608,7 +724,7 @@ const Register = () => {
           record.id === targetLogId ? { ...record, count: next } : record,
         ),
       );
-      await fetchEntryCount();
+      refreshFromLocalCache();
     }
   };
 
@@ -628,23 +744,37 @@ const Register = () => {
       }),
     );
     await updateCountOnServer(logId, code, next);
-    await fetchEntryCount();
+    refreshFromLocalCache();
   };
 
   const handleDeleteLog = async (logId: number) => {
     if (!logId) {
       return;
     }
-    if (!localServerUrl) {
+    removeCachedRecord(logId);
+    clearPendingOperationsForLog(logId);
+
+    if (logId < 0) {
+      refreshFromLocalCache();
       return;
     }
+
+    if (!localServerUrl || isOfflineRef.current) {
+      enqueuePendingDeleteLog(logId);
+      refreshFromLocalCache();
+      return;
+    }
+
     try {
       await deleteScanRecordOnServer(localServerUrl, logId);
-      setScanRecords((prev) => prev.filter((record) => record.id !== logId));
-      await fetchEntryCount();
-    } catch {
-      // 何もしない。
+      markServerOnline();
+    } catch (error) {
+      enqueuePendingDeleteLog(logId);
+      if (isScanServerUnavailableError(error)) {
+        markServerOffline();
+      }
     }
+    refreshFromLocalCache();
   };
 
   const requestDeleteLog = (logId: number) => {
@@ -669,6 +799,16 @@ const Register = () => {
   return (
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
+
+      {isServerOffline && (
+        <section className={styles.offlineAlertSection}>
+          <Alert type='warning'>
+            同期サーバーに接続できないため、ローカルストレージの履歴を使って判定しています。再接続後に自動同期します。未同期:{' '}
+            {pendingSyncCount}件
+          </Alert>
+        </section>
+      )}
+
       <section className={styles.serverSection}>
         <div className={styles.serverUrlDisplay}>
           <p className={styles.serverUrlLabel}>

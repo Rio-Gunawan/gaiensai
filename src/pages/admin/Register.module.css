@@ -302,6 +302,10 @@
   box-shadow: 0 10px 40px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
+.offlineAlertSection {
+  margin-top: 1rem;
+}
+
 .serverUrlDisplay {
   display: flex;
   justify-content: space-between;

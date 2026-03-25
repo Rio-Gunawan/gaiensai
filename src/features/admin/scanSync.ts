@@ -1,4 +1,5 @@
 export const SCAN_SERVER_URL_STORAGE_KEY = 'scan_server_url';
+export const SCAN_SERVER_TIMEOUT_MS = 5000;
 
 export type ScanRecord = {
   id: number;
@@ -33,6 +34,17 @@ export const scanResultLabels: Record<string, string> = {
   wrongYear: '年度確認エラー',
 };
 
+export class ScanServerUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ScanServerUnavailableError';
+  }
+}
+
+export function isScanServerUnavailableError(error: unknown): boolean {
+  return error instanceof ScanServerUnavailableError;
+}
+
 export function normalizeServerUrl(localServerUrl: string) {
   let url = localServerUrl.trim();
   if (!/^https?:\/\//i.test(url)) {
@@ -45,38 +57,107 @@ export function buildScanApiUrl(localServerUrl: string) {
   return normalizeServerUrl(localServerUrl) + '/api';
 }
 
+function buildScanApiEndpoint(localServerUrl: string, path: string) {
+  return buildScanApiUrl(localServerUrl) + path;
+}
+
 export function clampCount(next: number) {
   return next < 1 ? 1 : next;
+}
+
+async function requestScanServer(
+  localServerUrl: string,
+  path: string,
+  init?: RequestInit,
+) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), SCAN_SERVER_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(buildScanApiEndpoint(localServerUrl, path), {
+      ...init,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`同期サーバーエラー: ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ScanServerUnavailableError(
+        '同期サーバーが5秒以内に応答しませんでした。',
+      );
+    }
+
+    if (error instanceof TypeError) {
+      throw new ScanServerUnavailableError('同期サーバーに接続できませんでした。');
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+export async function useTicketOnServer(
+  localServerUrl: string,
+  ticketId: string,
+  count = 1,
+) {
+  const data = await requestScanServer(localServerUrl, '', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: ticketId,
+      count,
+    }),
+  });
+
+  const result = data as { status?: string; usedAt?: string };
+  const usedAt =
+    typeof result.usedAt === 'string' &&
+    !Number.isNaN(new Date(result.usedAt).getTime())
+      ? new Date(result.usedAt)
+      : null;
+
+  return {
+    ticketStatus: typeof result.status === 'string' ? result.status : null,
+    ticketUsedAt: usedAt ? usedAt.toLocaleString() : '不明',
+    lastUsedAt: usedAt,
+  };
 }
 
 export async function fetchScanRecordsFromServer(
   localServerUrl: string,
   options?: { all?: boolean },
 ) {
-  const recordsUrl =
-    buildScanApiUrl(localServerUrl) +
-    '/records' +
-    (options?.all ? '?all=1' : '');
-  const res = await fetch(recordsUrl);
-  const data = await res.json();
+  const data = (await requestScanServer(
+    localServerUrl,
+    '/records' + (options?.all ? '?all=1' : ''),
+  )) as { records?: ScanRecord[] };
   return Array.isArray(data.records) ? (data.records as ScanRecord[]) : [];
 }
 
 export async function fetchEntryCountFromServer(localServerUrl: string) {
-  const res = await fetch(buildScanApiUrl(localServerUrl) + '/stats');
-  const data = await res.json();
+  const data = (await requestScanServer(localServerUrl, '/stats')) as {
+    entryCount?: number;
+  };
   return typeof data.entryCount === 'number' ? data.entryCount : 0;
 }
 
 export async function fetchTicketsFromServer(localServerUrl: string) {
-  const res = await fetch(buildScanApiUrl(localServerUrl) + '/tickets');
-  const data = await res.json();
+  const data = (await requestScanServer(localServerUrl, '/tickets')) as {
+    tickets?: TicketRow[];
+  };
   return Array.isArray(data.tickets) ? (data.tickets as TicketRow[]) : [];
 }
 
 export async function fetchOperationLogsFromServer(localServerUrl: string) {
-  const res = await fetch(buildScanApiUrl(localServerUrl) + '/operation-logs');
-  const data = await res.json();
+  const data = (await requestScanServer(localServerUrl, '/operation-logs')) as {
+    logs?: OperationLogRow[];
+  };
   return Array.isArray(data.logs) ? (data.logs as OperationLogRow[]) : [];
 }
 
@@ -86,7 +167,7 @@ export async function updateRecordCountOnServer(
   code: string,
   count: number,
 ) {
-  await fetch(buildScanApiUrl(localServerUrl) + '/count', {
+  await requestScanServer(localServerUrl, '/count', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -104,7 +185,7 @@ export async function updateReentryCountOnServer(
   code: string,
   count: number,
 ) {
-  await fetch(buildScanApiUrl(localServerUrl) + '/reentry', {
+  await requestScanServer(localServerUrl, '/reentry', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -120,7 +201,7 @@ export async function deleteScanRecordOnServer(
   localServerUrl: string,
   logId: number,
 ) {
-  await fetch(buildScanApiUrl(localServerUrl) + '/records', {
+  await requestScanServer(localServerUrl, '/records', {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -137,7 +218,7 @@ export async function logTicketToServer(
   result: string,
   count: number,
 ) {
-  const res = await fetch(buildScanApiUrl(localServerUrl) + '/log', {
+  const data = (await requestScanServer(localServerUrl, '/log', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -147,8 +228,6 @@ export async function logTicketToServer(
       result,
       count,
     }),
-  });
-
-  const data = await res.json();
+  })) as { logId?: number };
   return typeof data?.logId === 'number' ? data.logId : null;
 }

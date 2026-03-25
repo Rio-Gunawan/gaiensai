@@ -306,6 +306,54 @@
   margin-top: 1rem;
 }
 
+.audioSection {
+  margin-top: 1rem;
+  padding: 1rem 1.75rem;
+  border-radius: 16px;
+  background: color-mix(in srgb,
+      var(--translucent-b-bg-color) 95%,
+      transparent);
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+.audioSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.audioSummaryLabel {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--heading-text-color);
+}
+
+.audioSettingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.audioSettingRow span {
+  font-weight: 700;
+  color: var(--heading-text-color);
+}
+
+.audioSettingRow select {
+  border: 1px solid var(--select-border-color);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  background: var(--normal-section-bg-color);
+  color: var(--main-text-color);
+}
+
+.credit {
+  font-size: 0.8em;
+}
+
 .serverUrlDisplay {
   display: flex;
   justify-content: space-between;
@@ -335,6 +383,19 @@
 
 .changeButton {
   margin-left: 1em;
+}
+
+.iconButton {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5em;
+  padding: 0.5em;
+  border-radius: 999px;
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  cursor: pointer
 }
 
 .modalContent {

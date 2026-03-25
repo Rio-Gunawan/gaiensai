@@ -49,9 +49,36 @@ import {
   updatePendingScanLogCount,
 } from '../../features/admin/offlineScanCache';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType';
+import celebrationSound from '../../assets/sounds/celebration.mp3';
+import cautionSound from '../../assets/sounds/caution.mp3';
+import notificationSound from '../../assets/sounds/notification.mp3';
+import proceedVoice1 from '../../assets/sounds/お進みください1.mp3';
+import proceedVoice2 from '../../assets/sounds/お進みください2.mp3';
+import proceedVoice3 from '../../assets/sounds/お進みください3.mp3';
+import reentryVoice1 from '../../assets/sounds/再入場です1.mp3';
+import reentryVoice2 from '../../assets/sounds/再入場です2.mp3';
+import reentryVoice3 from '../../assets/sounds/再入場です3.mp3';
+import invalidVoice1 from '../../assets/sounds/無効なQR1.mp3';
+import invalidVoice2 from '../../assets/sounds/無効なQR2.mp3';
+import invalidVoice3 from '../../assets/sounds/無効なQR3.mp3';
+import { IoMdSettings } from 'react-icons/io';
+import Switch from '../../components/ui/Switch';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
+const AUDIO_SETTINGS_STORAGE_KEY = 'admin_register_audio_settings:v1';
+
+type VoiceVariant = '1' | '2' | '3' | 'sfxOnly';
+
+type AudioSettings = {
+  enabled: boolean;
+  voiceVariant: VoiceVariant;
+};
+
+const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
+  enabled: true,
+  voiceVariant: '1',
+};
 
 type DuplicateInfo = {
   ticketUsedAt: string;
@@ -103,13 +130,114 @@ const Register = () => {
   const [scanRecords, setScanRecords] = useState<ScanRecord[]>([]);
   const [isServerOffline, setIsServerOffline] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [audioSettings, setAudioSettings] = useState<AudioSettings>(
+    DEFAULT_AUDIO_SETTINGS,
+  );
+  const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
+  const [showAudioPermissionModal, setShowAudioPermissionModal] =
+    useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingDecodedRef = useRef<TicketDecodedDisplaySeed | null>(null);
   const isOfflineRef = useRef(false);
+  const audioSettingsRef = useRef<AudioSettings>(DEFAULT_AUDIO_SETTINGS);
+  const audioQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError) && !autoHideRequested;
+
+  const getProceedVoice = useCallback((variant: VoiceVariant) => {
+    if (variant === 'sfxOnly') {
+      return null;
+    }
+    if (variant === '2') {
+      return proceedVoice2;
+    }
+    if (variant === '3') {
+      return proceedVoice3;
+    }
+    return proceedVoice1;
+  }, []);
+
+  const getReentryVoice = useCallback((variant: VoiceVariant) => {
+    if (variant === 'sfxOnly') {
+      return null;
+    }
+    if (variant === '2') {
+      return reentryVoice2;
+    }
+    if (variant === '3') {
+      return reentryVoice3;
+    }
+    return reentryVoice1;
+  }, []);
+
+  const getInvalidQrVoice = useCallback((variant: VoiceVariant) => {
+    if (variant === 'sfxOnly') {
+      return null;
+    }
+    if (variant === '2') {
+      return invalidVoice2;
+    }
+    if (variant === '3') {
+      return invalidVoice3;
+    }
+    return invalidVoice1;
+  }, []);
+
+  const playAudio = useCallback(async (src: string) => {
+    const audio = new Audio(src);
+    await new Promise<void>((resolve) => {
+      const cleanup = () => {
+        audio.removeEventListener('ended', handleEnd);
+        audio.removeEventListener('error', handleError);
+      };
+      const handleEnd = () => {
+        cleanup();
+        resolve();
+      };
+      const handleError = () => {
+        cleanup();
+        resolve();
+      };
+      audio.addEventListener('ended', handleEnd);
+      audio.addEventListener('error', handleError);
+      void audio.play().catch(() => {
+        cleanup();
+        resolve();
+      });
+    });
+  }, []);
+
+  const queueAudio = useCallback(
+    (sources: string[]) => {
+      if (!audioSettingsRef.current.enabled || sources.length === 0) {
+        return;
+      }
+
+      audioQueueRef.current = audioQueueRef.current
+        .catch(() => {
+          // noop
+        })
+        .then(async () => {
+          for (const src of sources) {
+            await playAudio(src);
+          }
+        });
+    },
+    [playAudio],
+  );
+
+  const setDecodeErrorWithSound = useCallback(
+    (nextError: DecodeError) => {
+      setDecodeError(nextError);
+      queueAudio([
+        cautionSound,
+        getInvalidQrVoice(audioSettingsRef.current.voiceVariant),
+      ].filter((src): src is string => Boolean(src)));
+    },
+    [getInvalidQrVoice, queueAudio],
+  );
 
   const refreshFromLocalCache = useCallback(() => {
     const allCachedRecords = readCachedScanRecords();
@@ -173,6 +301,60 @@ const Register = () => {
     }
     refreshFromLocalCache();
   }, [refreshFromLocalCache]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as
+        | Partial<AudioSettings>
+        | {
+            proceedVariant?: VoiceVariant;
+            reentryVariant?: VoiceVariant;
+            invalidQrVariant?: VoiceVariant;
+          };
+      const legacyVariant =
+        'proceedVariant' in parsed &&
+        (parsed.proceedVariant === '1' ||
+          parsed.proceedVariant === '2' ||
+          parsed.proceedVariant === '3' ||
+          parsed.proceedVariant === 'sfxOnly')
+          ? parsed.proceedVariant
+          : undefined;
+      setAudioSettings((current) => ({
+        ...current,
+        ...parsed,
+        voiceVariant:
+          ('voiceVariant' in parsed &&
+            (parsed.voiceVariant === '1' ||
+              parsed.voiceVariant === '2' ||
+              parsed.voiceVariant === '3' ||
+              parsed.voiceVariant === 'sfxOnly')
+            ? parsed.voiceVariant
+            : undefined) ?? legacyVariant ?? current.voiceVariant,
+      }));
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    audioSettingsRef.current = audioSettings;
+    localStorage.setItem(
+      AUDIO_SETTINGS_STORAGE_KEY,
+      JSON.stringify(audioSettings),
+    );
+  }, [audioSettings]);
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const isiOS = /iPad|iPhone|iPod/.test(ua);
+    if (isiOS) {
+      setShowAudioPermissionModal(true);
+    }
+  }, []);
 
   const syncPendingOperations = useCallback(async () => {
     if (!localServerUrl) {
@@ -413,7 +595,7 @@ const Register = () => {
       const [code, signature] = scannedValue.split('.');
       if (!code) {
         await saveScanResult(scannedValue, 'failed', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: '読み取りエラー',
           message: 'データがありません',
         });
@@ -422,6 +604,7 @@ const Register = () => {
 
       if (!signature) {
         setPendingFullCode(scannedValue);
+        queueAudio([notificationSound]);
         setShowMissingSignatureModal(true);
         return;
       }
@@ -431,7 +614,7 @@ const Register = () => {
 
       if (!decoded) {
         await saveScanResult(scannedValue, 'failed', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: 'デコードエラー',
           message:
             'デコードに失敗しました。チケットコードが正しいか確認してください。',
@@ -441,7 +624,7 @@ const Register = () => {
 
       if (!isTicketThisYear) {
         await saveScanResult(scannedValue, 'wrongYear', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: '年度エラー',
           message:
             '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
@@ -451,7 +634,7 @@ const Register = () => {
 
       if (!signatureIsValid) {
         await saveScanResult(scannedValue, 'unverified', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: '署名エラー',
           message:
             'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
@@ -470,7 +653,7 @@ const Register = () => {
       );
     } catch (e) {
       await saveScanResult(scannedValue, 'failed', 1);
-      setDecodeError({
+      setDecodeErrorWithSound({
         title: '検証エラー',
         message: 'チケットコードの検証時に何らかのエラーが発生しました。',
       });
@@ -492,6 +675,10 @@ const Register = () => {
       setCurrentTicketCode(code.split('.')[0]);
       const logId = await saveScanResult(code, 'success', 1);
       setCurrentLogId(logId);
+      queueAudio([
+        celebrationSound,
+        getProceedVoice(audioSettingsRef.current.voiceVariant),
+      ].filter((src): src is string => Boolean(src)));
       return;
     }
 
@@ -512,6 +699,10 @@ const Register = () => {
         const logId = await saveScanResult(code, 'reentry', 1);
         setCurrentLogId(logId);
         await handleResolvedTicket(decoded, { reentry: true });
+        queueAudio([
+          celebrationSound,
+          getReentryVoice(audioSettingsRef.current.voiceVariant),
+        ].filter((src): src is string => Boolean(src)));
         return;
       }
 
@@ -525,11 +716,12 @@ const Register = () => {
         lastUsedAt,
         isRecent,
       });
+      queueAudio([notificationSound]);
       setShowReentryModal(true);
       return;
     }
 
-    setDecodeError({
+    setDecodeErrorWithSound({
       title: '検証エラー',
       message: '使用済みかどうかを確認する際にエラーが発生しました。',
     });
@@ -552,6 +744,10 @@ const Register = () => {
       setCurrentLogId(logId);
     }
     await handleResolvedTicket(decoded, { reentry: true });
+    queueAudio([
+      celebrationSound,
+      getReentryVoice(audioSettingsRef.current.voiceVariant),
+    ].filter((src): src is string => Boolean(src)));
   };
 
   const handleReentryCancel = async () => {
@@ -584,7 +780,7 @@ const Register = () => {
 
       if (!decoded) {
         await saveScanResult(pendingFullCode, 'failed', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: 'デコードエラー',
           message:
             'デコードに失敗しました。チケットコードが正しいか確認してください。',
@@ -597,7 +793,7 @@ const Register = () => {
         new Date().getFullYear() % 2 ** Number(YEAR_BITS)
       ) {
         await saveScanResult(pendingFullCode, 'wrongYear', 1);
-        setDecodeError({
+        setDecodeErrorWithSound({
           title: '年度エラー',
           message:
             '今年度のもでないチケットが読まれました。別のチケットをスキャンしてください。',
@@ -617,7 +813,7 @@ const Register = () => {
       );
     } catch {
       await saveScanResult(pendingFullCode, 'failed', 1);
-      setDecodeError({
+      setDecodeErrorWithSound({
         title: '検証エラー',
         message: 'チケットコードの検証時に何らかのエラーが発生しました。',
       });
@@ -629,7 +825,7 @@ const Register = () => {
   const handleMissingSignatureCancel = () => {
     setShowMissingSignatureModal(false);
     setPendingFullCode('');
-    setDecodeError({
+    setDecodeErrorWithSound({
       title: '署名エラー',
       message:
         'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
@@ -649,9 +845,28 @@ const Register = () => {
     setShowServerModal(true);
   };
 
+  const handleOpenAudioSettingsModal = () => {
+    setShowAudioSettingsModal(true);
+  };
+
+  const handleCloseAudioSettingsModal = () => {
+    setShowAudioSettingsModal(false);
+  };
+
+  const handleAudioPermissionEnable = async () => {
+    setAudioSettings((current) => ({ ...current, enabled: true }));
+    setShowAudioPermissionModal(false);
+    await playAudio(notificationSound);
+  };
+
+  const handleAudioPermissionDisable = () => {
+    setAudioSettings((current) => ({ ...current, enabled: false }));
+    setShowAudioPermissionModal(false);
+  };
+
   async function useTicket(ticketId: string) {
     if (!localServerUrl) {
-      setDecodeError({
+      setDecodeErrorWithSound({
         title: '設定エラー',
         message: 'ローカルサーバーのURLを入力してください。',
       });
@@ -852,6 +1067,14 @@ const Register = () => {
   return (
     <div className={styles.pageShell}>
       <h1 className={baseStyles.pageTitle}>校内入場</h1>
+
+      <button
+        type='button'
+        className={styles.iconButton}
+        onClick={handleOpenAudioSettingsModal}
+      >
+        <IoMdSettings />
+      </button>
 
       {isServerOffline && (
         <section className={styles.offlineAlertSection}>
@@ -1127,9 +1350,7 @@ const Register = () => {
             >
               {decodeError.title}
             </p>
-            <p>
-              {decodeError.message}
-            </p>
+            <p>{decodeError.message}</p>
             <div className={styles.tertiaryBlock}>
               <p className={styles.rawValue}>Raw: {scannedValue}</p>
             </div>
@@ -1142,6 +1363,94 @@ const Register = () => {
         currentUrl={localServerUrl}
         onSave={handleSaveServerUrl}
       />
+      {showAudioSettingsModal && (
+        <div className={styles.modalOverlay} onClick={() => undefined}>
+          <div
+            className={styles.modalContainer}
+            role='dialog'
+            aria-modal='true'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.modalContent}>
+              <h2 className={styles.modalTitle}>音声設定</h2>
+              <label className={styles.audioSettingRow}>
+                <span>音声案内</span>
+                <Switch
+                  checked={audioSettings.enabled}
+                  onChange={(checked: boolean) =>
+                    setAudioSettings((current) => ({
+                      ...current,
+                      enabled: checked,
+                    }))
+                  }
+                />
+              </label>
+              <label className={styles.audioSettingRow}>
+                <span>音声タイプ</span>
+                <select
+                  value={audioSettings.voiceVariant}
+                  onChange={(event) =>
+                    setAudioSettings((current) => ({
+                      ...current,
+                      voiceVariant: event.currentTarget.value as VoiceVariant,
+                    }))
+                  }
+                >
+                  <option value='1'>音声1</option>
+                  <option value='2'>音声2</option>
+                  <option value='3'>音声3</option>
+                  <option value='sfxOnly'>効果音のみ</option>
+                </select>
+              </label>
+              <p className={styles.credit}>効果音: SND.dev、読み上げ音声: VOICEVOX Nemo</p>
+              <div className={styles.modalButtonGroup}>
+                <button
+                  type='button'
+                  className={styles.submitButton}
+                  onClick={handleCloseAudioSettingsModal}
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAudioPermissionModal && (
+        <div className={styles.modalOverlay} onClick={() => undefined}>
+          <div
+            className={styles.modalContainer}
+            role='dialog'
+            aria-modal='true'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.modalContent}>
+              <h2 className={styles.modalTitle}>音声再生の確認</h2>
+              <p className={styles.modalDescription}>
+                iOSでは最初に許可しないと音声が再生されません。音声案内を有効にしますか?
+              </p>
+              <div className={styles.modalButtonGroup}>
+                <button
+                  type='button'
+                  className={styles.modalSecondaryButton}
+                  onClick={handleAudioPermissionDisable}
+                >
+                  無効のまま
+                </button>
+                <button
+                  type='button'
+                  className={styles.submitButton}
+                  onClick={() => {
+                    void handleAudioPermissionEnable();
+                  }}
+                >
+                  有効にする
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {showMissingSignatureModal && (
         <div className={styles.modalOverlay} onClick={() => undefined}>
           <div

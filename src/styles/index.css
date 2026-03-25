@@ -54,3 +54,7 @@ button:focus-visible {
 section {
   margin: 1em;
 }
+
+select {
+  cursor: pointer;
+}

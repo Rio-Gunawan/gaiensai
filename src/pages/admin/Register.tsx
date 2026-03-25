@@ -48,6 +48,7 @@ import {
   updateCachedRecordCount,
   updatePendingScanLogCount,
 } from '../../features/admin/offlineScanCache';
+import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -58,13 +59,18 @@ type DuplicateInfo = {
   isRecent: boolean;
 };
 
+type DecodeError = {
+  title: string;
+  message: string;
+};
+
 const Register = () => {
   const [scannedValue, setScannedValue] = useState<string>();
   const [decodedTicket, setDecodedTicket] =
     useState<TicketDecodedDisplaySeed | null>(null);
   const [resolvedTicket, setResolvedTicket] =
     useState<ResolvedScanTicketDisplay | null>(null);
-  const [decodeError, setDecodeError] = useState<string>();
+  const [decodeError, setDecodeError] = useState<DecodeError | undefined>();
   const [ticketMaster, setTicketMaster] = useState<ScanTicketMaster | null>(
     null,
   );
@@ -182,8 +188,15 @@ const Register = () => {
     for (const operation of operations) {
       try {
         if (operation.type === 'scanLog') {
-          if (operation.result === 'success' || operation.result === 'reentry') {
-            await useTicketOnServer(localServerUrl, operation.ticketId, operation.count);
+          if (
+            operation.result === 'success' ||
+            operation.result === 'reentry'
+          ) {
+            await useTicketOnServer(
+              localServerUrl,
+              operation.ticketId,
+              operation.count,
+            );
           }
 
           const serverLogId = await postTicketLogToServer(
@@ -400,9 +413,10 @@ const Register = () => {
       const [code, signature] = scannedValue.split('.');
       if (!code) {
         await saveScanResult(scannedValue, 'failed', 1);
-        setDecodeError(
-          'QRコードは読めましたが、チケットコードとしては不正な形式です。',
-        );
+        setDecodeError({
+          title: '読み取りエラー',
+          message: 'データがありません',
+        });
         return;
       }
 
@@ -417,25 +431,31 @@ const Register = () => {
 
       if (!decoded) {
         await saveScanResult(scannedValue, 'failed', 1);
-        setDecodeError(
-          'デコードに失敗しました。チケットコードが正しいか確認してください。',
-        );
+        setDecodeError({
+          title: 'デコードエラー',
+          message:
+            'デコードに失敗しました。チケットコードが正しいか確認してください。',
+        });
         return;
       }
 
       if (!isTicketThisYear) {
         await saveScanResult(scannedValue, 'wrongYear', 1);
-        setDecodeError(
-          '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
-        );
+        setDecodeError({
+          title: '年度エラー',
+          message:
+            '今年度のものではないチケットが読まれました。別のチケットをスキャンしてください。',
+        });
         return;
       }
 
       if (!signatureIsValid) {
         await saveScanResult(scannedValue, 'unverified', 1);
-        setDecodeError(
-          'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
-        );
+        setDecodeError({
+          title: '署名エラー',
+          message:
+            'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
+        });
         return;
       }
 
@@ -450,9 +470,10 @@ const Register = () => {
       );
     } catch (e) {
       await saveScanResult(scannedValue, 'failed', 1);
-      setDecodeError(
-        'QRコードは読めましたが、チケットコードの検証に失敗しました。',
-      );
+      setDecodeError({
+        title: '検証エラー',
+        message: 'チケットコードの検証時に何らかのエラーが発生しました。',
+      });
     }
   };
 
@@ -508,7 +529,10 @@ const Register = () => {
       return;
     }
 
-    setDecodeError('使用済みかどうかを確認する際にエラーが発生しました。');
+    setDecodeError({
+      title: '検証エラー',
+      message: '使用済みかどうかを確認する際にエラーが発生しました。',
+    });
     await saveScanResult(code, 'failed', 1);
   };
 
@@ -534,7 +558,10 @@ const Register = () => {
     setShowReentryModal(false);
     pendingDecodedRef.current = null;
     setDuplicateInfo(null);
-    setDecodeError('再入場はキャンセルされました。');
+    setDecodeError({
+      title: '再入場キャンセル',
+      message: '再入場は正常にキャンセルされました。',
+    });
     if (scannedValue) {
       await saveScanResult(scannedValue, 'duplicate', 1);
     }
@@ -557,9 +584,24 @@ const Register = () => {
 
       if (!decoded) {
         await saveScanResult(pendingFullCode, 'failed', 1);
-        setDecodeError(
-          'デコードに失敗しました。チケットコードが正しいか確認してください。',
-        );
+        setDecodeError({
+          title: 'デコードエラー',
+          message:
+            'デコードに失敗しました。チケットコードが正しいか確認してください。',
+        });
+        return;
+      }
+
+      if (
+        Number(decoded.year) !==
+        new Date().getFullYear() % 2 ** Number(YEAR_BITS)
+      ) {
+        await saveScanResult(pendingFullCode, 'wrongYear', 1);
+        setDecodeError({
+          title: '年度エラー',
+          message:
+            '今年度のもでないチケットが読まれました。別のチケットをスキャンしてください。',
+        });
         return;
       }
 
@@ -575,9 +617,10 @@ const Register = () => {
       );
     } catch {
       await saveScanResult(pendingFullCode, 'failed', 1);
-      setDecodeError(
-        'QRコードは読めましたが、チケットコードの検証に失敗しました。',
-      );
+      setDecodeError({
+        title: '検証エラー',
+        message: 'チケットコードの検証時に何らかのエラーが発生しました。',
+      });
     } finally {
       setPendingFullCode('');
     }
@@ -586,9 +629,11 @@ const Register = () => {
   const handleMissingSignatureCancel = () => {
     setShowMissingSignatureModal(false);
     setPendingFullCode('');
-    setDecodeError(
-      'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
-    );
+    setDecodeError({
+      title: '署名エラー',
+      message:
+        'チケットコードの署名が無効です。正規のコードをスキャンしてください。',
+    });
   };
 
   const handleSaveServerUrl = (url: string) => {
@@ -606,7 +651,10 @@ const Register = () => {
 
   async function useTicket(ticketId: string) {
     if (!localServerUrl) {
-      setDecodeError('ローカルサーバーのURLを入力してください。');
+      setDecodeError({
+        title: '設定エラー',
+        message: 'ローカルサーバーのURLを入力してください。',
+      });
       return { ticketStatus: null, ticketUsedAt: null, lastUsedAt: null };
     }
     try {
@@ -631,7 +679,12 @@ const Register = () => {
 
     if (localServerUrl && !isOfflineRef.current) {
       try {
-        logId = await postTicketLogToServer(localServerUrl, code, result, count);
+        logId = await postTicketLogToServer(
+          localServerUrl,
+          code,
+          result,
+          count,
+        );
         if (result === 'reentry') {
           await updateReentryCountOnServer(localServerUrl, ticketId, count);
         }
@@ -1069,9 +1122,14 @@ const Register = () => {
               <FaCircleXmark />
               読み取り失敗
             </h2>
-            <Alert type='error' className={styles.errorText}>
-              {decodeError}
-            </Alert>
+            <p
+              className={`${styles.primaryPerformance} ${styles.resultFailed}`}
+            >
+              {decodeError.title}
+            </p>
+            <p>
+              {decodeError.message}
+            </p>
             <div className={styles.tertiaryBlock}>
               <p className={styles.rawValue}>Raw: {scannedValue}</p>
             </div>

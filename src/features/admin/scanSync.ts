@@ -8,6 +8,22 @@ export type ScanRecord = {
   count: number;
 };
 
+export type TicketRow = {
+  id: string;
+  used_at: string | null;
+  count: number;
+};
+
+export type OperationLogRow = {
+  id: number;
+  created_at: string;
+  location: string;
+  operation_type: string;
+  ticket_code: string;
+  message: string;
+  details: string | null;
+};
+
 export const scanResultLabels: Record<string, string> = {
   success: '成功',
   duplicate: '重複',
@@ -50,6 +66,18 @@ export async function fetchEntryCountFromServer(localServerUrl: string) {
   const res = await fetch(buildScanApiUrl(localServerUrl) + '/stats');
   const data = await res.json();
   return typeof data.entryCount === 'number' ? data.entryCount : 0;
+}
+
+export async function fetchTicketsFromServer(localServerUrl: string) {
+  const res = await fetch(buildScanApiUrl(localServerUrl) + '/tickets');
+  const data = await res.json();
+  return Array.isArray(data.tickets) ? (data.tickets as TicketRow[]) : [];
+}
+
+export async function fetchOperationLogsFromServer(localServerUrl: string) {
+  const res = await fetch(buildScanApiUrl(localServerUrl) + '/operation-logs');
+  const data = await res.json();
+  return Array.isArray(data.logs) ? (data.logs as OperationLogRow[]) : [];
 }
 
 export async function updateRecordCountOnServer(

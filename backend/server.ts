@@ -1,23 +1,35 @@
+/* eslint-disable no-console */
 import { getLocalIP } from './ip.ts';
 import {
   useTicket,
   logTicketScan,
   getEntryCount,
   getScanLogs,
+  getTickets,
   updateScanLogCount,
   updateTicketCount,
   updateTicketUsedAndCount,
   deleteScanLogAndUpdateTicket,
 } from './ticket.ts';
-import { logOperation } from './operationLog.ts';
+import { getOperationLogs, logOperation } from './operationLog.ts';
 
 const ip = await getLocalIP();
 
-logOperation('backend/server.ts:startup', 'ローカルサーバーが起動しました。');
-logOperation('backend/server.ts:startup', 'Local: http://localhost:8000');
+logOperation(
+  'backend/server.ts:startup',
+  '起動',
+  '-',
+  'ローカルサーバーが起動しました。',
+);
+console.log(
+  '同期サーバーのURLは下記です。使用には同じネットワークへの接続が必要です。',
+);
+console.log('この端末専用のURL: http://localhost:8000');
 
 if (ip) {
-  logOperation('backend/server.ts:startup', `LAN:   http://${ip}:8000`);
+  console.log(
+    `同じネットワークに接続されている端末専用のURL: http://${ip}:8000`,
+  );
 }
 
 function contentType(path: string) {
@@ -59,8 +71,7 @@ Deno.serve(async (req) => {
 
     const result = useTicket(id, body.count ?? 1);
 
-    logOperation(
-      'backend/server.ts:api',
+    console.log(
       'リクエストを受け付けました。チケットID: ',
       body.id,
       '検証結果: ',
@@ -86,7 +97,10 @@ Deno.serve(async (req) => {
       const logId = logTicketScan(code, result, count);
       logOperation(
         'backend/server.ts:api/log',
-        'ログを記録しました。コード:',
+        `使用 (${result})`,
+        code.split('.')[0].replace('-', ''),
+        'チケットをスキャンしました。',
+        'コード(フル):',
         code,
         '結果:',
         result,
@@ -121,10 +135,11 @@ Deno.serve(async (req) => {
       }
       logOperation(
         'backend/server.ts:api/count',
-        '人数を更新しました。ログID:',
-        logId,
-        'コード:',
+        '人数変更',
         code,
+        '人数を更新しました。',
+        '読み取り履歴ID:',
+        logId,
         '人数:',
         count,
       );
@@ -147,8 +162,9 @@ Deno.serve(async (req) => {
       updateTicketUsedAndCount(code, count);
       logOperation(
         'backend/server.ts:api/reentry',
-        '再入場を確定しました。コード:',
+        '再入場',
         code,
+        '再入場を確定しました。',
         '人数:',
         count,
       );
@@ -185,6 +201,26 @@ Deno.serve(async (req) => {
     });
   }
 
+  if (url.pathname === '/api/tickets' && req.method === 'GET') {
+    const tickets = getTickets();
+    return new Response(JSON.stringify({ tickets }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/operation-logs' && req.method === 'GET') {
+    const logs = getOperationLogs();
+    return new Response(JSON.stringify({ logs }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
   // 読み取り履歴削除エンドポイント
   if (url.pathname === '/api/records' && req.method === 'DELETE') {
     const body = await req.json();
@@ -194,8 +230,13 @@ Deno.serve(async (req) => {
       const result = deleteScanLogAndUpdateTicket(logId);
       logOperation(
         'backend/server.ts:api/records/delete',
+        '削除',
+        result.code ?? '-',
         '読み取り履歴を削除しました。',
-        result,
+        '結果:',
+        result.ok ? '成功' : '失敗',
+        'このチケットの残り読み取り履歴数:',
+        result.remaining
       );
       return new Response(JSON.stringify(result), {
         headers: {

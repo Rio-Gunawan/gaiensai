@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
   location TEXT NOT NULL,
+  operation_type TEXT NOT NULL,
+  ticket_code TEXT NOT NULL,
   message TEXT NOT NULL,
   details TEXT
 )
@@ -44,6 +46,14 @@ try {
 try {
   db.exec(
     `ALTER TABLE ticket_scan_logs ADD COLUMN count INTEGER NOT NULL DEFAULT 1`,
+  );
+} catch {
+  // 既にカラムが存在する場合はエラーを無視
+}
+
+try {
+  db.exec(
+    `ALTER TABLE operation_logs ADD COLUMN operation_type, ticket_code TEXT NOT NULL`,
   );
 } catch {
   // 既にカラムが存在する場合はエラーを無視

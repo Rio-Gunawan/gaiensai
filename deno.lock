@@ -99,6 +99,7 @@
         "npm:prettier@^3.2.2",
         "npm:qr-scanner@^1.4.2",
         "npm:react-icons@^5.5.0",
+        "npm:recharts@^3.8.0",
         "npm:supabase@^2.78.1",
         "npm:typescript-eslint@^8.57.0",
         "npm:typescript@~5.9.3",

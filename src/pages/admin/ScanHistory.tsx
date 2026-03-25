@@ -20,12 +20,17 @@ import {
   fetchOperationLogsFromServer,
   fetchScanRecordsFromServer,
   fetchTicketsFromServer,
+  isScanServerUnavailableError,
   scanResultLabels,
   type OperationLogRow,
   type ScanRecord,
   type TicketRow,
   updateRecordCountOnServer,
 } from '../../features/admin/scanSync';
+import {
+  estimateEntryCountFromRecords,
+  readCachedScanRecords,
+} from '../../features/admin/offlineScanCache';
 import {
   decodeTicketCodeWithEnv,
   toTicketDecodedDisplaySeed,
@@ -64,6 +69,45 @@ const TABS: Array<{ key: ActiveTab; label: string }> = [
 
 const toNormalizedTicketCode = (value: string) =>
   value.split('.')[0].replace(/-/g, '').trim();
+
+const buildTicketRowsFromRecords = (records: ScanRecord[]): TicketRow[] => {
+  const ticketMap = new Map<string, TicketRow>();
+
+  records.forEach((record) => {
+    if (!(record.result === 'success' || record.result === 'reentry')) {
+      return;
+    }
+
+    const id = toNormalizedTicketCode(record.ticket_code);
+    const existing = ticketMap.get(id);
+    const scannedAt = record.scanned_at ?? null;
+    const count = record.count ?? 1;
+
+    if (!existing) {
+      ticketMap.set(id, {
+        id,
+        used_at: scannedAt,
+        count,
+      });
+      return;
+    }
+
+    const existingTime = existing.used_at ? new Date(existing.used_at).getTime() : 0;
+    const currentTime = scannedAt ? new Date(scannedAt).getTime() : 0;
+
+    ticketMap.set(id, {
+      id,
+      used_at: currentTime >= existingTime ? scannedAt : existing.used_at,
+      count: Math.max(existing.count ?? 1, count),
+    });
+  });
+
+  return [...ticketMap.values()].sort((a, b) => {
+    const aTime = a.used_at ? new Date(a.used_at).getTime() : 0;
+    const bTime = b.used_at ? new Date(b.used_at).getTime() : 0;
+    return bTime - aTime;
+  });
+};
 
 const formatDateTime = (value: string | null) => {
   if (!value) {
@@ -192,6 +236,8 @@ const ScanHistory = () => {
   const [scanMaster, setScanMaster] = useState<ScanTicketMaster | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showServerModal, setShowServerModal] = useState(false);
   const [showDeleteLogModal, setShowDeleteLogModal] = useState(false);
@@ -324,10 +370,28 @@ const ScanHistory = () => {
           setEntryCount(nextEntryCount);
           setTickets(nextTickets);
           setOperationLogs(nextOperationLogs);
+          setOfflineNotice(null);
+          setIsOfflineMode(false);
         }
-      } catch {
+      } catch (fetchError) {
         if (!cancelled) {
+          if (isScanServerUnavailableError(fetchError)) {
+            const cachedRecords = readCachedScanRecords();
+            setRecords(cachedRecords);
+            setEntryCount(estimateEntryCountFromRecords(cachedRecords));
+            setTickets(buildTicketRowsFromRecords(cachedRecords));
+            setOperationLogs([]);
+            setOfflineNotice(
+              '同期サーバーに接続できないため、ローカルストレージ上の履歴を表示しています。人数変更及び削除はできません。',
+            );
+            setIsOfflineMode(true);
+            setError(null);
+            return;
+          }
+
           setError('履歴情報の取得に失敗しました。');
+          setOfflineNotice(null);
+          setIsOfflineMode(false);
         }
       } finally {
         if (!cancelled) {
@@ -523,6 +587,8 @@ const ScanHistory = () => {
       setLocalServerUrl(url);
       setShowServerModal(false);
       setError(null);
+      setOfflineNotice(null);
+      setIsOfflineMode(false);
     }
   };
 
@@ -531,7 +597,7 @@ const ScanHistory = () => {
     code: string,
     delta: number,
   ) => {
-    if (!localServerUrl) {
+    if (!localServerUrl || isOfflineMode) {
       return;
     }
 
@@ -562,7 +628,7 @@ const ScanHistory = () => {
   };
 
   const handleDeleteLogConfirm = async () => {
-    if (!localServerUrl || pendingDeleteLogId === null) {
+    if (!localServerUrl || pendingDeleteLogId === null || isOfflineMode) {
       return;
     }
 
@@ -669,6 +735,7 @@ const ScanHistory = () => {
       <BackButton />
       <h1 className={baseStyles.pageTitle}>読み取り履歴</h1>
       {error && <Alert type='error'>{error}</Alert>}
+      {offlineNotice && <Alert type='warning'>{offlineNotice}</Alert>}
       <section className={styles.metaRow}>
         <div className={styles.metaItem}>
           <span className={styles.metaLabel}>同期サーバー</span>
@@ -796,6 +863,7 @@ const ScanHistory = () => {
                                     )
                                   }
                                   aria-label='人数を減らす'
+                                  disabled={isOfflineMode}
                                 >
                                   <FaMinus />
                                 </button>
@@ -814,6 +882,7 @@ const ScanHistory = () => {
                                     )
                                   }
                                   aria-label='人数を増やす'
+                                  disabled={isOfflineMode}
                                 >
                                   <FaPlus />
                                 </button>
@@ -826,6 +895,7 @@ const ScanHistory = () => {
                               type='button'
                               className={styles.deleteButton}
                               onClick={() => requestDeleteLog(record.id)}
+                              disabled={isOfflineMode}
                             >
                               <TiDelete />
                               削除
@@ -1205,6 +1275,7 @@ const ScanHistory = () => {
                   type='button'
                   className={styles.modalPrimaryButton}
                   onClick={handleDeleteLogConfirm}
+                  disabled={isOfflineMode}
                 >
                   削除
                 </button>

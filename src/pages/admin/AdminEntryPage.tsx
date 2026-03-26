@@ -1221,6 +1221,17 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         void handleDecode(result);
       },
       {
+        onDecodeError: (error) => {
+          const message = typeof error === 'string' ? error : error.message;
+          if (
+            message === 'No QR code found' ||
+            message === 'Scanner error: No QR code found'
+          ) {
+            return;
+          }
+          // eslint-disable-next-line no-console
+          console.error(error);
+        },
         highlightScanRegion: false,
         highlightCodeOutline: true,
         returnDetailedScanResult: true,

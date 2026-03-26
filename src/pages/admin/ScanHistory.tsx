@@ -1249,6 +1249,9 @@ const ScanHistory = () => {
         isOpen={showServerModal}
         currentUrl={localServerUrl ?? undefined}
         onSave={handleSaveServerUrl}
+        onContinueWithoutServer={() => {
+          setShowServerModal(false);
+        }}
       />
       {showDeleteLogModal && (
         <div className={styles.modalOverlay} onClick={() => undefined}>

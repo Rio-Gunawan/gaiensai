@@ -114,3 +114,18 @@
   transform: translateY(-1px);
   filter: brightness(1.05);
 }
+
+.cancelButton {
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--main-text-color);
+  border: 1px solid var(--select-border-color);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.cancelButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}

@@ -317,14 +317,17 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   // ローカルストレージから URL を読み込み、初回設定をチェック
   useEffect(() => {
     const savedUrl = localStorage.getItem(SCAN_SERVER_URL_STORAGE_KEY);
-    if (savedUrl) {
+    if (savedUrl !== null) {
       setLocalServerUrl(savedUrl);
+      if (savedUrl.trim() === '') {
+        markServerOffline();
+      }
     } else {
       // URL が未設定の場合、モーダルを表示
       setShowServerModal(true);
     }
     refreshFromLocalCache();
-  }, [refreshFromLocalCache]);
+  }, [markServerOffline, refreshFromLocalCache]);
 
   useEffect(() => {
     try {
@@ -877,12 +880,20 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   };
 
   const handleSaveServerUrl = (url: string) => {
-    if (url.trim()) {
-      localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, url);
-      setLocalServerUrl(url);
+    const trimmedUrl = url.trim();
+    if (trimmedUrl) {
+      localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, trimmedUrl);
+      setLocalServerUrl(trimmedUrl);
       setShowServerModal(false);
       markServerOnline();
     }
+  };
+
+  const handleContinueWithoutServer = () => {
+    localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, '');
+    setLocalServerUrl('');
+    setShowServerModal(false);
+    markServerOffline();
   };
 
   const handleOpenServerModal = () => {
@@ -909,12 +920,15 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   };
 
   async function useTicket(ticketId: string) {
-    if (!localServerUrl) {
+    if (localServerUrl === undefined) {
       setDecodeErrorWithSound({
         title: '設定エラー',
         message: 'ローカルサーバーのURLを入力してください。',
       });
       return { ticketStatus: null, ticketUsedAt: null, lastUsedAt: null };
+    }
+    if (localServerUrl.trim() === '') {
+      return inferOfflineTicketStatus(ticketId);
     }
     try {
       const result = await useTicketOnServer(localServerUrl, ticketId);
@@ -1561,6 +1575,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
           isOpen={showServerModal}
           currentUrl={localServerUrl}
           onSave={handleSaveServerUrl}
+          onContinueWithoutServer={handleContinueWithoutServer}
         />
         {showSettingsModal && (
           <div className={styles.modalOverlay} onClick={() => undefined}>
@@ -1575,7 +1590,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 <div className={styles.serverUrlDisplay}>
                   <p className={styles.serverUrlLabel}>
                     同期サーバー:
-                    <span className={styles.serverUrl}>{localServerUrl}</span>
+                    <span className={styles.serverUrl}>{localServerUrl === '' ? '未設定' : localServerUrl}</span>
                   </p>
                   <button
                     type='button'

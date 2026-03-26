@@ -5,9 +5,10 @@ type Props = {
   isOpen: boolean;
   currentUrl: string | undefined;
   onSave: (url: string) => void;
+  onContinueWithoutServer: () => void;
 };
 
-export const ServerUrlModal = ({ isOpen, currentUrl, onSave }: Props) => {
+export const ServerUrlModal = ({ isOpen, currentUrl, onSave, onContinueWithoutServer }: Props) => {
   const [tempUrl, setTempUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +50,13 @@ export const ServerUrlModal = ({ isOpen, currentUrl, onSave }: Props) => {
             />
           </div>
           <div className={styles.modalButtonGroup}>
+            <button
+              type='button'
+              className={styles.cancelButton}
+              onClick={onContinueWithoutServer}
+            >
+              同期しない
+            </button>
             <button
               type='button'
               className={styles.submitButton}

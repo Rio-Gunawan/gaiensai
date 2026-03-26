@@ -138,7 +138,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(
     DEFAULT_AUDIO_SETTINGS,
   );
-  const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAudioPermissionModal, setShowAudioPermissionModal] =
     useState(false);
 
@@ -330,6 +330,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     try {
       const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
       if (!raw) {
+        setShowAudioPermissionModal(true);
         return;
       }
       const parsed = JSON.parse(raw) as
@@ -339,6 +340,13 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
             reentryVariant?: VoiceVariant;
             invalidQrVariant?: VoiceVariant;
           };
+
+      const parsedEnabled =
+        'enabled' in parsed && typeof parsed.enabled === 'boolean'
+          ? parsed.enabled
+          : undefined;
+
+      setShowAudioPermissionModal(parsedEnabled ?? false);
       const legacyVariant =
         'proceedVariant' in parsed &&
         (parsed.proceedVariant === '1' ||
@@ -373,14 +381,6 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       JSON.stringify(audioSettings),
     );
   }, [audioSettings]);
-
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    const isiOS = /iPad|iPhone|iPod/.test(ua);
-    if (isiOS) {
-      setShowAudioPermissionModal(true);
-    }
-  }, []);
 
   const syncPendingOperations = useCallback(async () => {
     if (!localServerUrl) {
@@ -886,22 +886,21 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   };
 
   const handleOpenServerModal = () => {
-    setShowAudioSettingsModal(false);
+    setShowSettingsModal(false);
     setShowServerModal(true);
   };
 
   const handleOpenAudioSettingsModal = () => {
-    setShowAudioSettingsModal(true);
+    setShowSettingsModal(true);
   };
 
   const handleCloseAudioSettingsModal = () => {
-    setShowAudioSettingsModal(false);
+    setShowSettingsModal(false);
   };
 
   const handleAudioPermissionEnable = async () => {
     setAudioSettings((current) => ({ ...current, enabled: true }));
     setShowAudioPermissionModal(false);
-    await playAudio(notificationSound);
   };
 
   const handleAudioPermissionDisable = () => {
@@ -1563,7 +1562,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
           currentUrl={localServerUrl}
           onSave={handleSaveServerUrl}
         />
-        {showAudioSettingsModal && (
+        {showSettingsModal && (
           <div className={styles.modalOverlay} onClick={() => undefined}>
             <div
               className={styles.modalContainer}
@@ -1643,7 +1642,8 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
               <div className={styles.modalContent}>
                 <h2 className={styles.modalTitle}>音声再生の確認</h2>
                 <p className={styles.modalDescription}>
-                  iOSでは最初に許可しないと音声が再生されません。音声案内を有効にしますか?
+                  音声案内を有効にしますか?
+                  (ブラウザの仕様上、ユーザーの操作(ボタンなど)なしに音声を再生することができません。お手数ですが、毎回選択をお願いします。)
                 </p>
                 <div className={styles.modalButtonGroup}>
                   <button
@@ -1651,7 +1651,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     className={styles.modalSecondaryButton}
                     onClick={handleAudioPermissionDisable}
                   >
-                    無効のまま
+                    無効
                   </button>
                   <button
                     type='button'
@@ -1660,7 +1660,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                       void handleAudioPermissionEnable();
                     }}
                   >
-                    有効にする
+                    有効
                   </button>
                 </div>
               </div>

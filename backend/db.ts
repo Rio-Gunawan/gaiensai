@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS tickets (
 `);
 
 db.exec(`
+CREATE TABLE IF NOT EXISTS ticket_status_cache (
+  code TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  synced_at TEXT NOT NULL
+)
+`);
+
+db.exec(`
 CREATE TABLE IF NOT EXISTS ticket_scan_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ticket_code TEXT NOT NULL,

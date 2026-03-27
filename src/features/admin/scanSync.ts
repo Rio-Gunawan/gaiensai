@@ -15,6 +15,16 @@ export type TicketRow = {
   count: number;
 };
 
+export type SupabaseTicketStatusRow = {
+  code: string;
+  status: string;
+};
+
+export type TicketSyncSummary = {
+  total: number;
+  lastSyncedAt: string | null;
+};
+
 export type OperationLogRow = {
   id: number;
   created_at: string;
@@ -103,6 +113,7 @@ export async function useTicketOnServer(
   localServerUrl: string,
   ticketId: string,
   count = 1,
+  options?: { allowUnknown?: boolean },
 ) {
   const data = await requestScanServer(localServerUrl, '', {
     method: 'POST',
@@ -112,10 +123,15 @@ export async function useTicketOnServer(
     body: JSON.stringify({
       id: ticketId,
       count,
+      allowUnknown: options?.allowUnknown === true,
     }),
   });
 
-  const result = data as { status?: string; usedAt?: string };
+  const result = data as {
+    status?: string;
+    usedAt?: string;
+    masterStatus?: string;
+  };
   const usedAt =
     typeof result.usedAt === 'string' &&
     !Number.isNaN(new Date(result.usedAt).getTime())
@@ -126,6 +142,8 @@ export async function useTicketOnServer(
     ticketStatus: typeof result.status === 'string' ? result.status : null,
     ticketUsedAt: usedAt ? usedAt.toLocaleString() : '不明',
     lastUsedAt: usedAt,
+    masterStatus:
+      typeof result.masterStatus === 'string' ? result.masterStatus : null,
   };
 }
 
@@ -152,6 +170,42 @@ export async function fetchTicketsFromServer(localServerUrl: string) {
     tickets?: TicketRow[];
   };
   return Array.isArray(data.tickets) ? (data.tickets as TicketRow[]) : [];
+}
+
+export async function syncSupabaseTicketsToServer(
+  localServerUrl: string,
+  tickets: SupabaseTicketStatusRow[],
+) {
+  const data = (await requestScanServer(localServerUrl, '/tickets/sync', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tickets }),
+  })) as { imported?: number; syncedAt?: string };
+
+  return {
+    imported: typeof data.imported === 'number' ? data.imported : 0,
+    syncedAt: typeof data.syncedAt === 'string' ? data.syncedAt : null,
+  };
+}
+
+export async function fetchTicketSyncSummaryFromServer(localServerUrl: string) {
+  const data = (await requestScanServer(
+    localServerUrl,
+    '/tickets/sync-status',
+  )) as {
+    total?: number;
+    lastSyncedAt?: string | null;
+  };
+
+  return {
+    total: typeof data.total === 'number' ? data.total : 0,
+    lastSyncedAt:
+      typeof data.lastSyncedAt === 'string' || data.lastSyncedAt === null
+        ? data.lastSyncedAt
+        : null,
+  } satisfies TicketSyncSummary;
 }
 
 export async function fetchOperationLogsFromServer(localServerUrl: string) {

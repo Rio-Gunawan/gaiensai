@@ -385,6 +385,10 @@
   margin-left: 1em;
 }
 
+.warningActionRow {
+  margin-top: 0.75rem;
+}
+
 .iconButton {
   display: flex;
   justify-content: center;
@@ -396,6 +400,11 @@
   top: 10px;
   right: 10px;
   cursor: pointer
+}
+
+.changeButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .modalContent {

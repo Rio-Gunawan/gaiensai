@@ -10,6 +10,25 @@ const updateTicket = db.prepare(
   'UPDATE tickets SET used_at = ?, count = ? WHERE id = ?',
 );
 
+const getTicketStatusStmt = db.prepare(
+  'SELECT status FROM ticket_status_cache WHERE code = ?;',
+);
+
+const getTicketStatusCacheSummaryStmt = db.prepare(`
+SELECT COUNT(*) as total, MAX(synced_at) as lastSyncedAt
+FROM ticket_status_cache
+`);
+
+const clearTicketStatusCacheStmt = db.prepare('DELETE FROM ticket_status_cache');
+
+const upsertTicketStatusStmt = db.prepare(`
+INSERT INTO ticket_status_cache (code, status, synced_at)
+VALUES (?, ?, ?)
+ON CONFLICT(code) DO UPDATE SET
+  status = excluded.status,
+  synced_at = excluded.synced_at
+`);
+
 const logScanStmt = db.prepare(`
 INSERT INTO ticket_scan_logs (ticket_code, scanned_at, result, count)
 VALUES (?, ?, ?, ?)
@@ -62,6 +81,23 @@ WHERE (ticket_code LIKE ? || '.%' OR ticket_code = ?)
   AND result IN ('success', 'reentry')
 `);
 
+type UseTicketOptions = {
+  allowUnknown?: boolean;
+};
+
+type TicketStatusCacheRow = {
+  code: string;
+  status: string;
+};
+
+function normalizeTicketCode(raw: string) {
+  return raw.split('.')[0].replace(/-/g, '').trim();
+}
+
+function readTicketStatus(code: string) {
+  return getTicketStatusStmt.get(code) as { status: string } | undefined;
+}
+
 export function checkTicketExists(id: string) {
   const existing = getTicket.get(id) as
     | { used_at: string; count: number }
@@ -80,8 +116,55 @@ export function updateTicketUsedAndCount(id: string, count: number = 1) {
   }
 }
 
-export function useTicket(id: string, count: number = 1) {
-  const existing = checkTicketExists(id);
+export function replaceTicketStatusCache(rows: TicketStatusCacheRow[]) {
+  const syncedAt = new Date().toISOString();
+  clearTicketStatusCacheStmt.run();
+
+  let imported = 0;
+  for (const row of rows) {
+    const code = normalizeTicketCode(row.code);
+    const status = row.status.trim();
+    if (!code || !status) {
+      continue;
+    }
+    upsertTicketStatusStmt.run(code, status, syncedAt);
+    imported += 1;
+  }
+
+  return {
+    imported,
+    syncedAt,
+  };
+}
+
+export function getTicketStatusCacheSummary() {
+  const row = getTicketStatusCacheSummaryStmt.get() as
+    | { total: number | null; lastSyncedAt: string | null }
+    | undefined;
+  return {
+    total: row?.total ?? 0,
+    lastSyncedAt: row?.lastSyncedAt ?? null,
+  };
+}
+
+export function useTicket(
+  id: string,
+  count: number = 1,
+  options?: UseTicketOptions,
+) {
+  const normalizedId = normalizeTicketCode(id);
+  const cachedStatus = readTicketStatus(normalizedId);
+  const allowUnknown = Boolean(options?.allowUnknown);
+
+  if (!cachedStatus && !allowUnknown) {
+    return { status: 'unknown', usedAt: null };
+  }
+
+  if (cachedStatus && cachedStatus.status !== 'valid') {
+    return { status: 'invalid', usedAt: null, masterStatus: cachedStatus.status };
+  }
+
+  const existing = checkTicketExists(normalizedId);
 
   if (existing) {
     // 既存チケット、duplicate として返すのみ（tickets は更新しない）
@@ -90,7 +173,7 @@ export function useTicket(id: string, count: number = 1) {
 
   // 新規チケット、初回入場のみ tickets に挿入
   const now = new Date().toISOString();
-  insertTicket.run(id, now, count);
+  insertTicket.run(normalizedId, now, count);
   return { status: 'success', usedAt: null };
 }
 

@@ -25,11 +25,14 @@ import {
   clampCount,
   deleteScanRecordOnServer,
   fetchEntryCountFromServer,
+  fetchTicketSyncSummaryFromServer,
   fetchScanRecordsFromServer,
   logTicketToServer as postTicketLogToServer,
+  syncSupabaseTicketsToServer,
   useTicketOnServer,
   updateRecordCountOnServer,
   updateReentryCountOnServer,
+  type SupabaseTicketStatusRow,
   type ScanRecord,
 } from '../../features/admin/scanSync';
 import {
@@ -65,10 +68,14 @@ import invalidVoice2 from '../../assets/sounds/無効なQR2.mp3';
 import invalidVoice3 from '../../assets/sounds/無効なQR3.mp3';
 import { IoMdSettings } from 'react-icons/io';
 import Switch from '../../components/ui/Switch';
+import { supabase } from '../../lib/supabase';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
 const AUDIO_SETTINGS_STORAGE_KEY = 'admin_register_audio_settings:v1';
+const ADMIN_TICKETS_CACHE_STORAGE_KEY = 'admin_ticket_status_cache:v1';
+const ADMIN_TICKETS_WARNING_DISMISSED_KEY =
+  'admin_ticket_status_cache_warning_dismissed:v1';
 const TIMEOUT_RESCAN = 4000;
 
 type VoiceVariant = '1' | '2' | '3' | 'sfxOnly';
@@ -76,6 +83,11 @@ type VoiceVariant = '1' | '2' | '3' | 'sfxOnly';
 type AudioSettings = {
   enabled: boolean;
   voiceVariant: VoiceVariant;
+};
+
+type TicketStatusCachePayload = {
+  syncedAt: string;
+  tickets: SupabaseTicketStatusRow[];
 };
 
 const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
@@ -92,6 +104,11 @@ type DuplicateInfo = {
 type DecodeError = {
   title: string;
   message: string;
+};
+
+type PendingUnknownTicket = {
+  decoded: TicketDecodedDisplaySeed;
+  code: string;
 };
 
 type EntryMode = 'register' | 'scan';
@@ -125,6 +142,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const [pendingDeleteLogId, setPendingDeleteLogId] = useState<number | null>(
     null,
   );
+  const [showUnknownStatusModal, setShowUnknownStatusModal] = useState(false);
+  const [pendingUnknownTicket, setPendingUnknownTicket] =
+    useState<PendingUnknownTicket | null>(null);
 
   const [pendingFullCode, setPendingFullCode] = useState<string>('');
 
@@ -141,6 +161,16 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAudioPermissionModal, setShowAudioPermissionModal] =
     useState(false);
+  const [isTicketSyncing, setIsTicketSyncing] = useState(false);
+  const [ticketSyncMessage, setTicketSyncMessage] = useState<string | null>(
+    null,
+  );
+  const [ticketSyncWarning, setTicketSyncWarning] = useState<string | null>(
+    null,
+  );
+  const [ticketCacheSyncedAt, setTicketCacheSyncedAt] = useState<string | null>(
+    null,
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -161,6 +191,51 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError) && !autoHideRequested;
+
+  const readTicketStatusCache =
+    useCallback((): TicketStatusCachePayload | null => {
+      try {
+        const raw = localStorage.getItem(ADMIN_TICKETS_CACHE_STORAGE_KEY);
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw) as {
+          syncedAt?: unknown;
+          tickets?: unknown;
+        };
+        if (
+          typeof parsed.syncedAt !== 'string' ||
+          !Array.isArray(parsed.tickets)
+        ) {
+          return null;
+        }
+        const tickets = parsed.tickets
+          .map((item) => {
+            if (!item || typeof item !== 'object') {
+              return null;
+            }
+            const code = 'code' in item ? item.code : null;
+            const status = 'status' in item ? item.status : null;
+            if (typeof code !== 'string' || typeof status !== 'string') {
+              return null;
+            }
+            return { code, status };
+          })
+          .filter((item): item is SupabaseTicketStatusRow => item !== null);
+
+        return {
+          syncedAt: parsed.syncedAt,
+          tickets,
+        };
+      } catch {
+        return null;
+      }
+    }, []);
+
+  const dismissTicketSyncWarning = useCallback(() => {
+    localStorage.setItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY, '1');
+    setTicketSyncWarning(null);
+  }, []);
 
   const focus = useCallback(() => {
     if (mode !== 'register') {
@@ -330,6 +405,23 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   }, [markServerOffline, refreshFromLocalCache]);
 
   useEffect(() => {
+    const dismissed =
+      localStorage.getItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY) === '1';
+    const cached = readTicketStatusCache();
+    if (!cached || cached.tickets.length === 0) {
+      setTicketCacheSyncedAt(null);
+      if (!dismissed) {
+        setTicketSyncWarning(
+          'チケット状態キャッシュがありません。同期しない場合は、チケットがキャンセル済みかどうかを判定できません。',
+        );
+      }
+      return;
+    }
+
+    setTicketCacheSyncedAt(cached.syncedAt);
+  }, [readTicketStatusCache]);
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY);
       if (!raw) {
@@ -459,15 +551,25 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
     try {
       await syncPendingOperations();
-      const [records, count] = await Promise.all([
+      const [records, count, ticketSyncSummary] = await Promise.all([
         fetchScanRecordsFromServer(localServerUrl),
         fetchEntryCountFromServer(localServerUrl),
+        fetchTicketSyncSummaryFromServer(localServerUrl),
       ]);
       const merged = replaceCachedRecordsWithServerRecords(records);
       setScanRecords(merged.slice(0, 5));
       setEntryCount(count);
       setPendingSyncCount(getPendingOperationCount());
       markServerOnline();
+      if (ticketSyncSummary.total > 0) {
+        setTicketCacheSyncedAt(ticketSyncSummary.lastSyncedAt);
+      } else if (
+        localStorage.getItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY) !== '1'
+      ) {
+        setTicketSyncWarning(
+          'SQLiteにチケット状態キャッシュがありません。設定からSupabase同期を実行してください。',
+        );
+      }
     } catch (error) {
       if (isScanServerUnavailableError(error)) {
         markServerOffline();
@@ -544,7 +646,13 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     }
 
     // Modalが表示されている場合はタイマーを開始しない
-    if (showReentryModal || showMissingSignatureModal || showServerModal) {
+    if (
+      showReentryModal ||
+      showMissingSignatureModal ||
+      showServerModal ||
+      showUnknownStatusModal ||
+      Boolean(ticketSyncWarning)
+    ) {
       return () => {
         // noop
       };
@@ -563,6 +671,8 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     showReentryModal,
     showMissingSignatureModal,
     showServerModal,
+    showUnknownStatusModal,
+    ticketSyncWarning,
   ]);
 
   useEffect(() => {
@@ -671,13 +781,15 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
-      const { ticketStatus, ticketUsedAt, lastUsedAt } = await useTicket(code);
+      const { ticketStatus, ticketUsedAt, lastUsedAt, masterStatus } =
+        await useTicket(code);
 
       await processTicketStatus(
         decoded,
         ticketStatus,
         ticketUsedAt,
         lastUsedAt,
+        masterStatus,
         nextScannedValue,
       );
     } catch (e) {
@@ -706,6 +818,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     ticketStatus: string | null,
     ticketUsedAt: string | null,
     lastUsedAt: Date | null,
+    masterStatus: string | null,
     code: string,
   ) => {
     if (ticketStatus === 'success') {
@@ -763,6 +876,22 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       });
       queueAudio([notificationSound]);
       setShowReentryModal(true);
+      return;
+    }
+
+    if (ticketStatus === 'invalid') {
+      await saveScanResult(code, 'failed', 1);
+      setDecodeErrorWithSound({
+        title: '無効チケット',
+        message: `このチケットは利用できません。(status: ${masterStatus ?? 'unknown'})`,
+      });
+      return;
+    }
+
+    if (ticketStatus === 'unknown') {
+      setPendingUnknownTicket({ decoded, code });
+      queueAudio([notificationSound]);
+      setShowUnknownStatusModal(true);
       return;
     }
 
@@ -848,7 +977,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
-      const { ticketStatus, ticketUsedAt, lastUsedAt } =
+      const { ticketStatus, ticketUsedAt, lastUsedAt, masterStatus } =
         await useTicket(pendingSignatureCode);
 
       await processTicketStatus(
@@ -856,6 +985,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         ticketStatus,
         ticketUsedAt,
         lastUsedAt,
+        masterStatus,
         pendingSignatureCode,
       );
     } catch {
@@ -909,6 +1039,61 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     setShowSettingsModal(false);
   };
 
+  const handleSyncTicketsFromSupabase = useCallback(async () => {
+    setIsTicketSyncing(true);
+    setTicketSyncMessage(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('code, status');
+
+      if (error) {
+        throw error;
+      }
+
+      const tickets = (data ?? [])
+        .map((item) => ({
+          code: String(item.code ?? ''),
+          status: String(item.status ?? ''),
+        }))
+        .filter((row) => row.code && row.status);
+
+      const syncedAt = new Date().toISOString();
+      localStorage.setItem(
+        ADMIN_TICKETS_CACHE_STORAGE_KEY,
+        JSON.stringify({
+          syncedAt,
+          tickets,
+        } satisfies TicketStatusCachePayload),
+      );
+
+      setTicketCacheSyncedAt(syncedAt);
+      localStorage.removeItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY);
+      setTicketSyncWarning(null);
+
+      if (localServerUrl && localServerUrl.trim()) {
+        const result = await syncSupabaseTicketsToServer(
+          localServerUrl,
+          tickets,
+        );
+        setTicketSyncMessage(
+          `同期完了: ${result.imported}件をSQLiteへ保存しました。`,
+        );
+      } else {
+        setTicketSyncMessage(
+          'ローカルキャッシュに保存しました。同期サーバーURL設定後に再実行するとSQLiteにも反映されます。',
+        );
+      }
+    } catch {
+      setTicketSyncMessage(
+        'Supabaseからの同期に失敗しました。ネットワークと認証設定を確認してください。',
+      );
+    } finally {
+      setIsTicketSyncing(false);
+    }
+  }, [localServerUrl]);
+
   const handleAudioPermissionEnable = async () => {
     setAudioSettings((current) => ({ ...current, enabled: true }));
     setShowAudioPermissionModal(false);
@@ -919,19 +1104,36 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     setShowAudioPermissionModal(false);
   };
 
-  async function useTicket(ticketId: string) {
+  async function useTicket(
+    ticketId: string,
+    options?: { allowUnknown?: boolean },
+  ) {
     if (localServerUrl === undefined) {
       setDecodeErrorWithSound({
         title: '設定エラー',
         message: 'ローカルサーバーのURLを入力してください。',
       });
-      return { ticketStatus: null, ticketUsedAt: null, lastUsedAt: null };
+      return {
+        ticketStatus: null,
+        ticketUsedAt: null,
+        lastUsedAt: null,
+        masterStatus: null,
+      };
     }
     if (localServerUrl.trim() === '') {
-      return inferOfflineTicketStatus(ticketId);
+      return {
+        ...(inferOfflineTicketStatus(ticketId) as {
+          ticketStatus: string | null;
+          ticketUsedAt: string | null;
+          lastUsedAt: Date | null;
+        }),
+        masterStatus: null,
+      };
     }
     try {
-      const result = await useTicketOnServer(localServerUrl, ticketId);
+      const result = await useTicketOnServer(localServerUrl, ticketId, 1, {
+        allowUnknown: options?.allowUnknown === true,
+      });
       markServerOnline();
       return result;
     } catch (error) {
@@ -939,7 +1141,14 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         throw error;
       }
       markServerOffline();
-      return inferOfflineTicketStatus(ticketId);
+      return {
+        ...(inferOfflineTicketStatus(ticketId) as {
+          ticketStatus: string | null;
+          ticketUsedAt: string | null;
+          lastUsedAt: Date | null;
+        }),
+        masterStatus: null,
+      };
     }
   }
 
@@ -1120,6 +1329,48 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const handleDeleteLogCancel = () => {
     setPendingDeleteLogId(null);
     setShowDeleteLogModal(false);
+  };
+
+  const handleUnknownStatusContinue = async () => {
+    const pending = pendingUnknownTicket;
+    setShowUnknownStatusModal(false);
+    setPendingUnknownTicket(null);
+    if (!pending) {
+      return;
+    }
+
+    const retried = await useTicket(pending.code, { allowUnknown: true });
+    if (retried.ticketStatus === 'unknown') {
+      await saveScanResult(pending.code, 'failed', 1);
+      setDecodeErrorWithSound({
+        title: '検証エラー',
+        message:
+          'チケット状態を確認できませんでした。Supabase同期を更新して再度お試しください。',
+      });
+      return;
+    }
+    await processTicketStatus(
+      pending.decoded,
+      retried.ticketStatus,
+      retried.ticketUsedAt,
+      retried.lastUsedAt,
+      retried.masterStatus,
+      pending.code,
+    );
+  };
+
+  const handleUnknownStatusCancel = async () => {
+    const pending = pendingUnknownTicket;
+    setShowUnknownStatusModal(false);
+    setPendingUnknownTicket(null);
+    if (!pending) {
+      return;
+    }
+    await saveScanResult(pending.code, 'failed', 1);
+    setDecodeErrorWithSound({
+      title: '使用キャンセル',
+      message: 'チケット状態が不明だったため、登録を中止しました。',
+    });
   };
 
   const calculateScanSize = useCallback(
@@ -1322,7 +1573,6 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
             </Alert>
           </section>
         )}
-
         {mode === 'register' && (
           <section>
             <form onSubmit={handleRegister} className={styles.form}>
@@ -1601,7 +1851,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 <div className={styles.serverUrlDisplay}>
                   <p className={styles.serverUrlLabel}>
                     同期サーバー:
-                    <span className={styles.serverUrl}>{localServerUrl === '' ? '未設定' : localServerUrl}</span>
+                    <span className={styles.serverUrl}>
+                      {localServerUrl === '' ? '未設定' : localServerUrl}
+                    </span>
                   </p>
                   <button
                     type='button'
@@ -1611,6 +1863,29 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     変更
                   </button>
                 </div>
+                <div className={styles.serverUrlDisplay}>
+                  <p className={styles.serverUrlLabel}>
+                    チケット状態キャッシュ:
+                    <span className={styles.serverUrl}>
+                      {ticketCacheSyncedAt
+                        ? new Date(ticketCacheSyncedAt).toLocaleString()
+                        : '未同期'}
+                    </span>
+                  </p>
+                  <button
+                    type='button'
+                    className={styles.changeButton}
+                    disabled={isTicketSyncing}
+                    onClick={() => {
+                      void handleSyncTicketsFromSupabase();
+                    }}
+                  >
+                    {isTicketSyncing ? '同期中...' : 'Supabase同期'}
+                  </button>
+                </div>
+                {ticketSyncMessage && (
+                  <p className={styles.modalDescription}>{ticketSyncMessage}</p>
+                )}
                 <h2 className={styles.modalTitle}>音声設定</h2>
                 <label className={styles.audioSettingRow}>
                   <span>音声案内</span>
@@ -1753,6 +2028,74 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     onClick={handleDeleteLogConfirm}
                   >
                     削除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {showUnknownStatusModal && (
+          <div className={styles.modalOverlay} onClick={() => undefined}>
+            <div
+              className={styles.modalContainer}
+              role='dialog'
+              aria-modal='true'
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className={styles.modalContent}>
+                <h2 className={styles.modalTitle}>チケット登録がありません</h2>
+                <p className={styles.modalDescription}>
+                  このチケットは、データベースに登録がありません。このチケットは当日に発行されたものか、あるいは不正に発行されたチケットである可能性があります。続行しますか?
+                </p>
+                <div className={styles.modalButtonGroup}>
+                  <button
+                    type='button'
+                    className={styles.modalSecondaryButton}
+                    onClick={() => {
+                      void handleUnknownStatusCancel();
+                    }}
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type='button'
+                    className={styles.submitButton}
+                    onClick={() => {
+                      void handleUnknownStatusContinue();
+                    }}
+                  >
+                    続行
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {ticketSyncWarning && (
+          <div className={styles.modalOverlay} onClick={() => undefined}>
+            <div
+              className={styles.modalContainer}
+              role='dialog'
+              aria-modal='true'
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className={styles.modalContent}>
+                <h2 className={styles.modalTitle}>チケットの状態が未同期です</h2>
+                <p className={styles.modalDescription}>{ticketSyncWarning}</p>
+                <div className={styles.modalButtonGroup}>
+                  <button
+                    type='button'
+                    className={styles.modalSecondaryButton}
+                    onClick={dismissTicketSyncWarning}
+                  >
+                    無視
+                  </button>
+                  <button
+                    type='button'
+                    className={styles.submitButton}
+                    onClick={() => void handleSyncTicketsFromSupabase()}
+                  >
+                    {isTicketSyncing ? '同期中...' : '同期'}
                   </button>
                 </div>
               </div>

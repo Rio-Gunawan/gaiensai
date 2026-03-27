@@ -6,6 +6,8 @@ import {
   getEntryCount,
   getScanLogs,
   getTickets,
+  getTicketStatusCacheSummary,
+  replaceTicketStatusCache,
   updateScanLogCount,
   updateTicketCount,
   updateTicketUsedAndCount,
@@ -67,9 +69,10 @@ Deno.serve(async (req) => {
   // API
   if (url.pathname === '/api' && req.method === 'POST') {
     const body = await req.json();
-    const id = body.id.split('.')[0].replace('-', '');
+    const id = body.id.split('.')[0].replace(/-/g, '');
+    const allowUnknown = body.allowUnknown === true;
 
-    const result = useTicket(id, body.count ?? 1);
+    const result = useTicket(id, body.count ?? 1, { allowUnknown });
 
     console.log(
       'リクエストを受け付けました。チケットID: ',
@@ -204,6 +207,53 @@ Deno.serve(async (req) => {
   if (url.pathname === '/api/tickets' && req.method === 'GET') {
     const tickets = getTickets();
     return new Response(JSON.stringify({ tickets }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/tickets/sync' && req.method === 'POST') {
+    const body = await req.json();
+    const source = Array.isArray(body?.tickets) ? body.tickets : [];
+    const rows = source
+      .map((item: { code: string; status: string; }) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+        const code = 'code' in item ? item.code : null;
+        const status = 'status' in item ? item.status : null;
+        if (typeof code !== 'string' || typeof status !== 'string') {
+          return null;
+        }
+        return { code, status };
+      })
+      .filter((row: { code: string; status: string } | null): row is { code: string; status: string } => row !== null);
+
+    const result = replaceTicketStatusCache(rows);
+    logOperation(
+      'backend/server.ts:api/tickets/sync',
+      '同期',
+      '-',
+      'Supabaseのtickets同期を更新しました。',
+      '同期件数:',
+      result.imported,
+      '同期時刻:',
+      result.syncedAt,
+    );
+
+    return new Response(JSON.stringify({ ok: true, ...result }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/tickets/sync-status' && req.method === 'GET') {
+    const summary = getTicketStatusCacheSummary();
+    return new Response(JSON.stringify(summary), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',

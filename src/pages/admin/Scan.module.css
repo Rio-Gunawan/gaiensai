@@ -206,3 +206,20 @@
 .resultCardError .resultTitle {
   color: var(--error-text-color);
 }
+
+.warningButton {
+  padding: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--warn-border-color);
+  background: var(--warning-bg-color);
+  color: var(--warning-text-color);
+  cursor: pointer;
+  position: fixed;
+  font-size: 1.5em;
+  top: 4.5rem;
+  right: 1rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center
+}

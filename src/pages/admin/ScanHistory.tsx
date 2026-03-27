@@ -92,7 +92,9 @@ const buildTicketRowsFromRecords = (records: ScanRecord[]): TicketRow[] => {
       return;
     }
 
-    const existingTime = existing.used_at ? new Date(existing.used_at).getTime() : 0;
+    const existingTime = existing.used_at
+      ? new Date(existing.used_at).getTime()
+      : 0;
     const currentTime = scannedAt ? new Date(scannedAt).getTime() : 0;
 
     ticketMap.set(id, {
@@ -650,13 +652,7 @@ const ScanHistory = () => {
   };
 
   const handleExportRecordsCsv = () => {
-    const headers = [
-      'ID',
-      'チケットコード',
-      '結果',
-      '人数',
-      '読み取り時刻',
-    ];
+    const headers = ['ID', 'チケットコード', '結果', '人数', '読み取り時刻'];
     const data = rows.map((record) => [
       record.id,
       record.ticket_code,

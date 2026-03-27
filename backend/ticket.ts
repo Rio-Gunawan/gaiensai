@@ -19,7 +19,9 @@ SELECT COUNT(*) as total, MAX(synced_at) as lastSyncedAt
 FROM ticket_status_cache
 `);
 
-const clearTicketStatusCacheStmt = db.prepare('DELETE FROM ticket_status_cache');
+const clearTicketStatusCacheStmt = db.prepare(
+  'DELETE FROM ticket_status_cache',
+);
 
 const upsertTicketStatusStmt = db.prepare(`
 INSERT INTO ticket_status_cache (code, status, synced_at)
@@ -161,7 +163,11 @@ export function useTicket(
   }
 
   if (cachedStatus && cachedStatus.status !== 'valid') {
-    return { status: 'invalid', usedAt: null, masterStatus: cachedStatus.status };
+    return {
+      status: 'invalid',
+      usedAt: null,
+      masterStatus: cachedStatus.status,
+    };
   }
 
   const existing = checkTicketExists(normalizedId);
@@ -179,10 +185,9 @@ export function useTicket(
 
 export function logTicketScan(code: string, result: string, count: number = 1) {
   const now = new Date().toISOString();
-  const resultInfo = logScanStmt.run(code, now, result, count) as {
-    lastInsertRowId?: number;
-  };
-  return resultInfo?.lastInsertRowId ?? null;
+  logScanStmt.run(code, now, result, count);
+  const logId = db.lastInsertRowId;
+  return logId;
 }
 
 export function getEntryCount(): number {

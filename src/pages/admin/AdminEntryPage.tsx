@@ -69,6 +69,7 @@ import invalidVoice3 from '../../assets/sounds/無効なQR3.mp3';
 import { IoMdSettings } from 'react-icons/io';
 import Switch from '../../components/ui/Switch';
 import { supabase } from '../../lib/supabase';
+import { IoWarning } from 'react-icons/io5';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -1565,6 +1566,18 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
           <IoMdSettings />
         </button>
 
+        {isServerOffline && mode === 'scan' && (
+          <button
+            type='button'
+            className={scanStyles.warningButton}
+            onClick={() => {
+              window.scrollTo(0, window.innerHeight - 70);
+            }}
+          >
+            <IoWarning />
+          </button>
+        )}
+
         {isServerOffline && (
           <section className={styles.offlineAlertSection}>
             <Alert type='warning'>
@@ -2080,7 +2093,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
               onClick={(event) => event.stopPropagation()}
             >
               <div className={styles.modalContent}>
-                <h2 className={styles.modalTitle}>チケットの状態が未同期です</h2>
+                <h2 className={styles.modalTitle}>
+                  チケットの状態が未同期です
+                </h2>
                 <p className={styles.modalDescription}>{ticketSyncWarning}</p>
                 <div className={styles.modalButtonGroup}>
                   <button

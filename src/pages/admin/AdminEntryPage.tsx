@@ -233,11 +233,6 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       }
     }, []);
 
-  const dismissTicketSyncWarning = useCallback(() => {
-    localStorage.setItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY, '1');
-    setTicketSyncWarning(null);
-  }, []);
-
   const focus = useCallback(() => {
     if (mode !== 'register') {
       return;
@@ -248,6 +243,12 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
     }
   }, [mode, showServerModal]);
+
+  const dismissTicketSyncWarning = useCallback(() => {
+    localStorage.setItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY, '1');
+    setTicketSyncWarning(null);
+    setTimeout(() => focus(), 10);
+  }, [focus]);
 
   const getProceedVoice = useCallback((variant: VoiceVariant) => {
     if (variant === 'sfxOnly') {
@@ -906,6 +907,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const handleReentryConfirm = async () => {
     setShowReentryModal(false);
     setDuplicateInfo(null);
+    setTimeout(() => focus(), 10);
     const decoded = pendingDecodedRef.current;
     pendingDecodedRef.current = null;
     if (!decoded) {
@@ -931,6 +933,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     setShowReentryModal(false);
     pendingDecodedRef.current = null;
     setDuplicateInfo(null);
+    setTimeout(() => focus(), 10);
     setDecodeError({
       title: '再入場キャンセル',
       message: '再入場は正常にキャンセルされました。',
@@ -942,6 +945,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
   const handleMissingSignatureContinue = async () => {
     setShowMissingSignatureModal(false);
+    setTimeout(() => focus(), 10);
     if (!pendingFullCode) {
       return;
     }
@@ -1002,6 +1006,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
   const handleMissingSignatureCancel = () => {
     setShowMissingSignatureModal(false);
+    setTimeout(() => focus(), 10);
     setPendingFullCode('');
     setDecodeErrorWithSound({
       title: '署名エラー',
@@ -1098,11 +1103,13 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const handleAudioPermissionEnable = async () => {
     setAudioSettings((current) => ({ ...current, enabled: true }));
     setShowAudioPermissionModal(false);
+    setTimeout(() => focus(), 10);
   };
 
   const handleAudioPermissionDisable = () => {
     setAudioSettings((current) => ({ ...current, enabled: false }));
     setShowAudioPermissionModal(false);
+    setTimeout(() => focus(), 10);
   };
 
   async function useTicket(
@@ -1325,17 +1332,20 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     await handleDeleteLog(pendingDeleteLogId);
     setPendingDeleteLogId(null);
     setShowDeleteLogModal(false);
+    setTimeout(() => focus(), 10);
   };
 
   const handleDeleteLogCancel = () => {
     setPendingDeleteLogId(null);
     setShowDeleteLogModal(false);
+    setTimeout(() => focus(), 10);
   };
 
   const handleUnknownStatusContinue = async () => {
     const pending = pendingUnknownTicket;
     setShowUnknownStatusModal(false);
     setPendingUnknownTicket(null);
+    setTimeout(() => focus(), 10);
     if (!pending) {
       return;
     }
@@ -1364,6 +1374,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     const pending = pendingUnknownTicket;
     setShowUnknownStatusModal(false);
     setPendingUnknownTicket(null);
+    setTimeout(() => focus(), 10);
     if (!pending) {
       return;
     }

@@ -3,12 +3,13 @@ import { supabase } from '../../../lib/supabase';
 import performancesSnapshot from '../../../generated/performances-static.json';
 import {
   decodeTicketCodeWithEnv,
-  toTicketDecodedSeed,
+  toTicketDecodedDisplaySeed,
 } from '../../../features/tickets/ticketCodeDecode';
 import {
   listTicketDisplayCache,
   subscribeTicketDisplayCacheUpdated,
 } from '../../../features/tickets/ticketDisplayCache';
+import { useEventConfig } from '../../../hooks/useEventConfig';
 
 import type { UserData } from '../../../types/types';
 import NormalSection from '../../../components/ui/NormalSection';
@@ -26,6 +27,7 @@ import { IoMdAdd } from 'react-icons/io';
 import PerformancesTable from '../../../features/performances/PerformancesTable';
 import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
+import { formatDateText } from '../../../utils/FormatDateText';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -45,6 +47,7 @@ type TicketSnapshot = {
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 
 const Dashboard = ({ userData }: DashboardProps) => {
+  const { config } = useEventConfig();
   const [ticketCards, setTicketCards] = useState<
     (TicketCardItem & { relationshipId: number })[]
   >([]);
@@ -195,7 +198,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
           return {
             ticket,
-            decoded: toTicketDecodedSeed(decodedRaw),
+            decoded: toTicketDecodedDisplaySeed(decodedRaw),
           };
         }),
       );
@@ -208,13 +211,38 @@ const Dashboard = ({ userData }: DashboardProps) => {
         ),
       ];
 
-      const { data: performanceData } =
+      const scheduleIds = [
+        ...new Set(
+          decodedTickets
+            .map((item) => item.decoded?.scheduleId ?? 0)
+            .filter((id) => id > 0),
+        ),
+      ];
+
+      const [
+        { data: performanceData },
+        { data: scheduleData },
+        { data: configData },
+      ] = await Promise.all([
         performanceIds.length > 0
-          ? await supabase
+          ? supabase
               .from('class_performances')
               .select('id, class_name, title')
               .in('id', performanceIds)
-          : { data: [] };
+          : { data: [] },
+        scheduleIds.length > 0
+          ? supabase
+              .from('performances_schedule')
+              .select('id, start_at')
+              .in('id', scheduleIds)
+          : { data: [] },
+        supabase
+          .from('configs')
+          .select('show_length')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
       const performanceMap = new Map(
         (
@@ -233,6 +261,49 @@ const Dashboard = ({ userData }: DashboardProps) => {
             round_name: string;
           }>
         ).map((schedule) => [schedule.id, schedule]),
+      );
+
+      const scheduleTimesMap = new Map(
+        (
+          (scheduleData ?? []) as Array<{
+            id: number;
+            start_at: string | null;
+          }>
+        ).map((schedule) => {
+          const startAt = schedule.start_at
+            ? new Date(schedule.start_at)
+            : null;
+          const showLengthMinutes = Number(configData?.show_length ?? 0);
+          const endAt =
+            startAt && Number.isFinite(showLengthMinutes)
+              ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+              : null;
+
+          return [
+            schedule.id,
+            {
+              scheduleDate: startAt
+                ? startAt.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                  })
+                : '-',
+              scheduleTime: startAt
+                ? startAt.toLocaleTimeString('ja-JP', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '',
+              scheduleEndTime: endAt
+                ? endAt.toLocaleTimeString('ja-JP', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '',
+            },
+          ];
+        }),
       );
 
       const ticketTypeMap = new Map(
@@ -301,20 +372,64 @@ const Dashboard = ({ userData }: DashboardProps) => {
       try {
         const { writeTicketDisplayCache } =
           await import('../../../features/tickets/ticketDisplayCache');
-        cards.forEach((card) => {
+        decodedTickets.forEach(({ ticket, decoded }) => {
+          const relationshipId = decoded?.relationshipId ?? ticket.relationship;
+          const performance = decoded
+            ? (performanceMap.get(decoded.performanceId) ??
+              snapshotPerformanceMap.get(decoded.performanceId))
+            : undefined;
+          const schedule = decoded
+            ? scheduleMap.get(decoded.scheduleId)
+            : undefined;
+          const scheduleTimes = decoded
+            ? scheduleTimesMap.get(decoded.scheduleId)
+            : undefined;
+          const isAdmissionOnly =
+            decoded?.performanceId === 0 && decoded?.scheduleId === 0;
+
+          // Calculate admission-only schedule dates
+          let scheduleDate = scheduleTimes?.scheduleDate ?? '-';
+          let scheduleTime = scheduleTimes?.scheduleTime ?? '';
+          let scheduleEndTime = scheduleTimes?.scheduleEndTime ?? '';
+
+          if (isAdmissionOnly) {
+            const eventDates = (config.date ?? []).filter(
+              (date) => typeof date === 'string' && date.length > 0,
+            );
+            scheduleDate = formatDateText(eventDates) || '-';
+            scheduleTime = '';
+            scheduleEndTime = '';
+          }
+
           const ticketCacheEntry = {
-            code: card.code,
-            signature: card.signature,
-            serial: card.serial,
-            performanceName: card.performanceName,
-            performanceTitle: card.performanceTitle,
-            scheduleName: card.scheduleName,
-            ticketTypeLabel: card.ticketTypeLabel,
-            relationshipName: card.relationshipName,
-            relationshipId: card.relationshipId,
-            status: card.status,
+            code: ticket.code,
+            signature: ticket.signature,
+            serial: decoded?.serial,
+            affiliation: decoded?.affiliation ?? '-',
+            performanceId: decoded?.performanceId ?? 0,
+            scheduleId: decoded?.scheduleId ?? 0,
+            ticketTypeId: decoded?.ticketTypeId ?? 0,
+            year: decoded?.year ?? '',
+            performanceName: isAdmissionOnly
+              ? '入場専用券'
+              : (performance?.class_name ?? '-'),
+            performanceTitle: performance?.title ?? null,
+            scheduleName: isAdmissionOnly ? '' : (schedule?.round_name ?? '-'),
+            scheduleDate,
+            scheduleTime,
+            scheduleEndTime,
+            ticketTypeLabel: decoded
+              ? (ticketTypeMap.get(decoded.ticketTypeId) ??
+                `券種${decoded.ticketTypeId}`)
+              : '-',
+            relationshipName: decoded
+              ? (relationshipMap.get(decoded.relationshipId) ??
+                `間柄${decoded.relationshipId}`)
+              : '-',
+            relationshipId,
+            status: 'valid' as const,
           };
-          writeTicketDisplayCache(card.code, ticketCacheEntry);
+          writeTicketDisplayCache(ticket.code, ticketCacheEntry);
         });
       } catch {
         // Ignore cache write failures

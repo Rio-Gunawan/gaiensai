@@ -34,24 +34,36 @@ const IssueResult = () => {
         try {
           const { writeTicketDisplayCache } =
             await import('../../../features/tickets/ticketDisplayCache');
-          const { decodeTicketCodeWithEnv, toTicketDecodedSeed } =
+          const { decodeTicketCodeWithEnv, toTicketDecodedDisplaySeed } =
             await import('../../../features/tickets/ticketCodeDecode');
 
           await Promise.all(
             parsed.issuedTickets.map(async (ticket) => {
               const decodedRaw = await decodeTicketCodeWithEnv(ticket.code);
-              const decoded = toTicketDecodedSeed(decodedRaw);
+              const decoded = toTicketDecodedDisplaySeed(decodedRaw);
 
               const ticketCacheEntry = {
                 code: ticket.code,
                 signature: ticket.signature,
                 serial: decoded?.serial,
-                performanceName: parsed.performanceName,
+                affiliation: decoded?.affiliation ?? '-',
+                performanceId: decoded?.performanceId ?? 0,
+                scheduleId: decoded?.scheduleId ?? 0,
+                ticketTypeId: decoded?.ticketTypeId ?? 0,
+                year: decoded?.year ?? '',
+                performanceName:
+                  decoded?.performanceId === 0 && decoded?.scheduleId === 0
+                    ? '入場専用券'
+                    : parsed.performanceName,
                 performanceTitle: parsed.performanceTitle,
                 scheduleName: parsed.scheduleName,
+                scheduleDate: parsed.scheduleDate,
+                scheduleTime: parsed.scheduleTime,
+                scheduleEndTime: parsed.scheduleEndTime,
                 ticketTypeLabel: parsed.ticketTypeLabel,
                 relationshipName: parsed.relationshipName,
-                relationshipId: parsed.relationshipId,
+                relationshipId:
+                  decoded?.relationshipId ?? parsed.relationshipId,
                 status: 'valid',
                 lastOpenedAt: Date.now(),
               };

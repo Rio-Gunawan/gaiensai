@@ -29,6 +29,7 @@ import type {
 import { useTurnstile } from '../../hooks/useTurnstile.ts';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
 import iconUrl from '../../assets/icon.webp';
+import { formatDateText } from '../../utils/FormatDateText.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -146,28 +147,6 @@ const checkTicketValidity = async (
     status: 'valid',
     errorMessage: null,
   };
-};
-
-const formatDateText = (date: string[]) => {
-  if (date.length === 0) {
-    return '';
-  }
-
-  const toParts = (dateText: string) => {
-    const [year, month, day] = dateText
-      .split('-')
-      .map((value) => Number(value));
-    return { year, month, day };
-  };
-
-  const first = toParts(date[0]);
-  const last = toParts(date[date.length - 1]);
-
-  if (first.year === last.year && first.month === last.month) {
-    return `${first.year}/${first.month}/${first.day}~${last.day}`;
-  }
-
-  return `${first.year}/${first.month}/${first.day}~${last.year}/${last.month}/${last.day}`;
 };
 
 const readFunctionErrorMessage = async (error: unknown): Promise<string> => {

@@ -15,6 +15,8 @@ import type {
 } from '../../../types/Issue.types';
 import styles from './Issue.module.css';
 import BackButton from '../../../components/ui/BackButton';
+import { formatDateText } from '../../../utils/FormatDateText';
+import { useEventConfig } from '../../../hooks/useEventConfig';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
@@ -101,6 +103,7 @@ const Issue = () => {
   } = useTurnstile({ containerId: turnstileContainerId });
 
   const { route } = useLocation();
+  const { config } = useEventConfig();
 
   useEffect(() => {
     const loadTicketTypes = async () => {
@@ -337,14 +340,69 @@ const Issue = () => {
 
     setIsIssuing(true);
 
-    const { data: performanceTitle } =
+    const [
+      { data: performanceTitle },
+      { data: scheduleData },
+      { data: configData },
+    ] = await Promise.all([
       selectedPerformance.performanceId > 0
-        ? await supabase
+        ? supabase
             .from('class_performances')
             .select('title')
             .eq('id', selectedPerformance.performanceId)
             .maybeSingle()
-        : { data: null };
+        : { data: null },
+      selectedPerformance.scheduleId > 0
+        ? supabase
+            .from('performances_schedule')
+            .select('start_at')
+            .eq('id', selectedPerformance.scheduleId)
+            .maybeSingle()
+        : { data: null },
+      supabase
+        .from('configs')
+        .select('show_length')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    // Calculate schedule date/time
+    let scheduleDate = '-';
+    let scheduleTime = '';
+    let scheduleEndTime = '';
+
+    if (selectedPerformance.scheduleId === 0) {
+      // Admission only
+      const eventDates = (config.date ?? []).filter(
+        (date) => typeof date === 'string' && date.length > 0,
+      );
+      scheduleDate = formatDateText(eventDates) || '-';
+      scheduleTime = '';
+      scheduleEndTime = '';
+    } else if (scheduleData?.start_at) {
+      const startAt = new Date(scheduleData.start_at);
+      const showLengthMinutes = Number(configData?.show_length ?? 0);
+      const endAt = startAt
+        ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+        : null;
+
+      scheduleDate = startAt.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      scheduleTime = startAt.toLocaleTimeString('ja-JP', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      scheduleEndTime = endAt
+        ? endAt.toLocaleTimeString('ja-JP', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '-';
+    }
 
     const { data, error } = await supabase.functions.invoke('issue-tickets', {
       body: {
@@ -381,9 +439,16 @@ const Issue = () => {
     window.sessionStorage.setItem(
       ISSUE_RESULT_STORAGE_KEY,
       JSON.stringify({
-        performanceName: selectedPerformance.performanceName,
+        performanceName:
+          selectedPerformance.performanceId === 0 &&
+          selectedPerformance.scheduleId === 0
+            ? ADMISSION_ONLY_TICKET_NAME
+            : selectedPerformance.performanceName,
         performanceTitle: performanceTitle?.title,
         scheduleName: selectedPerformance.scheduleName,
+        scheduleDate,
+        scheduleTime,
+        scheduleEndTime,
         ticketTypeLabel: selectedTicketType.name,
         relationshipName: selectedRelationshipName ?? '-',
         relationshipId: selectedRelationshipId ?? 1,

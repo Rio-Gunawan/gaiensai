@@ -9,6 +9,9 @@ export type IssueResultPayload = {
   performanceName: string;
   performanceTitle: string;
   scheduleName: string;
+  scheduleDate: string;
+  scheduleTime: string;
+  scheduleEndTime: string;
   ticketTypeLabel: string;
   relationshipName: string;
   relationshipId: number;

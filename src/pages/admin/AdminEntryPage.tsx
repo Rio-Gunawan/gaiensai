@@ -1476,7 +1476,10 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
     // カメラモードを切り替える
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(newFacingMode);
+    setTimeout(() => {
+      // 確実に起動できるよう時間をおく
+      setFacingMode(newFacingMode);
+    }, 800);
   }, [facingMode, effectiveMode]);
 
   const handleReScan = useCallback(async () => {

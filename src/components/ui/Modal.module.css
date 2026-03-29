@@ -38,7 +38,7 @@
   border: none;
   border-radius: 8px;
   padding: 0.5rem 0.8rem;
-  background: var(--accent-color);
+  background: var(--darker-accent-color);
   color: #fff;
 }
 

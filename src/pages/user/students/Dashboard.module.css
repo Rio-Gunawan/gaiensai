@@ -7,7 +7,7 @@
   margin: 0.5rem auto;
   padding: 1rem;
 
-  background: var(--accent-color);
+  background: var(--darker-accent-color);
   border-radius: 12px;
   border: 1px solid var(--translucent-w-bg-color);
   box-shadow: 0 4px 8px var(--translucent-b-bg-color);

@@ -244,7 +244,7 @@
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
-  background: var(--accent-color);
+  background: var(--darker-accent-color);
   color: var(--main-text-color);
   border: none;
   transition:
@@ -342,30 +342,6 @@
 .ticketMetaValue {
   font-weight: 700;
   color: var(--main-text-color);
-}
-
-.ticketLinkButton {
-  margin-top: auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.9rem;
-  background-color: var(--select-bg-color);
-  border: 1px solid var(--accent-color);
-  color: var(--accent-color);
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 700;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ticketLinkButton:hover {
-    background-color: var(--accent-color);
-    color: var(--main-bg-color);
-  }
 }
 
 .buttonLink {

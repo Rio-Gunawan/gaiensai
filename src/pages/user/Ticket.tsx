@@ -13,10 +13,7 @@ import {
   touchTicketDisplayCacheOpenedAt,
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache.ts';
-import {
-  decodeAndVerifyTicket,
-  type TicketDecodedDisplaySeed,
-} from '../../features/tickets/ticketCodeDecode.ts';
+import { type TicketDecodedDisplaySeed } from '../../features/tickets/ticketCodeDecode.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -30,6 +27,7 @@ import type {
   TicketListSortMode,
 } from '../../features/tickets/IssuedTicketCardList.tsx';
 import { useTurnstile } from '../../hooks/useTurnstile.ts';
+import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -298,24 +296,24 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       setErrorMessages([]);
       const nonBlockingErrors: string[] = [];
 
-      const { decoded, signatureIsValid, isTicketThisYear } =
-        await decodeAndVerifyTicket(code, signature);
-
-      if (!decoded) {
+      // ステップ1: 復号化のみを実行（署名検証はバックグラウンド）
+      let decoded: TicketDecodedDisplaySeed | null = null;
+      try {
+        const { decodeTicketCodeWithEnv, toTicketDecodedDisplaySeed } =
+          await import('../../features/tickets/ticketCodeDecode.ts');
+        const decodedRaw = await decodeTicketCodeWithEnv(code);
+        decoded = toTicketDecodedDisplaySeed(decodedRaw);
+        if (!decoded) {
+          setErrorMessages(['チケット情報の復元に失敗しました。']);
+          setTicketStatus('unknown');
+          setLoading(false);
+          return;
+        }
+      } catch {
         setErrorMessages(['チケット情報の復元に失敗しました。']);
         setTicketStatus('unknown');
         setLoading(false);
         return;
-      }
-
-      if (!signatureIsValid) {
-        nonBlockingErrors.push(
-          'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
-        );
-      }
-
-      if (!isTicketThisYear) {
-        setWarningMessages(['今年度のチケットではありません。']);
       }
 
       touchTicketDisplayCacheOpenedAt(code);
@@ -332,28 +330,44 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         setTicket(resolvedCachedTicket);
         setTicketStatus(cached.status);
         setErrorMessages(nonBlockingErrors);
-        if (!isTicketThisYear) {
-          setWarningMessages(['今年度のチケットではありません。']);
-        }
         setLoading(false);
 
-        // バックグラウンドでステータス確認を実行
+        // バックグラウンドで署名検証とステータス確認を実行
         void (async () => {
-          const validityResult = await checkTicketValidity(code);
+          const { verifyTicketSignature } =
+            await import('../../features/tickets/ticketCodeDecode.ts');
+          const [signatureIsValid, validityResult] = await Promise.all([
+            verifyTicketSignature(code, signature),
+            checkTicketValidity(code),
+          ]);
+
+          let hasUpdates = false;
+          const updatedTicket = { ...resolvedCachedTicket };
+
+          if (!signatureIsValid) {
+            setErrorMessages((prev) => [
+              ...prev,
+              'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
+            ]);
+          }
+
           if (validityResult.status !== cached.status) {
-            const updatedTicket: TicketDisplay = {
-              ...resolvedCachedTicket,
-              status: validityResult.status,
-            };
+            updatedTicket.status = validityResult.status;
+            hasUpdates = true;
+          }
+
+          if (hasUpdates) {
             setTicket(updatedTicket);
             setTicketStatus(validityResult.status);
             writeTicketDisplayCache(code, updatedTicket);
-            if (validityResult.errorMessage) {
-              setErrorMessages((prev) => [
-                ...prev,
-                validityResult.errorMessage!,
-              ]);
-            }
+          }
+
+          if (validityResult.errorMessage) {
+            setErrorMessages((prev) =>
+              prev.includes(validityResult.errorMessage!)
+                ? prev
+                : [...prev, validityResult.errorMessage!],
+            );
           }
         })();
         return;
@@ -445,14 +459,37 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       setTicket(snapshotTicket);
       setTicketStatus('unknown');
       setErrorMessages(nonBlockingErrors);
-      if (!isTicketThisYear) {
-        setWarningMessages(['今年度のチケットではありません。']);
-      }
       setLoading(false);
 
-      // バックグラウンドで有効性確認と詳細情報を取得して更新
+      // バックグラウンドで年度チェック、署名検証、有効性確認を実行
       void (async () => {
-        const validityResult = await checkTicketValidity(code);
+        const year = Number(decoded.year);
+        const currentYearModulo = new Date().getFullYear() % (2 ** Number(YEAR_BITS));
+        const isTicketThisYear = year === currentYearModulo;
+
+        if (!isTicketThisYear) {
+          setWarningMessages(['今年度のチケットではありません。']);
+        }
+
+        // 署名検証と有効性確認を並列実行
+        const { verifyTicketSignature } =
+          await import('../../features/tickets/ticketCodeDecode.ts');
+        const [signatureIsValid, validityResult] = await Promise.all([
+          verifyTicketSignature(code, signature),
+          checkTicketValidity(code),
+        ]);
+
+        if (!signatureIsValid) {
+          setErrorMessages((prev) =>
+            prev.includes('チケット署名の検証に失敗しました')
+              ? prev
+              : [
+                  ...prev,
+                  'チケット署名の検証に失敗しました。不正なチケットの可能性があります。',
+                ],
+          );
+        }
+
         setTicketStatus(validityResult.status);
 
         try {
@@ -591,7 +628,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           }
 
           if (validityResult.errorMessage) {
-            setErrorMessages((prev) => [...prev, validityResult.errorMessage!]);
+            setErrorMessages((prev) =>
+              prev.includes(validityResult.errorMessage!)
+                ? prev
+                : [...prev, validityResult.errorMessage!],
+            );
           }
         } catch {
           // バックグラウンド更新に失敗してもユーザーに影響を与えない

@@ -368,14 +368,15 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         (relationship) => relationship.id === decoded.relationshipId,
       );
 
+      // スナップショットから初期データを準備
       let performanceName = '-';
-      let performanceTitle: string | null = null;
+      const performanceTitle: string | null = null;
       let scheduleName = '-';
       let scheduleDate = '-';
       let scheduleTime = '';
       let scheduleEndTime = '';
-      let ticketTypeLabel = snapshotTicketType?.name ?? '-';
-      let relationshipName = snapshotRelationship?.name ?? '-';
+      const ticketTypeLabel = snapshotTicketType?.name ?? '-';
+      const relationshipName = snapshotRelationship?.name ?? '-';
 
       if (isAdmissionOnly) {
         performanceName = '入場専用券';
@@ -419,140 +420,8 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           : '-';
       }
 
-      let usedSnapshotFallback = false;
-
-      try {
-        if (isAdmissionOnly) {
-          const [ticketTypeRes, relationshipRes] = await Promise.all([
-            supabase
-              .from('ticket_types')
-              .select('name')
-              .eq('id', decoded.ticketTypeId)
-              .maybeSingle(),
-            supabase
-              .from('relationships')
-              .select('name')
-              .eq('id', decoded.relationshipId)
-              .maybeSingle(),
-          ]);
-
-          if (
-            ticketTypeRes.error ||
-            relationshipRes.error ||
-            !ticketTypeRes.data ||
-            !relationshipRes.data
-          ) {
-            throw new Error('failed_to_fetch_ticket_master');
-          }
-
-          ticketTypeLabel = ticketTypeRes.data.name ?? '-';
-          relationshipName = relationshipRes.data.name ?? '-';
-        } else {
-          const [
-            ticketTypeRes,
-            relationshipRes,
-            performanceRes,
-            scheduleRes,
-            configRes,
-          ] = await Promise.all([
-            supabase
-              .from('ticket_types')
-              .select('name')
-              .eq('id', decoded.ticketTypeId)
-              .maybeSingle(),
-            supabase
-              .from('relationships')
-              .select('name')
-              .eq('id', decoded.relationshipId)
-              .maybeSingle(),
-            supabase
-              .from('class_performances')
-              .select('class_name, title')
-              .eq('id', decoded.performanceId)
-              .maybeSingle(),
-            supabase
-              .from('performances_schedule')
-              .select('round_name, start_at')
-              .eq('id', decoded.scheduleId)
-              .maybeSingle(),
-            supabase
-              .from('configs')
-              .select('show_length')
-              .order('id', { ascending: true })
-              .limit(1)
-              .maybeSingle(),
-          ]);
-
-          if (
-            ticketTypeRes.error ||
-            relationshipRes.error ||
-            performanceRes.error ||
-            scheduleRes.error ||
-            configRes.error ||
-            !ticketTypeRes.data ||
-            !relationshipRes.data ||
-            !performanceRes.data ||
-            !scheduleRes.data
-          ) {
-            throw new Error('failed_to_fetch_ticket_display_data');
-          }
-
-          ticketTypeLabel = ticketTypeRes.data.name ?? '-';
-          relationshipName = relationshipRes.data.name ?? '-';
-          performanceName = performanceRes.data.class_name ?? '-';
-          performanceTitle = performanceRes.data.title ?? null;
-          scheduleName = scheduleRes.data.round_name ?? '-';
-
-          const startAt = scheduleRes.data.start_at
-            ? new Date(scheduleRes.data.start_at)
-            : null;
-          const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
-          const endAt =
-            startAt && Number.isFinite(showLengthMinutes)
-              ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
-              : null;
-
-          scheduleTime = startAt
-            ? startAt.toLocaleTimeString('ja-JP', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : '-';
-          scheduleEndTime = endAt
-            ? endAt.toLocaleTimeString('ja-JP', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : '-';
-          scheduleDate = startAt
-            ? startAt.toLocaleDateString('ja-JP', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-              })
-            : '-';
-        }
-      } catch {
-        usedSnapshotFallback = true;
-        nonBlockingErrors.push(
-          'チケット詳細の取得に失敗したため、保存済みデータを表示しています。',
-        );
-      }
-
-      if (usedSnapshotFallback) {
-        if (!isAdmissionOnly && (!snapshotPerformance || !snapshotSchedule)) {
-          nonBlockingErrors.push(
-            '一部の公演情報を最新データから解決できなかったため、表示内容に不足がある可能性があります。',
-          );
-        }
-        if (!snapshotTicketType || !snapshotRelationship) {
-          nonBlockingErrors.push(
-            '券種または間柄マスタを取得できなかったため、一部項目が「-」表示になる場合があります。',
-          );
-        }
-      }
-
-      const resolvedTicket: TicketDisplay = {
+      // スナップショットデータで初期表示
+      const snapshotTicket: TicketDisplay = {
         ...decoded,
         code,
         signature,
@@ -566,15 +435,151 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         relationshipName,
         status: validityResult.status,
       };
-      setTicket(resolvedTicket);
-      if (!usedSnapshotFallback) {
-        writeTicketDisplayCache(code, resolvedTicket);
-      }
+      setTicket(snapshotTicket);
       setErrorMessages(nonBlockingErrors);
       if (!isTicketThisYear) {
         setWarningMessages(['今年度のチケットではありません。']);
       }
       setLoading(false);
+
+      // バックグラウンドでSupabaseから詳細情報を取得して更新
+      void (async () => {
+        try {
+          if (isAdmissionOnly) {
+            const [ticketTypeRes, relationshipRes] = await Promise.all([
+              supabase
+                .from('ticket_types')
+                .select('name')
+                .eq('id', decoded.ticketTypeId)
+                .maybeSingle(),
+              supabase
+                .from('relationships')
+                .select('name')
+                .eq('id', decoded.relationshipId)
+                .maybeSingle(),
+            ]);
+
+            if (
+              ticketTypeRes.error ||
+              relationshipRes.error ||
+              !ticketTypeRes.data ||
+              !relationshipRes.data
+            ) {
+              return;
+            }
+
+            const updatedTicket: TicketDisplay = {
+              ...snapshotTicket,
+              ticketTypeLabel: ticketTypeRes.data.name ?? '-',
+              relationshipName: relationshipRes.data.name ?? '-',
+            };
+            setTicket(updatedTicket);
+            writeTicketDisplayCache(code, updatedTicket);
+          } else {
+            const [
+              ticketTypeRes,
+              relationshipRes,
+              performanceRes,
+              scheduleRes,
+              configRes,
+            ] = await Promise.all([
+              supabase
+                .from('ticket_types')
+                .select('name')
+                .eq('id', decoded.ticketTypeId)
+                .maybeSingle(),
+              supabase
+                .from('relationships')
+                .select('name')
+                .eq('id', decoded.relationshipId)
+                .maybeSingle(),
+              supabase
+                .from('class_performances')
+                .select('class_name, title')
+                .eq('id', decoded.performanceId)
+                .maybeSingle(),
+              supabase
+                .from('performances_schedule')
+                .select('round_name, start_at')
+                .eq('id', decoded.scheduleId)
+                .maybeSingle(),
+              supabase
+                .from('configs')
+                .select('show_length')
+                .order('id', { ascending: true })
+                .limit(1)
+                .maybeSingle(),
+            ]);
+
+            if (
+              ticketTypeRes.error ||
+              relationshipRes.error ||
+              performanceRes.error ||
+              scheduleRes.error ||
+              configRes.error ||
+              !ticketTypeRes.data ||
+              !relationshipRes.data ||
+              !performanceRes.data ||
+              !scheduleRes.data
+            ) {
+              return;
+            }
+
+            // Supabaseから取得した詳細情報を処理
+            const updatedPerformanceName = performanceRes.data.class_name ?? '-';
+            const updatedPerformanceTitle = performanceRes.data.title ?? null;
+            const updatedScheduleName = scheduleRes.data.round_name ?? '-';
+            let updatedScheduleDate = '-';
+            let updatedScheduleTime = '';
+            let updatedScheduleEndTime = '';
+
+            const startAt = scheduleRes.data.start_at
+              ? new Date(scheduleRes.data.start_at)
+              : null;
+            const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
+            const endAt =
+              startAt && Number.isFinite(showLengthMinutes)
+                ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+                : null;
+
+            updatedScheduleTime = startAt
+              ? startAt.toLocaleTimeString('ja-JP', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '-';
+            updatedScheduleEndTime = endAt
+              ? endAt.toLocaleTimeString('ja-JP', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '-';
+            updatedScheduleDate = startAt
+              ? startAt.toLocaleDateString('ja-JP', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                })
+              : '-';
+
+            const updatedTicket: TicketDisplay = {
+              ...snapshotTicket,
+              performanceName: updatedPerformanceName,
+              performanceTitle: updatedPerformanceTitle,
+              scheduleName: updatedScheduleName,
+              scheduleDate: updatedScheduleDate,
+              scheduleTime: updatedScheduleTime,
+              scheduleEndTime: updatedScheduleEndTime,
+              ticketTypeLabel: ticketTypeRes.data.name ?? '-',
+              relationshipName: relationshipRes.data.name ?? '-',
+            };
+            setTicket(updatedTicket);
+            writeTicketDisplayCache(code, updatedTicket);
+          }
+        } catch {
+          // バックグラウンド更新に失敗してもユーザーに影響を与えない
+        }
+      })();
     };
 
     void loadTicket();
@@ -847,8 +852,12 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       <h1 className={pageStyles.pageTitle}>チケットを表示</h1>
       <Alert type='warning'>
         <ul>
-          <li>必ず<strong>スクリーンショット</strong>で保存してください。</li>
-          <li>このQRコードは<strong>校内入場</strong>にも使用可能です。</li>
+          <li>
+            必ず<strong>スクリーンショット</strong>で保存してください。
+          </li>
+          <li>
+            このQRコードは<strong>校内入場</strong>にも使用可能です。
+          </li>
         </ul>
       </Alert>
       {warningMessages.length > 0 && (

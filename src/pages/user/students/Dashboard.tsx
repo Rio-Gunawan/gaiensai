@@ -27,7 +27,7 @@ import { IoMdAdd } from 'react-icons/io';
 import PerformancesTable from '../../../features/performances/PerformancesTable';
 import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
-import { formatDateText } from '../../../utils/FormatDateText';
+import { formatDateText } from '../../../utils/formatDateText';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;

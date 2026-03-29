@@ -15,7 +15,7 @@ import type {
 } from '../../../types/Issue.types';
 import styles from './Issue.module.css';
 import BackButton from '../../../components/ui/BackButton';
-import { formatDateText } from '../../../utils/FormatDateText';
+import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 
 const MAX_ISSUE_COUNT = 5;

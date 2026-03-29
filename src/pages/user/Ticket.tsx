@@ -29,7 +29,7 @@ import type {
 import { useTurnstile } from '../../hooks/useTurnstile.ts';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
 import iconUrl from '../../assets/icon.webp';
-import { formatDateText } from '../../utils/FormatDateText.ts';
+import { formatDateText } from '../../utils/formatDateText.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;

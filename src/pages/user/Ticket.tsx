@@ -28,6 +28,7 @@ import type {
 } from '../../features/tickets/IssuedTicketCardList.tsx';
 import { useTurnstile } from '../../hooks/useTurnstile.ts';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
+import iconUrl from '../../assets/icon.webp';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -464,7 +465,8 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       // バックグラウンドで年度チェック、署名検証、有効性確認を実行
       void (async () => {
         const year = Number(decoded.year);
-        const currentYearModulo = new Date().getFullYear() % (2 ** Number(YEAR_BITS));
+        const currentYearModulo =
+          new Date().getFullYear() % 2 ** Number(YEAR_BITS);
         const isTicketThisYear = year === currentYearModulo;
 
         if (!isTicketThisYear) {
@@ -905,10 +907,16 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
     .filter((t) => t.code !== code)
     .filter((t) => t.status === 'valid');
 
+  const eventLabel = `${config.name}${config.year}`;
+
   return (
-    <>
-      <h1 className={pageStyles.pageTitle}>チケットを表示</h1>
-      <Alert type='warning'>
+    <div className={styles.printRoot}>
+      <div className={styles.printHeader}>
+        <img src={iconUrl} alt='校章' />
+        <span>{eventLabel}</span>
+      </div>
+      <h1 className={pageStyles.pageTitle}>入場チケット</h1>
+      <Alert type='warning' className={styles.noPrint}>
         <ul>
           <li>
             必ず<strong>スクリーンショット</strong>で保存してください。
@@ -918,8 +926,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           </li>
         </ul>
       </Alert>
+      <p className={styles.printNotice}>
+        このQRコードは校内入場にも使用可能です。
+      </p>
       {warningMessages.length > 0 && (
-        <Alert type='error'>
+        <Alert type='error' className={styles.noPrint}>
           {warningMessages.length === 1 ? (
             <p>{warningMessages[0]}</p>
           ) : (
@@ -950,7 +961,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           </p>
         )}
         {errorMessages.length > 0 && (
-          <Alert type='error'>
+          <Alert type='error' className={styles.noPrint}>
             {errorMessages.length === 1 ? (
               <p>{errorMessages[0]}</p>
             ) : (
@@ -975,41 +986,57 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           </div>
         )}
 
-        <div className={styles.ticketDetails}>
-          <div className={styles.detailRow}>
-            <span className={styles.detailLabel}>日時</span>
-            <span className={styles.detailValue}>
-              {ticket.scheduleDate}
-              {ticket.scheduleTime && ticket.scheduleEndTime && (
-                <>
-                  <br />
-                  {ticket.scheduleTime} - {ticket.scheduleEndTime}
-                </>
-              )}
-            </span>
+        {ticketStatus !== 'cancelled' && (
+          <p className={styles.printUrlContainer}>
+            <a href={`/t/${token}`}>{ticketUrl}</a>
+          </p>
+        )}
+
+        <div className={styles.detailsWrapper}>
+          <div className={styles.ticketDetails}>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>日時</span>
+              <span className={styles.detailValue}>
+                {ticket.scheduleDate}
+                {ticket.scheduleTime && ticket.scheduleEndTime && (
+                  <>
+                    <br />
+                    {ticket.scheduleTime} - {ticket.scheduleEndTime}
+                  </>
+                )}
+              </span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>券種</span>
+              <span className={styles.detailValue}>
+                {ticket.ticketTypeLabel}
+              </span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>発行者</span>
+              <span className={styles.detailValue}>{ticket.affiliation}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>間柄</span>
+              <span className={styles.detailValue}>
+                {ticket.relationshipName}
+              </span>
+            </div>
           </div>
-          <div className={styles.detailRow}>
-            <span className={styles.detailLabel}>券種</span>
-            <span className={styles.detailValue}>{ticket.ticketTypeLabel}</span>
-          </div>
-          <div className={styles.detailRow}>
-            <span className={styles.detailLabel}>発行者</span>
-            <span className={styles.detailValue}>{ticket.affiliation}</span>
-          </div>
-          <div className={styles.detailRow}>
-            <span className={styles.detailLabel}>間柄</span>
-            <span className={styles.detailValue}>
-              {ticket.relationshipName}
-            </span>
+          <div className={styles.ticketPageQrSection}>
+            <p className={styles.ticketPageQrCaption}>チケットページはこちら</p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <QRCode value={ticketUrl} size={120} />
+            </div>
           </div>
         </div>
 
         {ticketStatus !== 'cancelled' && (
           <div className={styles.actionSection}>
-            <p className={styles.urlContainer}>
+            <p className={` ${styles.urlContainer} ${styles.noPrint}`}>
               <a href={`/t/${token}`}>{ticketUrl}</a>
             </p>
-            <div className={styles.actionButtons}>
+            <div className={`${styles.actionButtons} ${styles.noPrint}`}>
               <button
                 className={styles.copyButton}
                 onClick={async () => {
@@ -1031,26 +1058,38 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               </button>
             </div>
             <p
-              className={styles.copySucceed}
-              style={{ opacity: showCopySucceed ? 1 : 0 }}
+              className={`${styles.copySucceed} ${styles.noPrint}`}
+              style={{
+                opacity: showCopySucceed ? 1 : 0,
+                display: showCopySucceed ? 'block' : 'none',
+              }}
             >
               コピーしました
             </p>
             <button
-              className={styles.cancelButton}
+              className={`${styles.cancelButton} ${styles.noPrint}`}
               disabled={!canCancelTicket}
               onClick={handleCancelTicket}
             >
               <MdClose />
               {cancelLoading ? 'キャンセル中...' : 'チケットをキャンセル'}
             </button>
+            <div className={styles.noPrint}>
+              <button
+                type='button'
+                className={styles.printButton}
+                onClick={() => window.print()}
+              >
+                このチケットを印刷
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {isShortUrlModalOpen && (
         <div
-          className={styles.shortUrlModalOverlay}
+          className={`${styles.shortUrlModalOverlay} ${styles.noPrint}`}
           role='presentation'
           onClick={() => setIsShortUrlModalOpen(false)}
         >
@@ -1104,7 +1143,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         </div>
       )}
 
-      <section>
+      <section className={styles.noPrint}>
         <h3>注意事項</h3>
         <ul className={styles.notes}>
           <li>
@@ -1132,7 +1171,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         </ul>
       </section>
 
-      <section>
+      <section className={styles.noPrint}>
         <h3>間柄の変更</h3>
         <div className={styles.relationshipChangeSection}>
           <button
@@ -1151,7 +1190,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
       {isRelationshipModalOpen && (
         <div
-          className={styles.relationshipModalOverlay}
+          className={`${styles.relationshipModalOverlay} ${styles.noPrint}`}
           role='presentation'
           onClick={() => {
             if (!isChangingRelationship) {
@@ -1247,7 +1286,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         </div>
       )}
 
-      <section>
+      <section className={styles.noPrint}>
         <h3>他のチケット</h3>
         <TicketListContent
           embedded={false}
@@ -1258,7 +1297,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           emptyMessage='この端末で表示したことのあるチケットはまだありません。'
         />
       </section>
-    </>
+    </div>
   );
 };
 

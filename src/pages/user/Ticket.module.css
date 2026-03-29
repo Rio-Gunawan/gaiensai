@@ -6,6 +6,37 @@
   position: relative;
 }
 
+.printHeader {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.printHeader img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.printButton {
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.printNotice {
+  display: none;
+  text-align: center;
+  font-weight: 700;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.printUrlContainer {
+  display: none;
+}
+
 .serialBadge {
   position: absolute;
   top: -1.2rem;
@@ -105,7 +136,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   width: 100%;
 }
 
@@ -115,7 +146,7 @@
   padding: 10px;
   word-break: break-all;
   border-radius: 5px;
-  margin-top: 10px;
+  margin: 0;
   font-size: 0.8em;
   /* 全て選択可能にする */
   user-select: all;
@@ -169,6 +200,20 @@
   background: none;
   border: none;
   outline: none;
+}
+
+.ticketPageQrSection {
+  display: none;
+  text-align: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.ticketPageQrCaption {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--main-text-color);
 }
 
 .shortUrlModalOverlay {
@@ -325,4 +370,98 @@
 
 .turnstileOk {
   color: var(--accent-color);
+}
+
+@media print {
+  :global(:root) {
+    --main-bg-color: #ffffff !important;
+    --main-text-color: #111111 !important;
+    --heading-text-color: #111111 !important;
+    --sub-text-color: #333333 !important;
+    --accent-color: #111111 !important;
+    --error-text-color: #111111 !important;
+    --success-color: #111111 !important;
+    --url-bg-color: #ffffff !important;
+    --url-text-color: #111111 !important;
+    --select-bg-color: #ffffff !important;
+    --select-border-color: #333333 !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  :global(body),
+  :global(#app) {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  :global(header),
+  :global(footer),
+  :global(button) {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  .printRoot {
+    gap: 0.4rem;
+  }
+
+  .printHeader {
+    display: flex;
+  }
+
+  .printNotice {
+    display: block;
+  }
+
+  .noPrint {
+    display: none !important;
+  }
+
+  .qrSection {
+    margin: 0.8rem 0;
+  }
+
+  .ticketCode {
+    margin: 0.4rem 0 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .detailsWrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .ticketDetails {
+    border-top: none;
+    padding: 0.8rem;
+  }
+
+  .ticketPageQrSection {
+    display: flex;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .printUrlContainer {
+    display: block;
+    padding: 10px;
+    word-break: break-all;
+    border-radius: 5px;
+    margin: 0;
+    font-size: 0.8em;
+    font-family: monospace;
+    border: 1px solid #333333;
+    background: #ffffff;
+    color: #111111;
+    margin: 0.4rem 0 0.8rem;
+  }
 }

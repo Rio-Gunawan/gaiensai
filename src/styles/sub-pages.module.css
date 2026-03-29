@@ -7,3 +7,14 @@
   margin-left: 1rem;
   margin-bottom: 2rem;
 }
+
+@media print {
+  .subPageShell {
+    padding: 1rem;
+  }
+
+  .pageTitle {
+    text-align: center;
+    margin: 1.5rem;
+  }
+}

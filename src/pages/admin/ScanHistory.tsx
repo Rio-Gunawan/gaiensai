@@ -21,15 +21,28 @@ import {
   fetchScanRecordsFromServer,
   fetchTicketsFromServer,
   isScanServerUnavailableError,
+  logTicketToServer as postTicketLogToServer,
   scanResultLabels,
   type OperationLogRow,
   type ScanRecord,
   type TicketRow,
   updateRecordCountOnServer,
+  updateReentryCountOnServer,
+  useTicketOnServer,
 } from '../../features/admin/scanSync';
 import {
+  clearPendingOperationsForLog,
   estimateEntryCountFromRecords,
+  dropPendingOperation,
+  enqueuePendingCountUpdate,
+  enqueuePendingDeleteLog,
   readCachedScanRecords,
+  readPendingSyncOperations,
+  removeCachedRecord,
+  replaceCachedRecordId,
+  replaceCachedRecordsWithServerRecords,
+  updateCachedRecordCount,
+  updatePendingScanLogCount,
 } from '../../features/admin/offlineScanCache';
 import {
   decodeTicketCodeWithEnv,
@@ -309,6 +322,27 @@ const ScanHistory = () => {
 
   const hasServerUrl = Boolean(localServerUrl);
 
+  const refreshFromLocalCache = () => {
+    const cachedRecords = readCachedScanRecords();
+    setRecords(cachedRecords);
+    setEntryCount(estimateEntryCountFromRecords(cachedRecords));
+    setTickets(buildTicketRowsFromRecords(cachedRecords));
+    setOperationLogs([]);
+  };
+
+  const markServerOffline = () => {
+    refreshFromLocalCache();
+    setOfflineNotice(
+      '同期サーバーに接続できないため、ローカルストレージ上の履歴を表示しています。人数変更及び削除は未同期として保存され、再接続時に同期されます。',
+    );
+    setIsOfflineMode(true);
+  };
+
+  const markServerOnline = () => {
+    setOfflineNotice(null);
+    setIsOfflineMode(false);
+  };
+
   useEffect(() => {
     const savedUrl = localStorage.getItem(SCAN_SERVER_URL_STORAGE_KEY);
     if (savedUrl) {
@@ -353,10 +387,71 @@ const ScanHistory = () => {
 
     let cancelled = false;
 
+    const syncPendingOperations = async () => {
+      const operations = readPendingSyncOperations();
+      if (operations.length === 0) {
+        return;
+      }
+
+      for (const operation of operations) {
+        try {
+          if (operation.type === 'scanLog') {
+            if (
+              operation.result === 'success' ||
+              operation.result === 'reentry'
+            ) {
+              await useTicketOnServer(
+                localServerUrl,
+                operation.ticketId,
+                operation.count,
+              );
+            }
+
+            const serverLogId = await postTicketLogToServer(
+              localServerUrl,
+              operation.ticketCode,
+              operation.result,
+              operation.count,
+            );
+
+            if (operation.result === 'reentry') {
+              await updateReentryCountOnServer(
+                localServerUrl,
+                operation.ticketId,
+                operation.count,
+              );
+            }
+
+            if (serverLogId !== null && operation.localRecordId < 0) {
+              replaceCachedRecordId(operation.localRecordId, serverLogId);
+            }
+          } else if (operation.type === 'countUpdate') {
+            await updateRecordCountOnServer(
+              localServerUrl,
+              operation.logId,
+              operation.code,
+              operation.count,
+            );
+          } else if (operation.type === 'deleteLog') {
+            await deleteScanRecordOnServer(localServerUrl, operation.logId);
+          }
+
+          dropPendingOperation(operation.opId);
+        } catch (syncError) {
+          if (isScanServerUnavailableError(syncError)) {
+            markServerOffline();
+            break;
+          }
+          break;
+        }
+      }
+    };
+
     const fetchAll = async () => {
       setIsLoading(true);
       setError(null);
       try {
+        await syncPendingOperations();
         const [nextRecords, nextEntryCount, nextTickets, nextOperationLogs] =
           await Promise.all([
             fetchScanRecordsFromServer(localServerUrl, {
@@ -368,32 +463,23 @@ const ScanHistory = () => {
           ]);
 
         if (!cancelled) {
-          setRecords(nextRecords);
+          const merged = replaceCachedRecordsWithServerRecords(nextRecords);
+          setRecords(merged);
           setEntryCount(nextEntryCount);
           setTickets(nextTickets);
           setOperationLogs(nextOperationLogs);
-          setOfflineNotice(null);
-          setIsOfflineMode(false);
+          markServerOnline();
         }
       } catch (fetchError) {
         if (!cancelled) {
           if (isScanServerUnavailableError(fetchError)) {
-            const cachedRecords = readCachedScanRecords();
-            setRecords(cachedRecords);
-            setEntryCount(estimateEntryCountFromRecords(cachedRecords));
-            setTickets(buildTicketRowsFromRecords(cachedRecords));
-            setOperationLogs([]);
-            setOfflineNotice(
-              '同期サーバーに接続できないため、ローカルストレージ上の履歴を表示しています。人数変更及び削除はできません。',
-            );
-            setIsOfflineMode(true);
+            markServerOffline();
             setError(null);
             return;
           }
 
           setError('履歴情報の取得に失敗しました。');
-          setOfflineNotice(null);
-          setIsOfflineMode(false);
+          markServerOnline();
         }
       } finally {
         if (!cancelled) {
@@ -599,10 +685,6 @@ const ScanHistory = () => {
     code: string,
     delta: number,
   ) => {
-    if (!localServerUrl || isOfflineMode) {
-      return;
-    }
-
     let next = 1;
     setRecords((prev) =>
       prev.map((record) => {
@@ -614,9 +696,27 @@ const ScanHistory = () => {
       }),
     );
 
+    updateCachedRecordCount(logId, next);
+    if (logId < 0) {
+      updatePendingScanLogCount(logId, next);
+      return;
+    }
+
+    if (!localServerUrl || isOfflineMode) {
+      enqueuePendingCountUpdate(logId, code, next);
+      markServerOffline();
+      return;
+    }
+
     try {
       await updateRecordCountOnServer(localServerUrl, logId, code, next);
-    } catch {
+      markServerOnline();
+    } catch (updateError) {
+      enqueuePendingCountUpdate(logId, code, next);
+      if (isScanServerUnavailableError(updateError)) {
+        markServerOffline();
+        return;
+      }
       setError(
         '人数変更の保存に失敗しました。再読み込みして再度お試しください。',
       );
@@ -630,18 +730,36 @@ const ScanHistory = () => {
   };
 
   const handleDeleteLogConfirm = async () => {
-    if (!localServerUrl || pendingDeleteLogId === null || isOfflineMode) {
+    if (pendingDeleteLogId === null) {
+      return;
+    }
+
+    const logId = pendingDeleteLogId;
+    setRecords((prev) => prev.filter((record) => record.id !== logId));
+    removeCachedRecord(logId);
+    clearPendingOperationsForLog(logId);
+    setShowDeleteLogModal(false);
+    setPendingDeleteLogId(null);
+
+    if (logId < 0) {
+      return;
+    }
+
+    if (!localServerUrl || isOfflineMode) {
+      enqueuePendingDeleteLog(logId);
+      markServerOffline();
       return;
     }
 
     try {
-      await deleteScanRecordOnServer(localServerUrl, pendingDeleteLogId);
-      setRecords((prev) =>
-        prev.filter((record) => record.id !== pendingDeleteLogId),
-      );
-      setShowDeleteLogModal(false);
-      setPendingDeleteLogId(null);
-    } catch {
+      await deleteScanRecordOnServer(localServerUrl, logId);
+      markServerOnline();
+    } catch (deleteError) {
+      enqueuePendingDeleteLog(logId);
+      if (isScanServerUnavailableError(deleteError)) {
+        markServerOffline();
+        return;
+      }
       setError('履歴の削除に失敗しました。');
     }
   };
@@ -859,7 +977,6 @@ const ScanHistory = () => {
                                     )
                                   }
                                   aria-label='人数を減らす'
-                                  disabled={isOfflineMode}
                                 >
                                   <FaMinus />
                                 </button>
@@ -878,7 +995,6 @@ const ScanHistory = () => {
                                     )
                                   }
                                   aria-label='人数を増やす'
-                                  disabled={isOfflineMode}
                                 >
                                   <FaPlus />
                                 </button>
@@ -891,7 +1007,6 @@ const ScanHistory = () => {
                               type='button'
                               className={styles.deleteButton}
                               onClick={() => requestDeleteLog(record.id)}
-                              disabled={isOfflineMode}
                             >
                               <TiDelete />
                               削除
@@ -1274,7 +1389,6 @@ const ScanHistory = () => {
                   type='button'
                   className={styles.modalPrimaryButton}
                   onClick={handleDeleteLogConfirm}
-                  disabled={isOfflineMode}
                 >
                   削除
                 </button>

@@ -37,6 +37,8 @@ import {
 } from '../../features/admin/scanSync';
 import {
   appendScanRecordToCache,
+  clearCachedScanRecords,
+  clearPendingSyncOperations,
   clearPendingOperationsForLog,
   dropPendingOperation,
   enqueuePendingCountUpdate,
@@ -554,7 +556,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     try {
       await syncPendingOperations();
       const [records, count, ticketSyncSummary] = await Promise.all([
-        fetchScanRecordsFromServer(localServerUrl),
+        fetchScanRecordsFromServer(localServerUrl, { all: true }),
         fetchEntryCountFromServer(localServerUrl),
         fetchTicketSyncSummaryFromServer(localServerUrl),
       ]);
@@ -1205,9 +1207,47 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       });
     }
 
-    refreshFromLocalCache();
-    return saved.id;
-  }
+  refreshFromLocalCache();
+  return saved.id;
+}
+
+  const reloadFromServerAfterLocalReset = useCallback(async () => {
+    if (!localServerUrl || isOfflineRef.current) {
+      return;
+    }
+
+    await syncPendingOperations();
+    if (getPendingOperationCount() > 0) {
+      return;
+    }
+
+    clearCachedScanRecords();
+    clearPendingSyncOperations();
+
+    try {
+      const [records, count] = await Promise.all([
+        fetchScanRecordsFromServer(localServerUrl, { all: true }),
+        fetchEntryCountFromServer(localServerUrl),
+      ]);
+      const merged = replaceCachedRecordsWithServerRecords(records);
+      setScanRecords(merged.slice(0, 5));
+      setEntryCount(count);
+      setPendingSyncCount(getPendingOperationCount());
+      markServerOnline();
+    } catch (error) {
+      if (isScanServerUnavailableError(error)) {
+        markServerOffline();
+        return;
+      }
+      refreshFromLocalCache();
+    }
+  }, [
+    localServerUrl,
+    markServerOffline,
+    markServerOnline,
+    refreshFromLocalCache,
+    syncPendingOperations,
+  ]);
 
   async function updateCountOnServer(
     logId: number | null,
@@ -1233,6 +1273,8 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     try {
       await updateRecordCountOnServer(localServerUrl, logId, code, count);
       markServerOnline();
+      await reloadFromServerAfterLocalReset();
+      return;
     } catch (error) {
       enqueuePendingCountUpdate(logId, code, count);
       if (isScanServerUnavailableError(error)) {
@@ -1311,6 +1353,8 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     try {
       await deleteScanRecordOnServer(localServerUrl, logId);
       markServerOnline();
+      await reloadFromServerAfterLocalReset();
+      return;
     } catch (error) {
       enqueuePendingDeleteLog(logId);
       if (isScanServerUnavailableError(error)) {

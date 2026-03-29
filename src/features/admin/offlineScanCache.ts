@@ -77,7 +77,29 @@ export const replaceCachedRecordsWithServerRecords = (
   serverRecords: ScanRecord[],
 ): ScanRecord[] => {
   const pendingLocal = readCachedScanRecords().filter((record) => record.id < 0);
-  const merged = sortRecords([...serverRecords, ...pendingLocal]);
+  const operations = readPendingSyncOperations();
+  const deletedIds = new Set<number>();
+  const countOverrides = new Map<number, number>();
+
+  operations.forEach((operation) => {
+    if (operation.type === 'deleteLog') {
+      deletedIds.add(operation.logId);
+    } else if (operation.type === 'countUpdate') {
+      countOverrides.set(operation.logId, operation.count);
+    }
+  });
+
+  const patchedServerRecords = serverRecords
+    .filter((record) => !deletedIds.has(record.id))
+    .map((record) => {
+      const override = countOverrides.get(record.id);
+      if (override === undefined) {
+        return record;
+      }
+      return { ...record, count: override };
+    });
+
+  const merged = sortRecords([...patchedServerRecords, ...pendingLocal]);
   writeCachedScanRecords(merged);
   return merged;
 };
@@ -140,6 +162,14 @@ export const readPendingSyncOperations = (): PendingSyncOperation[] => {
     return [];
   }
   return parsed.operations;
+};
+
+export const clearCachedScanRecords = () => {
+  window.localStorage.removeItem(SCAN_RECORD_CACHE_KEY);
+};
+
+export const clearPendingSyncOperations = () => {
+  window.localStorage.removeItem(PENDING_SYNC_OPERATIONS_KEY);
 };
 
 export const enqueuePendingScanLog = (input: {

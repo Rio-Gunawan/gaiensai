@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'preact/hooks';
-import { MdArrowBack } from 'react-icons/md';
 import IssuedTicketCardList from '../../../features/tickets/IssuedTicketCardList';
 import { useDecodedSerialTickets } from '../../../features/tickets/useDecodedSerialTickets';
 
@@ -8,6 +7,7 @@ import {
   type IssueResultPayload,
 } from '../../../features/issue/issueResultStorage';
 import styles from './Issue.module.css';
+import BackButton from '../../../components/ui/BackButton';
 
 const IssueResult = () => {
   const [result, setResult] = useState<IssueResultPayload | null>(null);
@@ -37,12 +37,7 @@ const IssueResult = () => {
 
   return (
     <div className={styles.issuePage}>
-      <div className={styles.topActions}>
-        <a href='/students/issue' className={styles.topBackButton}>
-          <MdArrowBack />
-          戻る
-        </a>
-      </div>
+      <BackButton href='/students/issue' />
       <h1 className={styles.pageTitle}>発券完了</h1>
 
       {!result ? (

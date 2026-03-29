@@ -68,6 +68,7 @@ const IssueStepDetails = ({
         <label className={styles.formLabel} htmlFor='issue-count'>
           発行枚数
         </label>
+        <p style={{margin: 0, paddingLeft: '1em'}}>この枚数分だけ、1人分のチケットが同時に発券されます。</p>
         <select
           id='issue-count'
           className={styles.select}
@@ -95,17 +96,13 @@ const IssueStepDetails = ({
         <li>
           <span>公演のクラス</span>
           <strong>
-            {selectedPerformance
-              ? selectedPerformance.performanceName
-              : '-'}
+            {selectedPerformance ? selectedPerformance.performanceName : '-'}
           </strong>
         </li>
         <li>
           <span>公演回</span>
           <strong>
-            {selectedPerformance
-              ? selectedPerformance.scheduleName
-              : '-'}
+            {selectedPerformance ? selectedPerformance.scheduleName : '-'}
           </strong>
         </li>
         <li>

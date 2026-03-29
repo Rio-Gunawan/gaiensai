@@ -320,7 +320,7 @@ const ScanHistory = () => {
     };
   }, [records, tickets, operationLogs, activeTab]);
 
-  const hasServerUrl = Boolean(localServerUrl);
+  const hasServerUrl = Boolean(localServerUrl && localServerUrl.trim());
 
   const refreshFromLocalCache = () => {
     const cachedRecords = readCachedScanRecords();
@@ -345,13 +345,13 @@ const ScanHistory = () => {
 
   useEffect(() => {
     const savedUrl = localStorage.getItem(SCAN_SERVER_URL_STORAGE_KEY);
-    if (savedUrl) {
+    if (savedUrl && savedUrl.trim()) {
       setLocalServerUrl(savedUrl);
     } else {
-      setLocalServerUrl(null);
-      setError(
-        '同期サーバーが未設定です。先に「校内入場」で設定してください。',
-      );
+      setLocalServerUrl('');
+      setError(null);
+      // サーバーURLなしの場合、ローカルストレージのデータを表示
+      refreshFromLocalCache();
     }
   }, []);
 
@@ -680,6 +680,14 @@ const ScanHistory = () => {
     }
   };
 
+  const handleContinueWithoutServer = () => {
+    localStorage.setItem(SCAN_SERVER_URL_STORAGE_KEY, '');
+    setLocalServerUrl('');
+    setShowServerModal(false);
+    setError(null);
+    markServerOffline();
+  };
+
   const handleRecordCountChange = async (
     logId: number,
     code: string,
@@ -853,7 +861,7 @@ const ScanHistory = () => {
       <section className={styles.metaRow}>
         <div className={styles.metaItem}>
           <span className={styles.metaLabel}>同期サーバー</span>
-          <span className={styles.metaValue}>{localServerUrl ?? '未設定'}</span>
+          <span className={styles.metaValue}>{localServerUrl || '未設定'}</span>
           <button
             type='button'
             className={styles.changeButton}
@@ -1360,9 +1368,7 @@ const ScanHistory = () => {
         isOpen={showServerModal}
         currentUrl={localServerUrl ?? undefined}
         onSave={handleSaveServerUrl}
-        onContinueWithoutServer={() => {
-          setShowServerModal(false);
-        }}
+        onContinueWithoutServer={handleContinueWithoutServer}
       />
       {showDeleteLogModal && (
         <div className={styles.modalOverlay} onClick={() => undefined}>

@@ -322,34 +322,41 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
       const cached = readTicketDisplayCache<TicketDisplay>(code);
       if (cached) {
-        const validityResult = await checkTicketValidity(code);
+        // キャッシュがある場合：キャッシュですぐに表示
         const resolvedCachedTicket: TicketDisplay = {
           ...cached,
           signature,
           serial:
             typeof cached.serial === 'number' ? cached.serial : decoded.serial,
-          status: validityResult.status,
         };
         setTicket(resolvedCachedTicket);
-        if (resolvedCachedTicket.status !== cached.status) {
-          writeTicketDisplayCache(code, resolvedCachedTicket);
-        }
-        setTicketStatus(validityResult.status);
-        if (validityResult.errorMessage) {
-          nonBlockingErrors.push(validityResult.errorMessage);
-        }
+        setTicketStatus(cached.status);
         setErrorMessages(nonBlockingErrors);
         if (!isTicketThisYear) {
           setWarningMessages(['今年度のチケットではありません。']);
         }
         setLoading(false);
-        return;
-      }
 
-      const validityResult = await checkTicketValidity(code);
-      setTicketStatus(validityResult.status);
-      if (validityResult.errorMessage) {
-        nonBlockingErrors.push(validityResult.errorMessage);
+        // バックグラウンドでステータス確認を実行
+        void (async () => {
+          const validityResult = await checkTicketValidity(code);
+          if (validityResult.status !== cached.status) {
+            const updatedTicket: TicketDisplay = {
+              ...resolvedCachedTicket,
+              status: validityResult.status,
+            };
+            setTicket(updatedTicket);
+            setTicketStatus(validityResult.status);
+            writeTicketDisplayCache(code, updatedTicket);
+            if (validityResult.errorMessage) {
+              setErrorMessages((prev) => [
+                ...prev,
+                validityResult.errorMessage!,
+              ]);
+            }
+          }
+        })();
+        return;
       }
 
       const isAdmissionOnly =
@@ -433,17 +440,21 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         scheduleEndTime,
         ticketTypeLabel,
         relationshipName,
-        status: validityResult.status,
+        status: 'unknown',
       };
       setTicket(snapshotTicket);
+      setTicketStatus('unknown');
       setErrorMessages(nonBlockingErrors);
       if (!isTicketThisYear) {
         setWarningMessages(['今年度のチケットではありません。']);
       }
       setLoading(false);
 
-      // バックグラウンドでSupabaseから詳細情報を取得して更新
+      // バックグラウンドで有効性確認と詳細情報を取得して更新
       void (async () => {
+        const validityResult = await checkTicketValidity(code);
+        setTicketStatus(validityResult.status);
+
         try {
           if (isAdmissionOnly) {
             const [ticketTypeRes, relationshipRes] = await Promise.all([
@@ -526,7 +537,8 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             }
 
             // Supabaseから取得した詳細情報を処理
-            const updatedPerformanceName = performanceRes.data.class_name ?? '-';
+            const updatedPerformanceName =
+              performanceRes.data.class_name ?? '-';
             const updatedPerformanceTitle = performanceRes.data.title ?? null;
             const updatedScheduleName = scheduleRes.data.round_name ?? '-';
             let updatedScheduleDate = '-';
@@ -572,9 +584,14 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               scheduleEndTime: updatedScheduleEndTime,
               ticketTypeLabel: ticketTypeRes.data.name ?? '-',
               relationshipName: relationshipRes.data.name ?? '-',
+              status: validityResult.status,
             };
             setTicket(updatedTicket);
             writeTicketDisplayCache(code, updatedTicket);
+          }
+
+          if (validityResult.errorMessage) {
+            setErrorMessages((prev) => [...prev, validityResult.errorMessage!]);
           }
         } catch {
           // バックグラウンド更新に失敗してもユーザーに影響を与えない

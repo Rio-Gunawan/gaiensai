@@ -891,6 +891,46 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         return;
       }
 
+      // Cache the newly issued ticket to ticketDisplayCache
+      void (async () => {
+        try {
+          const { writeTicketDisplayCache } =
+            await import('../../features/tickets/ticketDisplayCache');
+          const { decodeTicketCodeWithEnv, toTicketDecodedSeed } =
+            await import('../../features/tickets/ticketCodeDecode');
+
+          const decodedRaw = await decodeTicketCodeWithEnv(issuedTicket.code);
+          const decoded = toTicketDecodedSeed(decodedRaw);
+
+          // Get the relationship name for the selected relationship ID
+          const selectedRelationship = relationships.find(
+            (r) => r.id === selectedRelationshipId,
+          );
+          const newRelationshipName = selectedRelationship?.name ?? '-';
+
+          const newTicketCacheEntry: Record<string, unknown> = {
+            code: issuedTicket.code,
+            signature: issuedTicket.signature,
+            serial: decoded?.serial,
+            performanceName: ticket.performanceName,
+            performanceTitle: ticket.performanceTitle,
+            scheduleName: ticket.scheduleName,
+            scheduleDate: ticket.scheduleDate,
+            scheduleTime: ticket.scheduleTime,
+            scheduleEndTime: ticket.scheduleEndTime,
+            ticketTypeLabel: ticket.ticketTypeLabel,
+            relationshipName: newRelationshipName,
+            relationshipId: selectedRelationshipId,
+            status: 'valid',
+            lastOpenedAt: Date.now(),
+          };
+
+          writeTicketDisplayCache(issuedTicket.code, newTicketCacheEntry);
+        } catch {
+          // Ignore cache write failures
+        }
+      })();
+
       // Backend guarantees: either (cancel old + issue new) succeeds, or neither is applied.
       // Mirror that state locally only after success.
       await applyTicketCancelledState();

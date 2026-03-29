@@ -11,5 +11,6 @@ export type IssueResultPayload = {
   scheduleName: string;
   ticketTypeLabel: string;
   relationshipName: string;
+  relationshipId: number;
   issuedTickets: IssuedTicketResult[];
 };

@@ -386,6 +386,7 @@ const Issue = () => {
         scheduleName: selectedPerformance.scheduleName,
         ticketTypeLabel: selectedTicketType.name,
         relationshipName: selectedRelationshipName ?? '-',
+        relationshipId: selectedRelationshipId ?? 1,
         issuedTickets,
       }),
     );

@@ -296,6 +296,30 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
       setTicketCards(cards);
       writeCachedTicketCards(user.id, cards);
+
+      // Cache individual tickets to ticketDisplayCache
+      try {
+        const { writeTicketDisplayCache } =
+          await import('../../../features/tickets/ticketDisplayCache');
+        cards.forEach((card) => {
+          const ticketCacheEntry = {
+            code: card.code,
+            signature: card.signature,
+            serial: card.serial,
+            performanceName: card.performanceName,
+            performanceTitle: card.performanceTitle,
+            scheduleName: card.scheduleName,
+            ticketTypeLabel: card.ticketTypeLabel,
+            relationshipName: card.relationshipName,
+            relationshipId: card.relationshipId,
+            status: card.status,
+          };
+          writeTicketDisplayCache(card.code, ticketCacheEntry);
+        });
+      } catch {
+        // Ignore cache write failures
+      }
+
       setTicketLoading(false);
     };
 

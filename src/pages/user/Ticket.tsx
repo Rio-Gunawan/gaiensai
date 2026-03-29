@@ -846,7 +846,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
     <>
       <h1 className={pageStyles.pageTitle}>チケットを表示</h1>
       <Alert type='warning'>
-        <p>必ずスクリーンショットで保存してください。</p>
+        <ul>
+          <li>必ず<strong>スクリーンショット</strong>で保存してください。</li>
+          <li>このQRコードは<strong>校内入場</strong>にも使用可能です。</li>
+        </ul>
       </Alert>
       {warningMessages.length > 0 && (
         <Alert type='error'>
@@ -1046,6 +1049,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           <li>この券で、校内入場や展示部活を見ることも可能です。</li>
           <li>
             このQRコード1枚につき、一人まで入場可能です。ただし、他の座席を使用しない場合は乳児と同伴可能です。
+          </li>
+          <li>
+            このQRコードは<strong>1度のみ</strong>
+            使用可能です。再入場はできません。
           </li>
           <li>
             このページで発券されたチケットは、外苑祭当日、入場時に必要となります。忘れずに持参してください。

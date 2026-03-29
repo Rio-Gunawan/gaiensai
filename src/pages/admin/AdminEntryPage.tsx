@@ -16,8 +16,15 @@ import {
   type ResolvedScanTicketDisplay,
   type ScanTicketMaster,
 } from '../../features/tickets/scanTicketMaster';
-import { FaCircleCheck, FaCircleXmark, FaMinus, FaPlus } from 'react-icons/fa6';
+import {
+  FaCircleCheck,
+  FaCircleXmark,
+  FaKeyboard,
+  FaMinus,
+  FaPlus,
+} from 'react-icons/fa6';
 import { TiDelete } from 'react-icons/ti';
+import { MdCameraswitch } from 'react-icons/md';
 import { ServerUrlModal } from '../../components/admin/ServerUrlModal';
 import {
   SCAN_SERVER_URL_STORAGE_KEY,
@@ -191,6 +198,13 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanFrameSize, setScanFrameSize] = useState(0);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>(
+    'environment',
+  );
+  const [cameraRestartNonce, setCameraRestartNonce] = useState(0);
+
+  const [isManualInputOverride, setIsManualInputOverride] = useState(false);
+  const effectiveMode = isManualInputOverride ? 'register' : mode;
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError) && !autoHideRequested;
@@ -236,7 +250,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     }, []);
 
   const focus = useCallback(() => {
-    if (mode !== 'register') {
+    if (effectiveMode !== 'register') {
       return;
     }
     if (showServerModal) {
@@ -244,7 +258,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     } else {
       setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
     }
-  }, [mode, showServerModal]);
+  }, [effectiveMode, showServerModal]);
 
   const dismissTicketSyncWarning = useCallback(() => {
     localStorage.setItem(ADMIN_TICKETS_WARNING_DISMISSED_KEY, '1');
@@ -366,7 +380,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
   }, []);
 
   useEffect(() => {
-    if (mode !== 'register') {
+    if (effectiveMode !== 'register') {
       return () => {
         // noop
       };
@@ -391,7 +405,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     return () => {
       document.removeEventListener('click', handleClick);
     };
-  }, [focus, mode]);
+  }, [focus, effectiveMode]);
 
   // ローカルストレージから URL を読み込み、初回設定をチェック
   useEffect(() => {
@@ -1214,9 +1228,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       });
     }
 
-  refreshFromLocalCache();
-  return saved.id;
-}
+    refreshFromLocalCache();
+    return saved.id;
+  }
 
   const reloadFromServerAfterLocalReset = useCallback(async () => {
     if (!localServerUrl || isOfflineRef.current) {
@@ -1441,8 +1455,32 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     [],
   );
 
+  const handleToggleCameraFacing = useCallback(async () => {
+    if (effectiveMode !== 'scan') {
+      return;
+    }
+    const scanner = scannerRef.current;
+    if (!scanner) {
+      return;
+    }
+
+    const cameras = await QrScanner.listCameras(true);
+    if (cameras.length < 2) {
+      return;
+    }
+
+    // スキャナーを破棄する
+    await scanner.destroy();
+    scannerRef.current = null;
+    setIsCameraReady(false);
+
+    // カメラモードを切り替える
+    const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(newFacingMode);
+  }, [facingMode, effectiveMode]);
+
   const handleReScan = useCallback(async () => {
-    if (mode !== 'scan') {
+    if (effectiveMode !== 'scan') {
       return;
     }
     const scanner = scannerRef.current;
@@ -1459,11 +1497,11 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         'カメラを起動できませんでした。権限設定をご確認ください。',
       );
     }
-  }, [mode]);
+  }, [effectiveMode]);
 
   const handleDecode = useCallback(
     async (result: QrScanner.ScanResult) => {
-      if (mode !== 'scan') {
+      if (effectiveMode !== 'scan') {
         return;
       }
       if (isProcessingRef.current) {
@@ -1491,11 +1529,11 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         }, TIMEOUT_RESCAN);
       }
     },
-    [handleReScan, mode],
+    [handleReScan, effectiveMode],
   );
 
   useEffect(() => {
-    if (mode !== 'scan') {
+    if (effectiveMode !== 'scan') {
       return () => {
         // noop
       };
@@ -1516,10 +1554,10 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     return () => {
       observer.disconnect();
     };
-  }, [calculateScanSize, mode]);
+  }, [calculateScanSize, effectiveMode]);
 
   useEffect(() => {
-    if (mode !== 'scan') {
+    if (effectiveMode !== 'scan') {
       return () => {
         // noop
       };
@@ -1528,6 +1566,10 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     if (!video) {
       return;
     }
+
+    // 初期化開始時に状態をリセット
+    setIsCameraReady(false);
+    setCameraError(null);
 
     const scanner = new QrScanner(
       video,
@@ -1549,7 +1591,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         highlightScanRegion: false,
         highlightCodeOutline: true,
         returnDetailedScanResult: true,
-        preferredCamera: 'environment',
+        preferredCamera: facingMode,
       },
     );
 
@@ -1580,7 +1622,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       scanner.destroy();
       scannerRef.current = null;
     };
-  }, [handleDecode, mode]);
+  }, [handleDecode, effectiveMode, facingMode, cameraRestartNonce]);
 
   return (
     <>
@@ -1602,13 +1644,23 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 }}
               />
             </div>
+            <div className={scanStyles.manualInputButtonContainer}>
+              <button
+                type='button'
+                onClick={() => setIsManualInputOverride(true)}
+                className={scanStyles.manualInputButton}
+              >
+                <FaKeyboard size={18} />
+                コードを手入力
+              </button>
+            </div>
           </div>
-          {!isCameraReady && !cameraError && (
+          {!isCameraReady && !cameraError && effectiveMode === 'scan' && (
             <Alert type='info' className={scanStyles.statusText}>
               カメラを初期化しています...
             </Alert>
           )}
-          {cameraError && (
+          {cameraError && effectiveMode === 'scan' && (
             <Alert type='error' className={scanStyles.errorText}>
               {cameraError}
             </Alert>
@@ -1627,6 +1679,17 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         >
           <IoMdSettings />
         </button>
+
+        {mode === 'scan' && (
+          <button
+            type='button'
+            className={scanStyles.cameraToggleButton}
+            onClick={handleToggleCameraFacing}
+            title='カメラを反転'
+          >
+            <MdCameraswitch />
+          </button>
+        )}
 
         {isServerOffline && mode === 'scan' && (
           <button
@@ -1648,32 +1711,89 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
             </Alert>
           </section>
         )}
-        {mode === 'register' && (
+        {effectiveMode === 'register' && (
           <section>
-            <form onSubmit={handleRegister} className={styles.form}>
-              <label className={styles.formLabel} htmlFor='ticket-code'>
-                チケットコード
-              </label>
-              <input
-                ref={inputRef}
-                autoFocus
-                id='ticket-code'
-                className={styles.textInput}
-                type='text'
-                value={scannedValue}
-                disabled={showServerModal}
-                onChange={(event) => {
-                  setAutoHideRequested(false);
-                  setScannedValue(event.currentTarget.value);
-                }}
-              />
-              <p className={styles.textInputRules}>
-                大文字・小文字は区別します。ハイフンはあっても無くても可。
-              </p>
-              <button type='submit' className={styles.submitButton}>
-                登録
-              </button>
-            </form>
+            {mode === 'scan' ? (
+              <div
+                className={styles.modalOverlay}
+                onClick={() => setIsManualInputOverride(false)}
+              >
+                <div
+                  className={styles.modalContainer}
+                  role='dialog'
+                  aria-modal='true'
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className={styles.modalContent}>
+                    <h2 className={styles.modalTitle}>コードを手入力</h2>
+                    <form
+                      onSubmit={(event) => {
+                        setIsManualInputOverride(false);
+                        handleRegister(event);
+                      }}
+                      className={styles.form}
+                    >
+                      <label className={styles.formLabel} htmlFor='ticket-code'>
+                        チケットコード
+                      </label>
+                      <input
+                        ref={inputRef}
+                        autoFocus
+                        id='ticket-code'
+                        className={styles.textInput}
+                        type='text'
+                        value={scannedValue}
+                        disabled={showServerModal}
+                        onChange={(event) => {
+                          setAutoHideRequested(false);
+                          setScannedValue(event.currentTarget.value);
+                        }}
+                      />
+                      <p className={styles.textInputRules}>
+                        大文字・小文字は区別します。ハイフンはあっても無くても可。
+                      </p>
+                      <div className={styles.modalButtonGroup}>
+                        <button
+                          type='button'
+                          className={styles.modalSecondaryButton}
+                          onClick={() => setIsManualInputOverride(false)}
+                        >
+                          戻る
+                        </button>
+                        <button type='submit' className={styles.submitButton}>
+                          登録
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleRegister} className={styles.form}>
+                <label className={styles.formLabel} htmlFor='ticket-code'>
+                  チケットコード
+                </label>
+                <input
+                  ref={inputRef}
+                  autoFocus
+                  id='ticket-code'
+                  className={styles.textInput}
+                  type='text'
+                  value={scannedValue}
+                  disabled={showServerModal}
+                  onChange={(event) => {
+                    setAutoHideRequested(false);
+                    setScannedValue(event.currentTarget.value);
+                  }}
+                />
+                <p className={styles.textInputRules}>
+                  大文字・小文字は区別します。ハイフンはあっても無くても可。
+                </p>
+                <button type='submit' className={styles.submitButton}>
+                  登録
+                </button>
+              </form>
+            )}
           </section>
         )}
 
@@ -1960,6 +2080,34 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 </div>
                 {ticketSyncMessage && (
                   <p className={styles.modalDescription}>{ticketSyncMessage}</p>
+                )}
+                {(mode === 'scan' || effectiveMode === 'scan') && (
+                  <div className={styles.serverUrlDisplay}>
+                    <p className={styles.serverUrlLabel}>
+                      カメラ状態:
+                      <span className={styles.serverUrl}>
+                        {isCameraReady ? '動作中' : '停止中'}
+                      </span>
+                    </p>
+                    <button
+                      type='button'
+                      className={styles.changeButton}
+                      onClick={async () => {
+                        const scanner = scannerRef.current;
+                        if (scanner) {
+                          await scanner.destroy();
+                        }
+                        setIsCameraReady(false);
+                        setCameraError(null);
+                        // 確実にクリーンアップを走らせるために微小な遅延を入れる
+                        setTimeout(() => {
+                          setCameraRestartNonce((n) => n + 1);
+                        }, 800);
+                      }}
+                    >
+                      再起動
+                    </button>
+                  </div>
                 )}
                 <h2 className={styles.modalTitle}>音声設定</h2>
                 <label className={styles.audioSettingRow}>

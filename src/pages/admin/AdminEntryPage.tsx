@@ -1810,7 +1810,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 <p className={styles.primaryPerformance}>
                   {resolvedTicket?.performanceName ?? '公演情報を解決中...'}
                   <span className={styles.scheduleName}>
-                    {resolvedTicket?.scheduleName || '回情報なし'}
+                    {resolvedTicket?.scheduleName || ''}
                   </span>
                 </p>
                 <div className={styles.entryCountDisplay}>
@@ -1842,7 +1842,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     間柄: {resolvedTicket?.relationshipName ?? '-'}
                   </span>
                   <span className={styles.secondaryItem}>
-                    所属: {decodedTicket.affiliation}
+                    発行者: {decodedTicket.affiliation}
                   </span>
                 </div>
 

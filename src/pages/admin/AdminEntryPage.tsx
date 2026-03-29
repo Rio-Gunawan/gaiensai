@@ -885,6 +885,13 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
     if (ticketStatus === 'invalid') {
       await saveScanResult(code, 'failed', 1);
+      if (masterStatus === 'cancelled') {
+        setDecodeErrorWithSound({
+          title: 'キャンセル済みチケット',
+          message: `このチケットはすでにキャンセルされています。`,
+        });
+        return;
+      }
       setDecodeErrorWithSound({
         title: '無効チケット',
         message: `このチケットは利用できません。(status: ${masterStatus ?? 'unknown'})`,

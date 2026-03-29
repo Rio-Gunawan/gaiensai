@@ -52,10 +52,31 @@ const Dashboard = ({ userData }: DashboardProps) => {
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketNotice, setTicketNotice] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [myTicketSortMode, setMyTicketSortMode] =
-    useState<TicketListSortMode>('recent');
+  const [myTicketSortMode, setMyTicketSortMode] = useState<TicketListSortMode>(
+    () => {
+      try {
+        return (
+          (localStorage.getItem(
+            'ticketListSortMode.myTicket',
+          ) as TicketListSortMode) || 'recent'
+        );
+      } catch {
+        return 'recent';
+      }
+    },
+  );
   const [guestTicketSortMode, setGuestTicketSortMode] =
-    useState<TicketListSortMode>('recent');
+    useState<TicketListSortMode>(() => {
+      try {
+        return (
+          (localStorage.getItem(
+            'ticketListSortMode.guestTicket',
+          ) as TicketListSortMode) || 'recent'
+        );
+      } catch {
+        return 'recent';
+      }
+    });
   const [ticketDisplayCacheVersion, setTicketDisplayCacheVersion] = useState(0);
 
   useEffect(() => {
@@ -70,6 +91,25 @@ const Dashboard = ({ userData }: DashboardProps) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ticketListSortMode.myTicket', myTicketSortMode);
+    } catch {
+      // Ignore errors
+    }
+  }, [myTicketSortMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'ticketListSortMode.guestTicket',
+        guestTicketSortMode,
+      );
+    } catch {
+      // Ignore errors
+    }
+  }, [guestTicketSortMode]);
 
   useEffect(() => {
     const refresh = () =>

@@ -263,7 +263,22 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [ticketStatus, setTicketStatus] = useState<TicketStatus>('unknown');
   const [cacheVersion, setCacheVersion] = useState(0);
-  const [sortMode, setSortMode] = useState<TicketListSortMode>('recent');
+  const [sortMode, setSortMode] = useState<TicketListSortMode>(() => {
+    try {
+      const saved = localStorage.getItem('ticketListSortMode');
+      return (saved as TicketListSortMode) || 'recent';
+    } catch {
+      return 'recent';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ticketListSortMode', sortMode);
+    } catch {
+      // Ignore errors in saving to localStorage
+    }
+  }, [sortMode]);
 
   const turnstileContainerId = 'issue-turnstile-widget';
   const {

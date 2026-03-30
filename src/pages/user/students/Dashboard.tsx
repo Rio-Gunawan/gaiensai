@@ -25,6 +25,7 @@ import sharedStyles from '../../../styles/shared.module.css';
 import styles from './Dashboard.module.css';
 import { IoMdAdd } from 'react-icons/io';
 import PerformancesTable from '../../../features/performances/PerformancesTable';
+import GymPerformancesTable from '../../../features/performances/GymPerformancesTable';
 import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
 import { formatDateText } from '../../../utils/formatDateText';
@@ -554,8 +555,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
       </NormalSection>
       <NormalSection>
         <h2>公演空き状況</h2>
-        <h3>予約可能なチケットの残り枚数</h3>
+        <h3>クラス公演</h3>
         <PerformancesTable enableIssueJump={true} />
+        <h3>体育館公演</h3>
+        <GymPerformancesTable />
       </NormalSection>
       <section>
         <button onClick={handleLogout} className={styles.logoutBtn}>

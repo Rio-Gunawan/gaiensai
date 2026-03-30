@@ -457,19 +457,19 @@ const PerformancesTable = ({
         <table className={styles.table}>
           <thead>
             <tr className={styles.tr}>
-              <th className={styles.th}>公演回</th>
-              {filteredPerformances.map((performance) => (
-                <th className={styles.th} key={performance.id}>
-                  {performance.class_name}
+              <th className={styles.th}>クラス</th>
+              {filteredSchedules.map((schedule) => (
+                <th className={styles.th} key={schedule.id}>
+                  {schedule.round_name}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filteredSchedules.map((schedule) => (
-              <tr key={schedule.id} className={styles.tr}>
-                <th className={styles.th}>{schedule.round_name}</th>
-                {filteredPerformances.map((performance) => {
+            {filteredPerformances.map((performance) => (
+              <tr key={performance.id} className={styles.tr}>
+                <th className={styles.th}>{performance.class_name}</th>
+                {filteredSchedules.map((schedule) => {
                   const key = `${performance.id}-${schedule.id}`;
                   const remaining = remainingSeatMap.get(key) ?? 0;
                   const status = statusByKey.get(key) ?? 'cross';
@@ -487,7 +487,7 @@ const PerformancesTable = ({
                       } ${isInteractive ? styles.interactiveCell : ''} ${
                         isSelected ? styles.selectedCell : ''
                       }`}
-                      key={`${schedule.id}-${performance.id}`}
+                      key={`${performance.id}-${schedule.id}`}
                       onClick={() => {
                         if (!canIssue) {
                           return;

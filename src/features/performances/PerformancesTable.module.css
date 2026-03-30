@@ -138,6 +138,11 @@
   transition: background-color 0.2s ease;
 }
 
+.emptyCell {
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.65);
+}
+
 .interactiveCell {
   cursor: pointer;
 }

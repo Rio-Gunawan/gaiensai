@@ -1,13 +1,20 @@
 import { supabase } from '../../lib/supabase';
 import type { TicketDecodedDisplaySeed } from './ticketCodeDecode';
 
-const SCAN_TICKET_MASTER_CACHE_KEY = 'scan-ticket-master:v1';
+const SCAN_TICKET_MASTER_CACHE_KEY = 'scan-ticket-master:v2';
 const SCAN_TICKET_MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type ScanPerformance = {
   id: number;
   class_name: string;
   title: string | null;
+};
+
+type ScanGymPerformance = {
+  id: number;
+  group_name: string;
+  round_name: string;
+  start_at: string | null;
 };
 
 type ScanSchedule = {
@@ -23,6 +30,7 @@ type ScanNamedMaster = {
 
 export type ScanTicketMaster = {
   performances: ScanPerformance[];
+  gymPerformances: ScanGymPerformance[];
   schedules: ScanSchedule[];
   ticketTypes: ScanNamedMaster[];
   relationships: ScanNamedMaster[];
@@ -59,10 +67,19 @@ const readCache = (): ScanTicketMaster | null => {
     if (!parsed || !Array.isArray(parsed.performances)) {
       return null;
     }
+    const gymPerformances = Array.isArray(
+      (parsed as { gymPerformances?: unknown }).gymPerformances,
+    )
+      ? ((parsed as { gymPerformances?: ScanGymPerformance[] })
+          .gymPerformances ?? [])
+      : [];
     if (!isFresh(Number(parsed.fetchedAt ?? 0))) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      gymPerformances,
+    };
   } catch {
     return null;
   }
@@ -85,6 +102,7 @@ const writeCache = (master: ScanTicketMaster): void => {
 const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
   const [
     performancesRes,
+    gymPerformancesRes,
     schedulesRes,
     ticketTypesRes,
     relationshipsRes,
@@ -93,6 +111,10 @@ const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
     supabase
       .from('class_performances')
       .select('id, class_name, title')
+      .order('id', { ascending: true }),
+    supabase
+      .from('gym_performances')
+      .select('id, group_name, round_name, start_at')
       .order('id', { ascending: true }),
     supabase
       .from('performances_schedule')
@@ -116,6 +138,7 @@ const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
 
   if (
     performancesRes.error ||
+    gymPerformancesRes.error ||
     schedulesRes.error ||
     ticketTypesRes.error ||
     relationshipsRes.error ||
@@ -126,6 +149,7 @@ const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
 
   return {
     performances: (performancesRes.data ?? []) as ScanPerformance[],
+    gymPerformances: (gymPerformancesRes.data ?? []) as ScanGymPerformance[],
     schedules: (schedulesRes.data ?? []) as ScanSchedule[],
     ticketTypes: (ticketTypesRes.data ?? []) as ScanNamedMaster[],
     relationships: (relationshipsRes.data ?? []) as ScanNamedMaster[],
@@ -156,8 +180,12 @@ export const resolveScanTicketDisplay = (
   master: ScanTicketMaster,
 ): ResolvedScanTicketDisplay => {
   const isAdmissionOnly = decoded.performanceId === 0 && decoded.scheduleId === 0;
+  const isGymPerformance = decoded.performanceId > 0 && decoded.scheduleId === 0;
 
   const performance = master.performances.find(
+    (item) => item.id === decoded.performanceId,
+  );
+  const gymPerformance = master.gymPerformances.find(
     (item) => item.id === decoded.performanceId,
   );
   const schedule = master.schedules.find((item) => item.id === decoded.scheduleId);
@@ -176,6 +204,44 @@ export const resolveScanTicketDisplay = (
       scheduleDate: '',
       scheduleTime: '',
       scheduleEndTime: '',
+      ticketTypeLabel: ticketType?.name ?? '-',
+      relationshipName: relationship?.name ?? '-',
+    };
+  }
+
+  if (isGymPerformance) {
+    const startAt = gymPerformance?.start_at
+      ? new Date(gymPerformance.start_at)
+      : null;
+    const showLengthMinutes = Number(master.showLengthMinutes);
+    const endAt =
+      startAt && Number.isFinite(showLengthMinutes)
+        ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+        : null;
+
+    return {
+      performanceName: gymPerformance?.group_name ?? '-',
+      performanceTitle: null,
+      scheduleName: gymPerformance?.round_name ?? '-',
+      scheduleDate: startAt
+        ? startAt.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          })
+        : '-',
+      scheduleTime: startAt
+        ? startAt.toLocaleTimeString('ja-JP', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '-',
+      scheduleEndTime: endAt
+        ? endAt.toLocaleTimeString('ja-JP', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '-',
       ticketTypeLabel: ticketType?.name ?? '-',
       relationshipName: relationship?.name ?? '-',
     };

@@ -366,13 +366,6 @@ export const handleIssueTicketsRequest = async (
     // adjust the per-user ticket limit check to account for the cancellation.
     let replaceTicketOffset = 0;
     if (body.cancelCode) {
-      if (issueMode === 'gym') {
-        throw new HttpError(
-          409,
-          '体育館公演チケットの間柄変更は現在対応していません。',
-        );
-      }
-
       const { data: oldTicket, error: oldTicketError } = await adminClient
         .from('tickets')
         .select('id, user_id, status, ticket_type')
@@ -406,6 +399,29 @@ export const handleIssueTicketsRequest = async (
 
       if (body.ticketTypeId === 4) {
         if (body.performanceId !== 0 || body.scheduleId !== 0) {
+          throw new HttpError(
+            409,
+            '差し替え対象のチケット情報が一致しません。ページを更新してからやり直してください。',
+          );
+        }
+      } else if (issueMode === 'gym') {
+        const { data: gymTicket, error: gymTicketError } = await adminClient
+          .from('gym_tickets')
+          .select('performance_id')
+          .eq('id', oldTicket.id)
+          .maybeSingle();
+
+        if (gymTicketError || !gymTicket) {
+          throw new HttpError(
+            409,
+            '差し替え対象のチケット情報の取得に失敗しました。時間をおいて再度お試しください。',
+          );
+        }
+
+        if (
+          Number(gymTicket.performance_id) !== body.performanceId ||
+          body.scheduleId !== 0
+        ) {
           throw new HttpError(
             409,
             '差し替え対象のチケット情報が一致しません。ページを更新してからやり直してください。',
@@ -538,8 +554,13 @@ export const handleIssueTicketsRequest = async (
         const code = await generateTicketCode(ticketData);
         const signature = await signCode(code);
 
+        const reissueRpcName =
+          issueMode === 'gym'
+            ? 'reissue_gym_ticket_change_relationship_with_codes'
+            : 'reissue_ticket_change_relationship_with_codes';
+
         const { data, error } = await adminClient.rpc(
-          'reissue_ticket_change_relationship_with_codes',
+          reissueRpcName,
           {
             p_user_id: user.id,
             p_old_code: body.cancelCode,

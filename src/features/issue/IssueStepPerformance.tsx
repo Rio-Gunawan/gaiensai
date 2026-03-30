@@ -1,15 +1,18 @@
 import NormalSection from '../../components/ui/NormalSection';
 import PerformancesTable from '../../features/performances/PerformancesTable';
+import GymPerformancesTable from '../../features/performances/GymPerformancesTable';
 import type { SelectedPerformance } from '../../types/Issue.types';
 import styles from '../../pages/user/students/Issue.module.css';
 
 type IssueStepPerformanceProps = {
+  isGymPerformanceTicket: boolean;
   selectedPerformance: SelectedPerformance;
   selectedCellKey?: string;
   onSelectPerformance: (selection: SelectedPerformance) => void;
 };
 
 const IssueStepPerformance = ({
+  isGymPerformanceTicket,
   selectedPerformance,
   selectedCellKey,
   onSelectPerformance,
@@ -20,10 +23,17 @@ const IssueStepPerformance = ({
       <p>
         下の表から、発券したい公演を選択してください。
       </p>
-      <PerformancesTable
-        onAvailableCellClick={onSelectPerformance}
-        selectedCellKey={selectedCellKey}
-      />
+      {isGymPerformanceTicket ? (
+        <GymPerformancesTable
+          onAvailableCellClick={onSelectPerformance}
+          selectedCellKey={selectedCellKey}
+        />
+      ) : (
+        <PerformancesTable
+          onAvailableCellClick={onSelectPerformance}
+          selectedCellKey={selectedCellKey}
+        />
+      )}
       {selectedPerformance && (
         <p className={styles.selectedText}>
           選択中: {selectedPerformance.performanceName} /{' '}

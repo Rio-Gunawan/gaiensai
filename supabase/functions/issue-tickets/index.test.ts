@@ -38,6 +38,7 @@ Deno.test('issue fails then counter rollback RPC is called', async () => {
       adminClient,
       userId: '00000000-0000-0000-0000-000000000001',
       issueCount: 2,
+      issueMode: 'class',
       ticketTypeId: 1,
       relationshipId: 1,
       performanceId: 1,

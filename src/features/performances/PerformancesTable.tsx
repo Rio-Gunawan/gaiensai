@@ -474,7 +474,6 @@ const PerformancesTable = ({
                   const remaining = remainingSeatMap.get(key) ?? 0;
                   const status = statusByKey.get(key) ?? 'cross';
                   const canIssue = remaining > 0;
-                  const canJump = canIssue && enableIssueJump;
                   const isInteractive =
                     canIssue &&
                     (enableIssueJump || Boolean(onAvailableCellClick));
@@ -483,7 +482,7 @@ const PerformancesTable = ({
                   return (
                     <td
                       className={`${styles.td} ${getStatusClass(status)} ${
-                        canJump ? styles.jumpableCell : ''
+                        isInteractive ? styles.jumpableCell : ''
                       } ${isInteractive ? styles.interactiveCell : ''} ${
                         isSelected ? styles.selectedCell : ''
                       }`}

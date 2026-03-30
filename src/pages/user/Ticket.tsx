@@ -372,6 +372,8 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
       const isAdmissionOnly =
         decoded.performanceId === 0 && decoded.scheduleId === 0;
+      const isGymPerformance =
+        decoded.performanceId > 0 && decoded.scheduleId === 0;
 
       const snapshotPerformance = ticketSnapshot.performances.find(
         (performance) => performance.id === decoded.performanceId,
@@ -405,6 +407,12 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         scheduleDate = formatDateText(eventDates);
         scheduleTime = '';
         scheduleEndTime = '';
+      } else if (isGymPerformance) {
+        performanceName = '体育館公演';
+        scheduleName = '-';
+        scheduleDate = '-';
+        scheduleTime = '-';
+        scheduleEndTime = '-';
       } else {
         const startAt = snapshotSchedule?.start_at
           ? new Date(snapshotSchedule.start_at)
@@ -541,8 +549,9 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             const [
               ticketTypeRes,
               relationshipRes,
-              performanceRes,
+              classPerformanceRes,
               scheduleRes,
+              gymPerformanceRes,
               configRes,
             ] = await Promise.all([
               supabase
@@ -565,6 +574,13 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
                 .select('round_name, start_at')
                 .eq('id', decoded.scheduleId)
                 .maybeSingle(),
+              isGymPerformance
+                ? supabase
+                    .from('gym_performances')
+                    .select('group_name, round_name, start_at')
+                    .eq('id', decoded.performanceId)
+                    .maybeSingle()
+                : { data: null, error: null },
               supabase
                 .from('configs')
                 .select('show_length')
@@ -576,28 +592,36 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             if (
               ticketTypeRes.error ||
               relationshipRes.error ||
-              performanceRes.error ||
-              scheduleRes.error ||
+              classPerformanceRes.error ||
+              (isGymPerformance ? gymPerformanceRes.error : scheduleRes.error) ||
               configRes.error ||
               !ticketTypeRes.data ||
               !relationshipRes.data ||
-              !performanceRes.data ||
-              !scheduleRes.data
+              (!isGymPerformance && (!classPerformanceRes.data || !scheduleRes.data)) ||
+              (isGymPerformance && !gymPerformanceRes.data)
             ) {
               return;
             }
 
             // Supabaseから取得した詳細情報を処理
-            const updatedPerformanceName =
-              performanceRes.data.class_name ?? '-';
-            const updatedPerformanceTitle = performanceRes.data.title ?? null;
-            const updatedScheduleName = scheduleRes.data.round_name ?? '-';
+            const updatedPerformanceName = isGymPerformance
+              ? (gymPerformanceRes.data?.group_name ?? '-')
+              : (classPerformanceRes.data?.class_name ?? '-');
+            const updatedPerformanceTitle = isGymPerformance
+              ? null
+              : (classPerformanceRes.data?.title ?? null);
+            const updatedScheduleName = isGymPerformance
+              ? (gymPerformanceRes.data?.round_name ?? '-')
+              : (scheduleRes.data?.round_name ?? '-');
             let updatedScheduleDate = '-';
             let updatedScheduleTime = '';
             let updatedScheduleEndTime = '';
 
-            const startAt = scheduleRes.data.start_at
-              ? new Date(scheduleRes.data.start_at)
+            const sourceStartAt = isGymPerformance
+              ? gymPerformanceRes.data?.start_at
+              : scheduleRes.data?.start_at;
+            const startAt = sourceStartAt
+              ? new Date(sourceStartAt)
               : null;
             const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
             const endAt =
@@ -1027,6 +1051,16 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             <QRCode
               value={token}
               size={Math.min(window.innerWidth * 0.8, 350)}
+              color={
+                ticket.performanceId > 0 && ticket.scheduleId === 0
+                  ? '#c1121f'
+                  : undefined
+              }
+              className={
+                ticket.performanceId > 0 && ticket.scheduleId === 0
+                  ? styles.gymTicketQr
+                  : undefined
+              }
             />
             <p className={styles.ticketCode}>
               {code.replace(/.{4}/g, '$&-').replace(/-$/, '')}

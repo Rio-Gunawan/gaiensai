@@ -206,9 +206,27 @@ const Dashboard = ({ userData }: DashboardProps) => {
         }),
       );
 
-      const performanceIds = [
+      const classPerformanceIds = [
         ...new Set(
           decodedTickets
+            .filter(
+              (item) =>
+                (item.decoded?.performanceId ?? 0) > 0 &&
+                (item.decoded?.scheduleId ?? 0) > 0,
+            )
+            .map((item) => item.decoded?.performanceId ?? 0)
+            .filter((id) => id > 0),
+        ),
+      ];
+
+      const gymPerformanceIds = [
+        ...new Set(
+          decodedTickets
+            .filter(
+              (item) =>
+                (item.decoded?.performanceId ?? 0) > 0 &&
+                (item.decoded?.scheduleId ?? 0) === 0,
+            )
             .map((item) => item.decoded?.performanceId ?? 0)
             .filter((id) => id > 0),
         ),
@@ -223,15 +241,22 @@ const Dashboard = ({ userData }: DashboardProps) => {
       ];
 
       const [
-        { data: performanceData },
+        { data: classPerformanceData },
+        { data: gymPerformanceData },
         { data: scheduleData },
         { data: configData },
       ] = await Promise.all([
-        performanceIds.length > 0
+        classPerformanceIds.length > 0
           ? supabase
               .from('class_performances')
               .select('id, class_name, title')
-              .in('id', performanceIds)
+              .in('id', classPerformanceIds)
+          : { data: [] },
+        gymPerformanceIds.length > 0
+          ? supabase
+              .from('gym_performances')
+              .select('id, group_name, round_name, start_at')
+              .in('id', gymPerformanceIds)
           : { data: [] },
         scheduleIds.length > 0
           ? supabase
@@ -247,12 +272,23 @@ const Dashboard = ({ userData }: DashboardProps) => {
           .maybeSingle(),
       ]);
 
-      const performanceMap = new Map(
+      const classPerformanceMap = new Map(
         (
-          (performanceData ?? []) as Array<{
+          (classPerformanceData ?? []) as Array<{
             id: number;
             class_name: string;
             title: string | null;
+          }>
+        ).map((performance) => [performance.id, performance]),
+      );
+
+      const gymPerformanceMap = new Map(
+        (
+          (gymPerformanceData ?? []) as Array<{
+            id: number;
+            group_name: string;
+            round_name: string;
+            start_at: string | null;
           }>
         ).map((performance) => [performance.id, performance]),
       );
@@ -338,11 +374,16 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
       const cards = decodedTickets.map(({ ticket, decoded }) => {
         const relationshipId = decoded?.relationshipId ?? ticket.relationship;
-        const performance = decoded
-          ? (performanceMap.get(decoded.performanceId) ??
+        const isGymPerformance =
+          (decoded?.performanceId ?? 0) > 0 && (decoded?.scheduleId ?? 0) === 0;
+        const classPerformance = decoded
+          ? (classPerformanceMap.get(decoded.performanceId) ??
             snapshotPerformanceMap.get(decoded.performanceId))
           : undefined;
-        const schedule = decoded
+        const gymPerformance = decoded
+          ? gymPerformanceMap.get(decoded.performanceId)
+          : undefined;
+        const schedule = !isGymPerformance && decoded
           ? scheduleMap.get(decoded.scheduleId)
           : undefined;
         const isAdmissionOnly =
@@ -352,9 +393,19 @@ const Dashboard = ({ userData }: DashboardProps) => {
           code: ticket.code,
           signature: ticket.signature,
           serial: decoded?.serial,
-          performanceName: performance?.class_name ?? '-',
-          performanceTitle: performance?.title ?? null,
-          scheduleName: isAdmissionOnly ? '' : (schedule?.round_name ?? '-'),
+          performanceName: isAdmissionOnly
+            ? '入場専用券'
+            : isGymPerformance
+              ? (gymPerformance?.group_name ?? '-')
+              : (classPerformance?.class_name ?? '-'),
+          performanceTitle: isGymPerformance
+            ? null
+            : (classPerformance?.title ?? null),
+          scheduleName: isAdmissionOnly
+            ? ''
+            : isGymPerformance
+              ? (gymPerformance?.round_name ?? '-')
+              : (schedule?.round_name ?? '-'),
           ticketTypeLabel: decoded
             ? (ticketTypeMap.get(decoded.ticketTypeId) ??
               `券種${decoded.ticketTypeId}`)
@@ -374,25 +425,65 @@ const Dashboard = ({ userData }: DashboardProps) => {
       // Cache individual tickets to ticketDisplayCache
       void Promise.all(
         decodedTickets.map(({ ticket, decoded }) => {
-          const performance = decoded
-            ? (performanceMap.get(decoded.performanceId) ??
+          const isGymPerformance =
+            (decoded?.performanceId ?? 0) > 0 &&
+            (decoded?.scheduleId ?? 0) === 0;
+          const classPerformance = decoded
+            ? (classPerformanceMap.get(decoded.performanceId) ??
               snapshotPerformanceMap.get(decoded.performanceId))
             : undefined;
-          const schedule = decoded
+          const gymPerformance = decoded
+            ? gymPerformanceMap.get(decoded.performanceId)
+            : undefined;
+          const schedule = !isGymPerformance && decoded
             ? scheduleMap.get(decoded.scheduleId)
             : undefined;
-          const scheduleTimes = decoded
+          const scheduleTimes = !isGymPerformance && decoded
             ? scheduleTimesMap.get(decoded.scheduleId)
             : undefined;
           const isAdmissionOnly =
             decoded?.performanceId === 0 && decoded?.scheduleId === 0;
 
           let scheduleDate = scheduleTimes?.scheduleDate ?? '-';
+          let scheduleTime = scheduleTimes?.scheduleTime ?? '';
+          let scheduleEndTime = scheduleTimes?.scheduleEndTime ?? '';
+
           if (isAdmissionOnly) {
             const eventDates = (config.date ?? []).filter(
               (date) => typeof date === 'string' && date.length > 0,
             );
             scheduleDate = formatDateText(eventDates) || '-';
+            scheduleTime = '';
+            scheduleEndTime = '';
+          } else if (isGymPerformance) {
+            const startAt = gymPerformance?.start_at
+              ? new Date(gymPerformance.start_at)
+              : null;
+            const showLengthMinutes = Number(configData?.show_length ?? 0);
+            const endAt =
+              startAt && Number.isFinite(showLengthMinutes)
+                ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+                : null;
+
+            scheduleDate = startAt
+              ? startAt.toLocaleDateString('ja-JP', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                })
+              : '-';
+            scheduleTime = startAt
+              ? startAt.toLocaleTimeString('ja-JP', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '';
+            scheduleEndTime = endAt
+              ? endAt.toLocaleTimeString('ja-JP', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '';
           }
 
           return saveTicketToCache(
@@ -401,18 +492,20 @@ const Dashboard = ({ userData }: DashboardProps) => {
             {
               performanceName: isAdmissionOnly
                 ? '入場専用券'
-                : (performance?.class_name ?? '-'),
-              performanceTitle: performance?.title ?? null,
+                : isGymPerformance
+                  ? (gymPerformance?.group_name ?? '-')
+                  : (classPerformance?.class_name ?? '-'),
+              performanceTitle: isGymPerformance
+                ? null
+                : (classPerformance?.title ?? null),
               scheduleName: isAdmissionOnly
                 ? ''
-                : (schedule?.round_name ?? '-'),
+                : isGymPerformance
+                  ? (gymPerformance?.round_name ?? '-')
+                  : (schedule?.round_name ?? '-'),
               scheduleDate,
-              scheduleTime: isAdmissionOnly
-                ? ''
-                : (scheduleTimes?.scheduleTime ?? ''),
-              scheduleEndTime: isAdmissionOnly
-                ? ''
-                : (scheduleTimes?.scheduleEndTime ?? ''),
+              scheduleTime,
+              scheduleEndTime,
               ticketTypeLabel: decoded
                 ? (ticketTypeMap.get(decoded.ticketTypeId) ??
                   `券種${decoded.ticketTypeId}`)
@@ -558,7 +651,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <h3>クラス公演</h3>
         <PerformancesTable enableIssueJump={true} />
         <h3>体育館公演</h3>
-        <GymPerformancesTable />
+        <GymPerformancesTable enableIssueJump={true} />
       </NormalSection>
       <section>
         <button onClick={handleLogout} className={styles.logoutBtn}>

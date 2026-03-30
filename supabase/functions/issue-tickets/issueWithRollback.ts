@@ -13,6 +13,7 @@ export type IssueWithRollbackInput = {
   adminClient: RpcClient;
   userId: string;
   issueCount: number;
+  issueMode: 'class' | 'gym';
   ticketTypeId: number;
   relationshipId: number;
   performanceId: number;
@@ -29,6 +30,7 @@ export const issueWithRollback = async ({
   adminClient,
   userId,
   issueCount,
+  issueMode,
   ticketTypeId,
   relationshipId,
   performanceId,
@@ -62,8 +64,13 @@ export const issueWithRollback = async ({
 
     const signatures = await Promise.all(codes.map((code) => signTicketCode(code)));
 
+    const issueRpcName =
+      issueMode === 'gym'
+        ? 'issue_gym_tickets_with_codes'
+        : 'issue_class_tickets_with_codes';
+
     const { data: issuedTickets, error: issueError } = await adminClient.rpc(
-      'issue_class_tickets_with_codes',
+      issueRpcName,
       {
         p_user_id: userId,
         p_ticket_type_id: ticketTypeId,

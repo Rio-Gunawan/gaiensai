@@ -53,8 +53,10 @@
 
 .ticketHeader {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 1em;
+  column-gap: 1em;
   margin: 0;
 }
 
@@ -83,6 +85,10 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+}
+
+.gymTicketQr {
+  color: #c1121f;
 }
 
 .ticketCode {
@@ -424,6 +430,10 @@
 
   .qrSection {
     margin: 0.8rem 0;
+  }
+
+  .gymTicketQr {
+    color: #111111 !important;
   }
 
   .ticketCode {

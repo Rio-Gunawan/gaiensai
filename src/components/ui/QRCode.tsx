@@ -4,9 +4,11 @@ import { renderSVG } from 'uqr';
 type Props = {
   value: string;
   size?: number;
+  color?: string;
+  className?: string;
 };
 
-function QRCode({ value, size = 240 }: Props) {
+function QRCode({ value, size = 240, color, className }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -15,8 +17,16 @@ function QRCode({ value, size = 240 }: Props) {
     }
     // renderSVG が SVG の文字列を返す想定なので innerHTML で挿入する
     // value が変わるたびに上書きする
-    const svg = renderSVG(value, { ecc: 'M', border: 3 });
+    const baseSvg = renderSVG(value, { ecc: 'M', border: 3 });
+    const svg =
+      color && color.trim().length > 0
+        ? baseSvg.replace(
+            /#000000|#000\b|black\b|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/gi,
+            'currentColor',
+          )
+        : baseSvg;
     ref.current.innerHTML = svg;
+    ref.current.style.color = color && color.trim().length > 0 ? color : '';
     // サイズ指定が必要ならコンテナにスタイルで調整
     if (size) {
       ref.current.style.width = `${size}px`;
@@ -25,9 +35,9 @@ function QRCode({ value, size = 240 }: Props) {
       ref.current.querySelector('svg')?.setAttribute('width', String(size));
       ref.current.querySelector('svg')?.setAttribute('height', String(size));
     }
-  }, [value, size]);
+  }, [value, size, color]);
 
-  return <div ref={ref} aria-hidden='true' />;
+  return <div ref={ref} aria-hidden='true' className={className} />;
 }
 
 export default QRCode;

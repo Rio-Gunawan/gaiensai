@@ -156,7 +156,7 @@ const verifyTurnstileToken = async (
 const validatePerformanceAndSchedule = (
   body: IssueTicketsRequest,
   admissionOnlyTicketTypeIds: number[],
-): void => {
+): 'admission' | 'class' | 'gym' => {
   const admissionOnlySet = new Set(admissionOnlyTicketTypeIds);
   const isAdmissionOnly = admissionOnlySet.has(body.ticketTypeId);
 
@@ -167,7 +167,12 @@ const validatePerformanceAndSchedule = (
         'リクエストが間違っています。システム担当にお問い合わせください。Admission-only ticket requires performanceId=0 and scheduleId=0',
       );
     }
-    return;
+    return 'admission';
+  }
+
+  const isGym = body.performanceId > 0 && body.scheduleId === 0;
+  if (isGym) {
+    return 'gym';
   }
 
   if (body.performanceId < 1 || body.scheduleId < 1) {
@@ -176,6 +181,8 @@ const validatePerformanceAndSchedule = (
       'リクエストが間違っています。システム担当にお問い合わせください。performanceId and scheduleId must be positive for this ticket type',
     );
   }
+
+  return 'class';
 };
 
 export const handleIssueTicketsRequest = async (
@@ -298,7 +305,26 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
-    validatePerformanceAndSchedule(body, admissionOnlyTicketTypeIds);
+    const issueMode = validatePerformanceAndSchedule(
+      body,
+      admissionOnlyTicketTypeIds,
+    );
+
+    if (issueMode === 'gym') {
+      const { data: gymPerformance, error: gymPerformanceError } =
+        await adminClient
+          .from('gym_performances')
+          .select('id')
+          .eq('id', body.performanceId)
+          .maybeSingle();
+
+      if (gymPerformanceError || !gymPerformance) {
+        throw new HttpError(
+          409,
+          '体育館公演情報が見つかりません。ページを更新してからやり直してください。',
+        );
+      }
+    }
 
     if (body.cancelCode && body.issueCount !== 1) {
       throw new HttpError(400, '差し替え発券は1枚ずつのみ対応しています。');
@@ -340,6 +366,13 @@ export const handleIssueTicketsRequest = async (
     // adjust the per-user ticket limit check to account for the cancellation.
     let replaceTicketOffset = 0;
     if (body.cancelCode) {
+      if (issueMode === 'gym') {
+        throw new HttpError(
+          409,
+          '体育館公演チケットの間柄変更は現在対応していません。',
+        );
+      }
+
       const { data: oldTicket, error: oldTicketError } = await adminClient
         .from('tickets')
         .select('id, user_id, status, ticket_type')
@@ -474,6 +507,7 @@ export const handleIssueTicketsRequest = async (
         adminClient: adminClient as unknown as RpcClient,
         userId: user.id,
         issueCount: body.issueCount,
+        issueMode: issueMode === 'gym' ? 'gym' : 'class',
         ticketTypeId: body.ticketTypeId,
         relationshipId: body.relationshipId,
         performanceId: body.performanceId,
@@ -560,6 +594,7 @@ export const handleIssueTicketsRequest = async (
 
     console.log('Issued tickets successfully', {
       userId: user.id,
+      issueMode,
       ticketTypeId: body.ticketTypeId,
       relationshipId: body.relationshipId,
       performanceId: body.performanceId,

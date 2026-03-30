@@ -21,6 +21,7 @@ import { useEventConfig } from '../../../hooks/useEventConfig';
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
 const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
+const GYM_TICKET_KEYWORD = '体育館';
 
 const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   const fallback =
@@ -159,8 +160,94 @@ const Issue = () => {
   useEffect(() => {
     const loadSelectionFromQuery = async () => {
       const params = new URLSearchParams(window.location.search);
+      const venue = params.get('venue');
       const performanceId = Number(params.get('performanceId'));
       const scheduleId = Number(params.get('scheduleId'));
+
+      const pickTicketTypeIdForVenue = async (
+        targetVenue: 'class' | 'gym',
+      ): Promise<number | null> => {
+        const { data, error } = await supabase
+          .from('ticket_types')
+          .select('id, name, is_active')
+          .eq('type', '招待券')
+          .eq('is_active', true)
+          .order('id', { ascending: true });
+
+        if (error) {
+          return null;
+        }
+
+        const options = (data ?? []) as Array<{
+          id: number;
+          name: string;
+          is_active: boolean;
+        }>;
+
+        const picked = options.find((ticketType) => {
+          const isAdmissionOnly =
+            ticketType.name === ADMISSION_ONLY_TICKET_NAME;
+          const isGym = ticketType.name.includes(GYM_TICKET_KEYWORD);
+
+          if (targetVenue === 'gym') {
+            return isGym;
+          }
+
+          return !isAdmissionOnly && !isGym;
+        });
+
+        return picked?.id ?? null;
+      };
+
+      if (venue === 'gym') {
+        if (!Number.isInteger(performanceId) || performanceId <= 0) {
+          return;
+        }
+
+        const [
+          { data: performanceData, error: performanceError },
+          { count, error: ticketCountError },
+        ] = await Promise.all([
+          supabase
+            .from('gym_performances')
+            .select('id, group_name, round_name, capacity')
+            .eq('id', performanceId)
+            .maybeSingle(),
+          supabase
+            .from('gym_tickets')
+            .select('id, tickets!inner(status)', { count: 'exact', head: true })
+            .eq('performance_id', performanceId)
+            .eq('tickets.status', 'valid'),
+        ]);
+
+        if (performanceError || ticketCountError || !performanceData) {
+          return;
+        }
+
+        const remaining = Math.max(
+          Number(performanceData.capacity ?? 0) - Number(count ?? 0),
+          0,
+        );
+
+        if (remaining <= 0) {
+          return;
+        }
+
+        const gymTicketTypeId = await pickTicketTypeIdForVenue('gym');
+        if (gymTicketTypeId !== null) {
+          setSelectedTicketTypeId(gymTicketTypeId);
+        }
+
+        setSelectedPerformance({
+          performanceId: performanceData.id,
+          performanceName: performanceData.group_name,
+          scheduleId: 0,
+          scheduleName: performanceData.round_name,
+          remaining,
+        });
+        setStep(3);
+        return;
+      }
 
       if (
         !Number.isInteger(performanceId) ||
@@ -209,6 +296,11 @@ const Issue = () => {
         return;
       }
 
+      const classTicketTypeId = await pickTicketTypeIdForVenue('class');
+      if (classTicketTypeId !== null) {
+        setSelectedTicketTypeId(classTicketTypeId);
+      }
+
       setSelectedPerformance({
         performanceId: performanceData.id,
         performanceName: performanceData.class_name,
@@ -231,6 +323,9 @@ const Issue = () => {
   );
   const isAdmissionOnlyTicket =
     selectedTicketType?.name === ADMISSION_ONLY_TICKET_NAME;
+  const isGymPerformanceTicket = Boolean(
+    selectedTicketType?.name.includes(GYM_TICKET_KEYWORD),
+  );
 
   useEffect(() => {
     if (!selectedTicketType) {
@@ -260,12 +355,34 @@ const Issue = () => {
       selectedPerformance.scheduleId === 0
     ) {
       setSelectedPerformance(null);
+      return;
     }
-  }, [isAdmissionOnlyTicket, selectedPerformance, selectedTicketType]);
+
+    if (!selectedPerformance) {
+      return;
+    }
+
+    const isGymSelection =
+      selectedPerformance.performanceId > 0 &&
+      selectedPerformance.scheduleId === 0;
+
+    if (isGymPerformanceTicket && !isGymSelection) {
+      setSelectedPerformance(null);
+      return;
+    }
+
+    if (!isGymPerformanceTicket && isGymSelection) {
+      setSelectedPerformance(null);
+    }
+  }, [
+    isAdmissionOnlyTicket,
+    isGymPerformanceTicket,
+    selectedPerformance,
+    selectedTicketType,
+  ]);
 
   const selectedCellKey = selectedPerformance
-    ? selectedPerformance.performanceId > 0 &&
-      selectedPerformance.scheduleId > 0
+    ? selectedPerformance.performanceId > 0
       ? `${selectedPerformance.performanceId}-${selectedPerformance.scheduleId}`
       : undefined
     : undefined;
@@ -340,12 +457,17 @@ const Issue = () => {
 
     setIsIssuing(true);
 
+    const isGymSelection =
+      selectedPerformance.performanceId > 0 &&
+      selectedPerformance.scheduleId === 0;
+
     const [
       { data: performanceTitle },
       { data: scheduleData },
+      { data: gymPerformanceData },
       { data: configData },
     ] = await Promise.all([
-      selectedPerformance.performanceId > 0
+      !isGymSelection && selectedPerformance.performanceId > 0
         ? supabase
             .from('class_performances')
             .select('title')
@@ -357,6 +479,13 @@ const Issue = () => {
             .from('performances_schedule')
             .select('start_at')
             .eq('id', selectedPerformance.scheduleId)
+            .maybeSingle()
+        : { data: null },
+      isGymSelection
+        ? supabase
+            .from('gym_performances')
+            .select('start_at')
+            .eq('id', selectedPerformance.performanceId)
             .maybeSingle()
         : { data: null },
       supabase
@@ -373,13 +502,41 @@ const Issue = () => {
     let scheduleEndTime = '';
 
     if (selectedPerformance.scheduleId === 0) {
-      // Admission only
-      const eventDates = (config.date ?? []).filter(
-        (date) => typeof date === 'string' && date.length > 0,
-      );
-      scheduleDate = formatDateText(eventDates) || '-';
-      scheduleTime = '';
-      scheduleEndTime = '';
+      if (selectedPerformance.performanceId === 0) {
+        // Admission only
+        const eventDates = (config.date ?? []).filter(
+          (date) => typeof date === 'string' && date.length > 0,
+        );
+        scheduleDate = formatDateText(eventDates) || '-';
+        scheduleTime = '';
+        scheduleEndTime = '';
+      } else if (gymPerformanceData?.start_at) {
+        const startAt = new Date(gymPerformanceData.start_at);
+        const showLengthMinutes = Number(configData?.show_length ?? 0);
+        const endAt = startAt
+          ? new Date(startAt.getTime() + showLengthMinutes * 60 * 1000)
+          : null;
+
+        scheduleDate = startAt.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        scheduleTime = startAt.toLocaleTimeString('ja-JP', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        scheduleEndTime = endAt
+          ? endAt.toLocaleTimeString('ja-JP', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '-';
+      } else {
+        scheduleDate = '-';
+        scheduleTime = '-';
+        scheduleEndTime = '-';
+      }
     } else if (scheduleData?.start_at) {
       const startAt = new Date(scheduleData.start_at);
       const showLengthMinutes = Number(configData?.show_length ?? 0);
@@ -477,6 +634,7 @@ const Issue = () => {
 
         <div className={getPanelClassName(2)}>
           <IssueStepPerformance
+            isGymPerformanceTicket={isGymPerformanceTicket}
             selectedPerformance={selectedPerformance}
             selectedCellKey={selectedCellKey}
             onSelectPerformance={setSelectedPerformance}

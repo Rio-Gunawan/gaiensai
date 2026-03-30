@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { RiCircleLine, RiCloseLargeLine, RiTriangleLine } from 'react-icons/ri';
 import { supabase } from '../../lib/supabase';
 import styles from './PerformancesTable.module.css';
+import { useLocation } from 'preact-iso';
+import type { AvailableSeatSelection } from '../../types/types';
 
 type GymPerformanceRow = {
   id: number;
@@ -16,7 +18,17 @@ const cellKeySeparator = '\u0000';
 const toCellKey = (roundName: string, groupName: string) =>
   `${roundName}${cellKeySeparator}${groupName}`;
 
-const GymPerformancesTable = () => {
+type GymPerformancesTableProps = {
+  enableIssueJump?: boolean;
+  onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
+  selectedCellKey?: string;
+};
+
+const GymPerformancesTable = ({
+  enableIssueJump = false,
+  onAvailableCellClick,
+  selectedCellKey,
+}: GymPerformancesTableProps) => {
   const [performances, setPerformances] = useState<GymPerformanceRow[]>([]);
   const [selectedGroupName, setSelectedGroupName] = useState<string | 'all'>(
     'all',
@@ -29,6 +41,7 @@ const GymPerformancesTable = () => {
   >(new Map());
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { route } = useLocation();
 
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +73,8 @@ const GymPerformancesTable = () => {
 
       const { data: issuedTickets, error: ticketError } = await supabase
         .from('gym_tickets')
-        .select('performance_id');
+        .select('performance_id, tickets!inner(status)')
+        .eq('tickets.status', 'valid');
 
       if (ticketError) {
         setErrorMessage('体育館公演の残席情報の取得に失敗しました。');
@@ -115,16 +129,28 @@ const GymPerformancesTable = () => {
   }, [performances]);
 
   const cellData = useMemo(() => {
-    const map = new Map<string, { remaining: number; capacity: number }>();
+    const map = new Map<
+      string,
+      { remaining: number; capacity: number; performanceId: number; roundName: string; groupName: string }
+    >();
 
     for (const performance of performances) {
       const key = toCellKey(performance.round_name, performance.group_name);
-      const previous = map.get(key) ?? { remaining: 0, capacity: 0 };
+      const previous = map.get(key) ?? {
+        remaining: 0,
+        capacity: 0,
+        performanceId: performance.id,
+        roundName: performance.round_name,
+        groupName: performance.group_name,
+      };
       const remaining = remainingByPerformanceId.get(performance.id) ?? performance.capacity;
 
       map.set(key, {
         remaining: previous.remaining + remaining,
         capacity: previous.capacity + performance.capacity,
+        performanceId: previous.performanceId,
+        roundName: previous.roundName,
+        groupName: previous.groupName,
       });
     }
 
@@ -228,6 +254,21 @@ const GymPerformancesTable = () => {
     }
 
     return styles.statusCircle;
+  };
+
+  const handleAvailableCellClick = (selection: AvailableSeatSelection): void => {
+    onAvailableCellClick?.(selection);
+
+    if (!enableIssueJump) {
+      return;
+    }
+
+    const searchParams = new URLSearchParams({
+      venue: 'gym',
+      performanceId: String(selection.performanceId),
+    });
+
+    route(`/students/issue?${searchParams.toString()}`);
   };
 
   if (loading) {
@@ -372,13 +413,58 @@ const GymPerformancesTable = () => {
                     );
                   }
 
+                  const isInteractive =
+                    cell.remaining > 0 &&
+                    (enableIssueJump || Boolean(onAvailableCellClick));
+                  const selectedKey = `${cell.performanceId}-0`;
+                  const isSelected = selectedCellKey === selectedKey;
+
                   return (
                     <td
                       className={`${styles.td} ${getStatusClass(
                         cell.remaining,
                         cell.capacity,
-                      )}`}
+                      )} ${isInteractive ? styles.jumpableCell : ''} ${
+                        isInteractive ? styles.interactiveCell : ''
+                      } ${
+                        isSelected ? styles.selectedCell : ''
+                      }`}
                       key={key}
+                      onClick={() => {
+                        if (cell.remaining <= 0) {
+                          return;
+                        }
+                        handleAvailableCellClick({
+                          performanceId: cell.performanceId,
+                          performanceName: cell.groupName,
+                          scheduleId: 0,
+                          scheduleName: cell.roundName,
+                          remaining: cell.remaining,
+                        });
+                      }}
+                      onKeyDown={(event) => {
+                        if (!isInteractive) {
+                          return;
+                        }
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                          return;
+                        }
+                        event.preventDefault();
+                        handleAvailableCellClick({
+                          performanceId: cell.performanceId,
+                          performanceName: cell.groupName,
+                          scheduleId: 0,
+                          scheduleName: cell.roundName,
+                          remaining: cell.remaining,
+                        });
+                      }}
+                      tabIndex={isInteractive ? 0 : undefined}
+                      role={isInteractive ? 'button' : undefined}
+                      aria-label={
+                        isInteractive
+                          ? `${cell.groupName} ${cell.roundName} 残り${cell.remaining}席`
+                          : undefined
+                      }
                     >
                       <div className={styles.mark}>
                         {getMark(cell.remaining, cell.capacity)}

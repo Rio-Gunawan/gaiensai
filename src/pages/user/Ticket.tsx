@@ -846,7 +846,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           performanceId: ticket.performanceId,
           scheduleId: ticket.scheduleId,
           issueCount: 1,
-          // turnstileToken: tokenToVerify,
+          turnstileToken: tokenToVerify,
           cancelCode: code,
         },
       });
@@ -875,11 +875,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         try {
           const { writeTicketDisplayCache } =
             await import('../../features/tickets/ticketDisplayCache');
-          const { decodeTicketCodeWithEnv, toTicketDecodedSeed } =
+          const { decodeTicketCodeWithEnv, toTicketDecodedDisplaySeed } =
             await import('../../features/tickets/ticketCodeDecode');
 
           const decodedRaw = await decodeTicketCodeWithEnv(issuedTicket.code);
-          const decoded = toTicketDecodedSeed(decodedRaw);
+          const decoded = toTicketDecodedDisplaySeed(decodedRaw);
 
           // Get the relationship name for the selected relationship ID
           const selectedRelationship = relationships.find(
@@ -891,13 +891,18 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             code: issuedTicket.code,
             signature: issuedTicket.signature,
             serial: decoded?.serial,
+            affiliation: decoded?.affiliation ?? '-',
             performanceName: ticket.performanceName,
             performanceTitle: ticket.performanceTitle,
+            performanceId: ticket.performanceId,
+            scheduleId: ticket.scheduleId,
             scheduleName: ticket.scheduleName,
             scheduleDate: ticket.scheduleDate,
             scheduleTime: ticket.scheduleTime,
             scheduleEndTime: ticket.scheduleEndTime,
             ticketTypeLabel: ticket.ticketTypeLabel,
+            ticketTypeId: ticket.ticketTypeId,
+            year: ticket.year,
             relationshipName: newRelationshipName,
             relationshipId: selectedRelationshipId,
             status: 'valid',

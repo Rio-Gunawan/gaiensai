@@ -1803,7 +1803,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         <section className={styles.recordsSection}>
           <div className={styles.recordsTitleRow}>
             <h2 className={styles.recordsTitle}>直近5件の読み取り履歴</h2>
-            <a href='./history'>すべての履歴</a>
+            <a href='/admin/history'>すべての履歴</a>
           </div>
           {scanRecords.length > 0 ? (
             <div className={styles.recordsList}>

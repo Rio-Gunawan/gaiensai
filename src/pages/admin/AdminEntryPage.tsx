@@ -1640,16 +1640,6 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                 }}
               />
             </div>
-            <div className={scanStyles.manualInputButtonContainer}>
-              <button
-                type='button'
-                onClick={() => setIsManualInputOverride(true)}
-                className={scanStyles.manualInputButton}
-              >
-                <FaKeyboard size={18} />
-                コードを手入力
-              </button>
-            </div>
           </div>
           {!isCameraReady && !cameraError && effectiveMode === 'scan' && (
             <Alert type='info' className={scanStyles.statusText}>
@@ -1677,14 +1667,24 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         </button>
 
         {mode === 'scan' && (
-          <button
-            type='button'
-            className={scanStyles.cameraToggleButton}
-            onClick={handleToggleCameraFacing}
-            title='カメラを反転'
-          >
-            <MdCameraswitch />
-          </button>
+          <>
+            <button
+              type='button'
+              onClick={() => setIsManualInputOverride(true)}
+              className={scanStyles.manualInputButton}
+            >
+              <FaKeyboard size={18} />
+              コードを手入力
+            </button>
+            <button
+              type='button'
+              className={scanStyles.cameraToggleButton}
+              onClick={handleToggleCameraFacing}
+              title='カメラを反転'
+            >
+              <MdCameraswitch />
+            </button>
+          </>
         )}
 
         {isServerOffline && mode === 'scan' && (

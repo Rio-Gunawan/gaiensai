@@ -28,6 +28,7 @@ import PerformancesTable from '../../../features/performances/PerformancesTable'
 import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
 import { formatDateText } from '../../../utils/formatDateText';
+import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -48,6 +49,7 @@ const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 
 const Dashboard = ({ userData }: DashboardProps) => {
   const { config } = useEventConfig();
+  const { saveTicketToCache } = useTicketStorage();
   const [ticketCards, setTicketCards] = useState<
     (TicketCardItem & { relationshipId: number })[]
   >([]);
@@ -369,11 +371,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
       writeCachedTicketCards(user.id, cards);
 
       // Cache individual tickets to ticketDisplayCache
-      try {
-        const { writeTicketDisplayCache } =
-          await import('../../../features/tickets/ticketDisplayCache');
-        decodedTickets.forEach(({ ticket, decoded }) => {
-          const relationshipId = decoded?.relationshipId ?? ticket.relationship;
+      void Promise.all(
+        decodedTickets.map(({ ticket, decoded }) => {
           const performance = decoded
             ? (performanceMap.get(decoded.performanceId) ??
               snapshotPerformanceMap.get(decoded.performanceId))
@@ -387,53 +386,46 @@ const Dashboard = ({ userData }: DashboardProps) => {
           const isAdmissionOnly =
             decoded?.performanceId === 0 && decoded?.scheduleId === 0;
 
-          // Calculate admission-only schedule dates
           let scheduleDate = scheduleTimes?.scheduleDate ?? '-';
-          let scheduleTime = scheduleTimes?.scheduleTime ?? '';
-          let scheduleEndTime = scheduleTimes?.scheduleEndTime ?? '';
-
           if (isAdmissionOnly) {
             const eventDates = (config.date ?? []).filter(
               (date) => typeof date === 'string' && date.length > 0,
             );
             scheduleDate = formatDateText(eventDates) || '-';
-            scheduleTime = '';
-            scheduleEndTime = '';
           }
 
-          const ticketCacheEntry = {
-            code: ticket.code,
-            signature: ticket.signature,
-            serial: decoded?.serial,
-            affiliation: decoded?.affiliation ?? '-',
-            performanceId: decoded?.performanceId ?? 0,
-            scheduleId: decoded?.scheduleId ?? 0,
-            ticketTypeId: decoded?.ticketTypeId ?? 0,
-            year: decoded?.year ?? '',
-            performanceName: isAdmissionOnly
-              ? '入場専用券'
-              : (performance?.class_name ?? '-'),
-            performanceTitle: performance?.title ?? null,
-            scheduleName: isAdmissionOnly ? '' : (schedule?.round_name ?? '-'),
-            scheduleDate,
-            scheduleTime,
-            scheduleEndTime,
-            ticketTypeLabel: decoded
-              ? (ticketTypeMap.get(decoded.ticketTypeId) ??
-                `券種${decoded.ticketTypeId}`)
-              : '-',
-            relationshipName: decoded
-              ? (relationshipMap.get(decoded.relationshipId) ??
-                `間柄${decoded.relationshipId}`)
-              : '-',
-            relationshipId,
-            status: 'valid' as const,
-          };
-          writeTicketDisplayCache(ticket.code, ticketCacheEntry);
-        });
-      } catch {
-        // Ignore cache write failures
-      }
+          return saveTicketToCache(
+            ticket.code,
+            ticket.signature,
+            {
+              performanceName: isAdmissionOnly
+                ? '入場専用券'
+                : (performance?.class_name ?? '-'),
+              performanceTitle: performance?.title ?? null,
+              scheduleName: isAdmissionOnly
+                ? ''
+                : (schedule?.round_name ?? '-'),
+              scheduleDate,
+              scheduleTime: isAdmissionOnly
+                ? ''
+                : (scheduleTimes?.scheduleTime ?? ''),
+              scheduleEndTime: isAdmissionOnly
+                ? ''
+                : (scheduleTimes?.scheduleEndTime ?? ''),
+              ticketTypeLabel: decoded
+                ? (ticketTypeMap.get(decoded.ticketTypeId) ??
+                  `券種${decoded.ticketTypeId}`)
+                : '-',
+              relationshipName: decoded
+                ? (relationshipMap.get(decoded.relationshipId) ??
+                  `間柄${decoded.relationshipId}`)
+                : '-',
+              relationshipId: decoded?.relationshipId ?? ticket.relationship,
+            },
+            'valid',
+          );
+        }),
+      );
 
       setTicketLoading(false);
     };

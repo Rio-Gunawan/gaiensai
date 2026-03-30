@@ -8,9 +8,11 @@ import {
 } from '../../../features/issue/issueResultStorage';
 import styles from './Issue.module.css';
 import BackButton from '../../../components/ui/BackButton';
+import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
 
 const IssueResult = () => {
   const [result, setResult] = useState<IssueResultPayload | null>(null);
+  const { saveTicketToCache } = useTicketStorage();
 
   useEffect(() => {
     const raw = window.sessionStorage.getItem(ISSUE_RESULT_STORAGE_KEY);
@@ -30,50 +32,26 @@ const IssueResult = () => {
       setResult(parsed);
 
       // Cache newly issued tickets to ticketDisplayCache
-      void (async () => {
-        try {
-          const { writeTicketDisplayCache } =
-            await import('../../../features/tickets/ticketDisplayCache');
-          const { decodeTicketCodeWithEnv, toTicketDecodedDisplaySeed } =
-            await import('../../../features/tickets/ticketCodeDecode');
-
-          await Promise.all(
-            parsed.issuedTickets.map(async (ticket) => {
-              const decodedRaw = await decodeTicketCodeWithEnv(ticket.code);
-              const decoded = toTicketDecodedDisplaySeed(decodedRaw);
-
-              const ticketCacheEntry = {
-                code: ticket.code,
-                signature: ticket.signature,
-                serial: decoded?.serial,
-                affiliation: decoded?.affiliation ?? '-',
-                performanceId: decoded?.performanceId ?? 0,
-                scheduleId: decoded?.scheduleId ?? 0,
-                ticketTypeId: decoded?.ticketTypeId ?? 0,
-                year: decoded?.year ?? '',
-                performanceName:
-                  decoded?.performanceId === 0 && decoded?.scheduleId === 0
-                    ? '入場専用券'
-                    : parsed.performanceName,
-                performanceTitle: parsed.performanceTitle,
-                scheduleName: parsed.scheduleName,
-                scheduleDate: parsed.scheduleDate,
-                scheduleTime: parsed.scheduleTime,
-                scheduleEndTime: parsed.scheduleEndTime,
-                ticketTypeLabel: parsed.ticketTypeLabel,
-                relationshipName: parsed.relationshipName,
-                relationshipId:
-                  decoded?.relationshipId ?? parsed.relationshipId,
-                status: 'valid',
-                lastOpenedAt: Date.now(),
-              };
-              writeTicketDisplayCache(ticket.code, ticketCacheEntry);
-            }),
-          );
-        } catch {
-          // Ignore cache write failures
-        }
-      })();
+      void Promise.all(
+        parsed.issuedTickets.map((ticket) =>
+          saveTicketToCache(
+            ticket.code,
+            ticket.signature,
+            {
+              performanceName: parsed.performanceName,
+              performanceTitle: parsed.performanceTitle ?? null,
+              scheduleName: parsed.scheduleName,
+              scheduleDate: parsed.scheduleDate,
+              scheduleTime: parsed.scheduleTime,
+              scheduleEndTime: parsed.scheduleEndTime,
+              ticketTypeLabel: parsed.ticketTypeLabel,
+              relationshipName: parsed.relationshipName,
+              relationshipId: parsed.relationshipId,
+            },
+            'valid',
+          ),
+        ),
+      );
     } catch {
       setResult(null);
     }

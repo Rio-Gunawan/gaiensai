@@ -1459,19 +1459,12 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     if (effectiveMode !== 'scan') {
       return;
     }
-    const scanner = scannerRef.current;
-    if (!scanner) {
-      return;
-    }
 
     const cameras = await QrScanner.listCameras(true);
     if (cameras.length < 2) {
       return;
     }
 
-    // スキャナーを破棄する
-    await scanner.destroy();
-    scannerRef.current = null;
     setIsCameraReady(false);
 
     // カメラモードを切り替える
@@ -1730,9 +1723,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                   <div className={styles.modalContent}>
                     <h2 className={styles.modalTitle}>コードを手入力</h2>
                     <form
-                      onSubmit={(event) => {
+                      onSubmit={async (event) => {
+                        await handleRegister(event);
                         setIsManualInputOverride(false);
-                        handleRegister(event);
                       }}
                       className={styles.form}
                     >
@@ -2095,11 +2088,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     <button
                       type='button'
                       className={styles.changeButton}
-                      onClick={async () => {
-                        const scanner = scannerRef.current;
-                        if (scanner) {
-                          await scanner.destroy();
-                        }
+                      onClick={() => {
                         setIsCameraReady(false);
                         setCameraError(null);
                         // 確実にクリーンアップを走らせるために微小な遅延を入れる

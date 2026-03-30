@@ -7,9 +7,7 @@ const DEFAULT_TICKET_STATUS: TicketCardStatus = 'unknown';
 const getTicketCacheKey = (code: string): string =>
   `${TICKET_CACHE_PREFIX}${code}`;
 
-const isTicketCardStatus = (
-  value: unknown,
-): value is TicketCardStatus =>
+const isTicketCardStatus = (value: unknown): value is TicketCardStatus =>
   value === 'valid' ||
   value === 'cancelled' ||
   value === 'used' ||
@@ -29,7 +27,7 @@ const normalizeCachedTicketStatus = <T>(ticket: T): T => {
   return {
     ...(ticket as Record<string, unknown>),
     status,
-} as T;
+  } as T;
 };
 
 const normalizeLastOpenedAt = (value: unknown): number =>
@@ -43,9 +41,8 @@ const normalizeCachedTicket = <T>(
   if (!normalizedStatusTicket || typeof normalizedStatusTicket !== 'object') {
     return normalizedStatusTicket;
   }
-  const rawLastOpenedAt = (
-    normalizedStatusTicket as { lastOpenedAt?: unknown }
-  ).lastOpenedAt;
+  const rawLastOpenedAt = (normalizedStatusTicket as { lastOpenedAt?: unknown })
+    .lastOpenedAt;
   const lastOpenedAt = Math.max(
     normalizeLastOpenedAt(rawLastOpenedAt),
     normalizeLastOpenedAt(fallbackLastOpenedAt),
@@ -101,13 +98,32 @@ export const readTicketDisplayCache = <T>(code: string): T | null => {
 
 export const writeTicketDisplayCache = <T>(code: string, ticket: T): void => {
   const now = Date.now();
-  const normalizedTicket = normalizeCachedTicket(ticket, now);
+
+  let existingLastOpenedAt: number | undefined;
+  try {
+    const raw = window.localStorage.getItem(getTicketCacheKey(code));
+    if (raw) {
+      const parsed = JSON.parse(raw) as { lastOpenedAt?: number };
+      existingLastOpenedAt = parsed.lastOpenedAt;
+    }
+  } catch {
+    // ignore
+  }
+
+  const lastOpenedAt = normalizeLastOpenedAt(
+    (ticket as { lastOpenedAt?: unknown }).lastOpenedAt ??
+      existingLastOpenedAt ??
+      now,
+  );
+
+  const normalizedTicket = normalizeCachedTicket(ticket, lastOpenedAt);
+
   window.localStorage.setItem(
     getTicketCacheKey(code),
     JSON.stringify({
       ticket: normalizedTicket,
       cachedAt: now,
-      lastOpenedAt: now,
+      lastOpenedAt: lastOpenedAt,
     }),
   );
   notifyTicketDisplayCacheUpdated(code);
@@ -130,7 +146,10 @@ export const touchTicketDisplayCacheOpenedAt = (code: string): void => {
     const now = Date.now();
     parsed.ticket = normalizeCachedTicket(parsed.ticket, now);
     parsed.lastOpenedAt = now;
-    window.localStorage.setItem(getTicketCacheKey(code), JSON.stringify(parsed));
+    window.localStorage.setItem(
+      getTicketCacheKey(code),
+      JSON.stringify(parsed),
+    );
     notifyTicketDisplayCacheUpdated(code);
   } catch {
     // ignore

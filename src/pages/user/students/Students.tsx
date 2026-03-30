@@ -171,7 +171,7 @@ const Students = () => {
   ) {
     return (
       <section>
-        <h1 style={styles.pageTitle}>生徒用ページ</h1>
+        <h1 className={styles.pageTitle}>生徒用ページ</h1>
         <h2>読み込み中...</h2>
         <p>
           しばらく待ってもページが遷移しない場合は、
@@ -195,7 +195,7 @@ const Students = () => {
   if (profileError && userData === undefined) {
     return (
       <section>
-        <h1 style={styles.pageTitle}>生徒用ページ</h1>
+        <h1 className={styles.pageTitle}>生徒用ページ</h1>
         <h2>プロフィールを読み込めませんでした</h2>
         <p>オフライン状態、または通信エラーの可能性があります。</p>
         <p>通信状態を確認して、再読み込みをお試しください。</p>

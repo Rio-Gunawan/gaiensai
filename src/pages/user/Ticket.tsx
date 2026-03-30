@@ -30,6 +30,7 @@ import { useTurnstile } from '../../hooks/useTurnstile.ts';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts';
 import iconUrl from '../../assets/icon.webp';
 import { formatDateText } from '../../utils/formatDateText.ts';
+import { useTicketStorage } from '../../features/tickets/useTicketStorage.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -201,6 +202,7 @@ const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
 
 const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
   const { config } = useEventConfig();
+  const { saveTicketToCache } = useTicketStorage();
   const [showCopySucceed, setShowCopySucceed] = useState(false);
   const [isShortUrlModalOpen, setIsShortUrlModalOpen] = useState(false);
   const [issuedShortUrl, setIssuedShortUrl] = useState('');
@@ -516,9 +518,25 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               ...snapshotTicket,
               ticketTypeLabel: ticketTypeRes.data.name ?? '-',
               relationshipName: relationshipRes.data.name ?? '-',
+              status: validityResult.status,
             };
             setTicket(updatedTicket);
-            writeTicketDisplayCache(code, updatedTicket);
+            void saveTicketToCache(
+              code,
+              signature,
+              {
+                performanceName: updatedTicket.performanceName,
+                performanceTitle: updatedTicket.performanceTitle,
+                scheduleName: updatedTicket.scheduleName,
+                scheduleDate: updatedTicket.scheduleDate,
+                scheduleTime: updatedTicket.scheduleTime,
+                scheduleEndTime: updatedTicket.scheduleEndTime,
+                ticketTypeLabel: updatedTicket.ticketTypeLabel,
+                relationshipName: updatedTicket.relationshipName,
+                relationshipId: updatedTicket.relationshipId,
+              },
+              validityResult.status,
+            );
           } else {
             const [
               ticketTypeRes,
@@ -620,7 +638,22 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               status: validityResult.status,
             };
             setTicket(updatedTicket);
-            writeTicketDisplayCache(code, updatedTicket);
+            void saveTicketToCache(
+              code,
+              signature,
+              {
+                performanceName: updatedTicket.performanceName,
+                performanceTitle: updatedTicket.performanceTitle,
+                scheduleName: updatedTicket.scheduleName,
+                scheduleDate: updatedTicket.scheduleDate,
+                scheduleTime: updatedTicket.scheduleTime,
+                scheduleEndTime: updatedTicket.scheduleEndTime,
+                ticketTypeLabel: updatedTicket.ticketTypeLabel,
+                relationshipName: updatedTicket.relationshipName,
+                relationshipId: updatedTicket.relationshipId,
+              },
+              validityResult.status,
+            );
           }
 
           if (validityResult.errorMessage) {
@@ -871,49 +904,25 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       }
 
       // Cache the newly issued ticket to ticketDisplayCache
-      void (async () => {
-        try {
-          const { writeTicketDisplayCache } =
-            await import('../../features/tickets/ticketDisplayCache');
-          const { decodeTicketCodeWithEnv, toTicketDecodedDisplaySeed } =
-            await import('../../features/tickets/ticketCodeDecode');
-
-          const decodedRaw = await decodeTicketCodeWithEnv(issuedTicket.code);
-          const decoded = toTicketDecodedDisplaySeed(decodedRaw);
-
-          // Get the relationship name for the selected relationship ID
-          const selectedRelationship = relationships.find(
-            (r) => r.id === selectedRelationshipId,
-          );
-          const newRelationshipName = selectedRelationship?.name ?? '-';
-
-          const newTicketCacheEntry: Record<string, unknown> = {
-            code: issuedTicket.code,
-            signature: issuedTicket.signature,
-            serial: decoded?.serial,
-            affiliation: decoded?.affiliation ?? '-',
-            performanceName: ticket.performanceName,
-            performanceTitle: ticket.performanceTitle,
-            performanceId: ticket.performanceId,
-            scheduleId: ticket.scheduleId,
-            scheduleName: ticket.scheduleName,
-            scheduleDate: ticket.scheduleDate,
-            scheduleTime: ticket.scheduleTime,
-            scheduleEndTime: ticket.scheduleEndTime,
-            ticketTypeLabel: ticket.ticketTypeLabel,
-            ticketTypeId: ticket.ticketTypeId,
-            year: ticket.year,
-            relationshipName: newRelationshipName,
-            relationshipId: selectedRelationshipId,
-            status: 'valid',
-            lastOpenedAt: Date.now(),
-          };
-
-          writeTicketDisplayCache(issuedTicket.code, newTicketCacheEntry);
-        } catch {
-          // Ignore cache write failures
-        }
-      })();
+      const selectedRelationship = relationships.find(
+        (r) => r.id === selectedRelationshipId,
+      );
+      void saveTicketToCache(
+        issuedTicket.code,
+        issuedTicket.signature,
+        {
+          performanceName: ticket.performanceName,
+          performanceTitle: ticket.performanceTitle,
+          scheduleName: ticket.scheduleName,
+          scheduleDate: ticket.scheduleDate,
+          scheduleTime: ticket.scheduleTime,
+          scheduleEndTime: ticket.scheduleEndTime,
+          ticketTypeLabel: ticket.ticketTypeLabel,
+          relationshipName: selectedRelationship?.name ?? '-',
+          relationshipId: selectedRelationshipId,
+        },
+        'valid',
+      );
 
       // Backend guarantees: either (cancel old + issue new) succeeds, or neither is applied.
       // Mirror that state locally only after success.

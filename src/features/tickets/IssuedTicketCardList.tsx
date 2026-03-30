@@ -271,7 +271,7 @@ const IssuedTicketCardList = ({
                     <span
                       className={`${styles.ticketSchedule} ${ticket.status !== 'valid' ? styles.isInvalid : ''}`}
                     >
-                      {ticket.scheduleName}
+                      {ticket.scheduleName === '' ? '-' : ticket.scheduleName}
                     </span>
                   </div>
                   <div className={styles.ticketMeta}>

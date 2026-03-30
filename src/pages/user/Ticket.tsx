@@ -761,6 +761,12 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
     !loading && !cancelLoading && ticketStatus === 'valid';
   const isDayTicket =
     ticket.ticketTypeId === 8 || ticket.ticketTypeId === 9;
+  const qrColor =
+    ticket.performanceId > 0 && ticket.scheduleId === 0
+      ? '#d61322'
+      : ticket.relationshipId === 4
+        ? '#1c8723'
+        : undefined;
   const canChangeRelationship =
     !isDayTicket &&
     !loading &&
@@ -1082,13 +1088,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             <QRCode
               value={token}
               size={Math.min(window.innerWidth * 0.8, 350)}
-              color={
-                ticket.performanceId > 0 && ticket.scheduleId === 0
-                  ? '#c1121f'
-                  : undefined
-              }
+              color={qrColor}
               className={
-                ticket.performanceId > 0 && ticket.scheduleId === 0
+                ticket.relationshipId !== 4 &&
+                ticket.performanceId > 0 &&
+                ticket.scheduleId === 0
                   ? styles.gymTicketQr
                   : undefined
               }

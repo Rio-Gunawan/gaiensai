@@ -1472,7 +1472,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     setTimeout(() => {
       // 確実に起動できるよう時間をおく
       setFacingMode(newFacingMode);
-    }, 800);
+    }, 1500);
   }, [facingMode, effectiveMode]);
 
   const handleReScan = useCallback(async () => {
@@ -2089,12 +2089,16 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                       type='button'
                       className={styles.changeButton}
                       onClick={() => {
+                        const scanner = scannerRef.current;
+                        if (scanner) {
+                          scanner.destroy();
+                        }
                         setIsCameraReady(false);
                         setCameraError(null);
                         // 確実にクリーンアップを走らせるために微小な遅延を入れる
                         setTimeout(() => {
                           setCameraRestartNonce((n) => n + 1);
-                        }, 800);
+                        }, 1500);
                       }}
                     >
                       再起動

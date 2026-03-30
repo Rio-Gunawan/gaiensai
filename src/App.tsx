@@ -19,6 +19,8 @@ import {
   ScanLayout,
   Home,
   Performances,
+  DayTicketIssue,
+  DayTicketIssueResult,
   Students,
   AdminHome,
   Scan,
@@ -38,6 +40,8 @@ const userPageLayout = () => (
         <Route path='/' component={HomePageLayout} />
         <Route path='/t' component={TicketHistory} />
         <Route path='/t/:id' component={Ticket} />
+        <Route path='/day-tickets/result' component={DayTicketIssueResult} />
+        <Route path='/day-tickets' component={DayTicketIssue} />
         <Route path='/performances' component={Performances} />
         <Route path='/auth/line/callback' component={LineCallback} />
         <Route default component={NotFound} />
@@ -80,6 +84,8 @@ const InnerApp = () => {
       preload(Home);
     } else if (path.startsWith('/students')) {
       preload(Students);
+    } else if (path.startsWith('/day-tickets')) {
+      preload(DayTicketIssue, DayTicketIssueResult);
     } else if (path.startsWith('/performances')) {
       preload(Performances);
     } else if (path.startsWith('/admin/scan')) {

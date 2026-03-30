@@ -8,6 +8,7 @@ type IssueStepPerformanceProps = {
   isGymPerformanceTicket: boolean;
   selectedPerformance: SelectedPerformance;
   selectedCellKey?: string;
+  classRemainingMode?: 'general' | 'total';
   onSelectPerformance: (selection: SelectedPerformance) => void;
 };
 
@@ -15,6 +16,7 @@ const IssueStepPerformance = ({
   isGymPerformanceTicket,
   selectedPerformance,
   selectedCellKey,
+  classRemainingMode = 'general',
   onSelectPerformance,
 }: IssueStepPerformanceProps) => {
   return (
@@ -30,6 +32,7 @@ const IssueStepPerformance = ({
         />
       ) : (
         <PerformancesTable
+          remainingMode={classRemainingMode}
           onAvailableCellClick={onSelectPerformance}
           selectedCellKey={selectedCellKey}
         />

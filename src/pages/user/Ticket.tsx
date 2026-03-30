@@ -14,6 +14,7 @@ import {
   writeTicketDisplayCache,
 } from '../../features/tickets/ticketDisplayCache.ts';
 import { type TicketDecodedDisplaySeed } from '../../features/tickets/ticketCodeDecode.ts';
+import { formatTicketTypeLabel } from '../../features/tickets/formatTicketTypeLabel.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -69,6 +70,10 @@ type SnapshotNamedMaster = {
   name: string;
 };
 
+type SnapshotTicketType = SnapshotNamedMaster & {
+  type?: string | null;
+};
+
 type RelationshipOption = {
   id: number;
   name: string;
@@ -78,12 +83,26 @@ type TicketSnapshot = {
   generatedAt: string | null;
   performances: SnapshotPerformance[];
   schedules: SnapshotSchedule[];
-  ticketTypes?: SnapshotNamedMaster[];
+  ticketTypes?: SnapshotTicketType[];
   relationships?: SnapshotNamedMaster[];
   showLengthMinutes?: number | null;
 };
 
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
+const ticketTypeSnapshotById = new Map(
+  (ticketSnapshot.ticketTypes ?? []).map((ticketType) => [ticketType.id, ticketType]),
+);
+
+const resolveTicketTypeLabel = (params: {
+  ticketTypeId: number;
+  name?: string | null;
+}): string => {
+  const snapshotTicketType = ticketTypeSnapshotById.get(params.ticketTypeId);
+  return formatTicketTypeLabel({
+    type: snapshotTicketType?.type,
+    name: params.name ?? snapshotTicketType?.name,
+  });
+};
 
 const checkTicketValidity = async (
   code: string,
@@ -395,7 +414,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       let scheduleDate = '-';
       let scheduleTime = '';
       let scheduleEndTime = '';
-      const ticketTypeLabel = snapshotTicketType?.name ?? '-';
+      const ticketTypeLabel = resolveTicketTypeLabel({
+        ticketTypeId: decoded.ticketTypeId,
+        name: snapshotTicketType?.name,
+      });
       const relationshipName = snapshotRelationship?.name ?? '-';
 
       if (isAdmissionOnly) {
@@ -524,7 +546,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
             const updatedTicket: TicketDisplay = {
               ...snapshotTicket,
-              ticketTypeLabel: ticketTypeRes.data.name ?? '-',
+              ticketTypeLabel: resolveTicketTypeLabel({
+                ticketTypeId: decoded.ticketTypeId,
+                name: ticketTypeRes.data.name,
+              }),
               relationshipName: relationshipRes.data.name ?? '-',
               status: validityResult.status,
             };
@@ -657,7 +682,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               scheduleDate: updatedScheduleDate,
               scheduleTime: updatedScheduleTime,
               scheduleEndTime: updatedScheduleEndTime,
-              ticketTypeLabel: ticketTypeRes.data.name ?? '-',
+              ticketTypeLabel: resolveTicketTypeLabel({
+                ticketTypeId: decoded.ticketTypeId,
+                name: ticketTypeRes.data.name,
+              }),
               relationshipName: relationshipRes.data.name ?? '-',
               status: validityResult.status,
             };
@@ -731,7 +759,10 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
   const ticketUrl = `https://${config.site_url}/t/${token}`;
   const canCancelTicket =
     !loading && !cancelLoading && ticketStatus === 'valid';
+  const isDayTicket =
+    ticket.ticketTypeId === 8 || ticket.ticketTypeId === 9;
   const canChangeRelationship =
+    !isDayTicket &&
     !loading &&
     !cancelLoading &&
     !isChangingRelationship &&
@@ -1096,7 +1127,9 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             </div>
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>発行者</span>
-              <span className={styles.detailValue}>{ticket.affiliation}</span>
+              <span className={styles.detailValue}>
+                {ticket.affiliation === '1100' ? '-' : ticket.affiliation}
+              </span>
             </div>
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>間柄</span>
@@ -1253,24 +1286,26 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         </ul>
       </section>
 
-      <section className={styles.noPrint}>
-        <h3>間柄の変更</h3>
-        <div className={styles.relationshipChangeSection}>
-          <button
-            type='button'
-            disabled={!canChangeRelationship}
-            onClick={() => {
-              setRelationshipError(null);
-              setSelectedRelationshipId(ticket.relationshipId);
-              setIsRelationshipModalOpen(true);
-            }}
-          >
-            間柄を変更する
-          </button>
-        </div>
-      </section>
+      {!isDayTicket && (
+        <section className={styles.noPrint}>
+          <h3>間柄の変更</h3>
+          <div className={styles.relationshipChangeSection}>
+            <button
+              type='button'
+              disabled={!canChangeRelationship}
+              onClick={() => {
+                setRelationshipError(null);
+                setSelectedRelationshipId(ticket.relationshipId);
+                setIsRelationshipModalOpen(true);
+              }}
+            >
+              間柄を変更する
+            </button>
+          </div>
+        </section>
+      )}
 
-      {isRelationshipModalOpen && (
+      {!isDayTicket && isRelationshipModalOpen && (
         <div
           className={`${styles.relationshipModalOverlay} ${styles.noPrint}`}
           role='presentation'

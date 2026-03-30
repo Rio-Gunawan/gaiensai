@@ -20,19 +20,21 @@ type PerformanceSchedule = {
 
 type RemainingSeatsRpcResult = {
   remaining_general: number | string;
-  remaining_junior: number;
+  remaining_junior: number | string;
 };
 
 type PerformancesTableProps = {
   enableIssueJump?: boolean;
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
+  remainingMode?: 'general' | 'total';
 };
 
 const PerformancesTable = ({
   enableIssueJump = false,
   onAvailableCellClick,
   selectedCellKey,
+  remainingMode = 'general',
 }: PerformancesTableProps) => {
   const autoSelectedCellKeyRef = useRef<string | null>(null);
   const [performances, setPerformances] = useState<PerformanceRow[]>([]);
@@ -163,9 +165,14 @@ const PerformancesTable = ({
           }
 
           const remainingGeneral = Number(data?.[0]?.remaining_general ?? 0);
+          const remainingJunior = Number(data?.[0]?.remaining_junior ?? 0);
+          const remaining =
+            remainingMode === 'total'
+              ? remainingGeneral + remainingJunior
+              : remainingGeneral;
           seatMap.set(
             `${performance.id}-${schedule.id}`,
-            Math.max(remainingGeneral, 0),
+            Math.max(remaining, 0),
           );
         }
       }
@@ -177,7 +184,7 @@ const PerformancesTable = ({
     };
 
     void load();
-  }, []);
+  }, [remainingMode]);
 
   const statusByKey = useMemo(() => {
     const map = new Map<string, 'circle' | 'triangle' | 'cross'>();
@@ -188,15 +195,18 @@ const PerformancesTable = ({
         const remaining = Number(remainingSeatMap.get(key) ?? 0);
         const totalCapacity = Number(performance.total_capacity ?? 0);
         const juniorCapacity = Number(performance.junior_capacity ?? 0);
-        const generalCapacity = Math.max(totalCapacity - juniorCapacity, 0);
-        const lowStockThreshold = Math.max(1, Math.ceil(generalCapacity * 0.1));
+        const baseCapacity =
+          remainingMode === 'total'
+            ? totalCapacity
+            : Math.max(totalCapacity - juniorCapacity, 0);
+        const lowStockThreshold = Math.max(1, Math.ceil(baseCapacity * 0.1));
 
         if (remaining <= 0) {
           map.set(key, 'cross');
           return;
         }
 
-        if (generalCapacity > 0 && remaining <= lowStockThreshold) {
+        if (baseCapacity > 0 && remaining <= lowStockThreshold) {
           map.set(key, 'triangle');
           return;
         }
@@ -206,7 +216,7 @@ const PerformancesTable = ({
     });
 
     return map;
-  }, [performances, schedules, remainingSeatMap]);
+  }, [performances, schedules, remainingSeatMap, remainingMode]);
 
   const filteredPerformances = useMemo(
     () =>

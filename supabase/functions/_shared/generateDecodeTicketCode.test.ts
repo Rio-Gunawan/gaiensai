@@ -199,7 +199,7 @@ Deno.test({
         serial: 15,
       },
       {
-        affiliation: 4864,
+        affiliation: 4863,
         relationship: 7,
         type: 15,
         performance: 31,

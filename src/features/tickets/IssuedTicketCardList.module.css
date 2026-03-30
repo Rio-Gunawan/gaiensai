@@ -147,6 +147,8 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--heading-text-color);
+  white-space: pre-line;
+  text-align: right;
 }
 
 .ticketCodeValue {

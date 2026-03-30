@@ -11,6 +11,8 @@ export const ScanLayout = lazy(() => import('./layout/ScanLayout'));
 
 export const Home = lazy(() => import('./pages/user/Home'));
 export const Performances = lazy(() => import('./pages/user/Performances'));
+export const DayTicketIssue = lazy(() => import('./pages/user/dayTickets/DayTicketIssue'));
+export const DayTicketIssueResult = lazy(() => import('./pages/user/dayTickets/DayTicketIssueResult'));
 export const Students = lazy(() => import('./pages/user/students/Students'));
 export const AdminHome = lazy(() => import('./pages/admin/AdminHome'));
 export const Scan = lazy(() => import('./pages/admin/Scan'));

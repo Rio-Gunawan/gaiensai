@@ -1,0 +1,11 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.95.3"
+  },
+  "remote": {
+    "https://esm.sh/@supabase/functions-js@2.95.3/denonext/functions-js.mjs": "65c505a80e2859dd8ccfa11b179bc51ac68f914fdd13b56294a1f7b70786638a",
+    "https://esm.sh/@supabase/supabase-js@2.95.3": "1f2684e4be12043f36ea7decd22a2ba0c3367cf6c474b99a051f1e7148e88176",
+    "https://esm.sh/tslib@2.8.1/denonext/tslib.mjs": "c38da5dd6da6281964435002ce204cd586634fe3bdfb24a0ee116f48cf3292e9"
+  }
+}

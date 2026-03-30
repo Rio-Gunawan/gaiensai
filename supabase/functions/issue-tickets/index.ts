@@ -21,11 +21,16 @@ type IssueTicketsRequest = {
   performanceId: number;
   scheduleId: number;
   issueCount: number;
-  turnstileToken: string;
-  // If provided, the backend will (cancel old + issue new) transactionally.
+  turnstileToken?: string;
+  // If provided, the backend will (cancel old + issue new) transitionally.
   // Intended for "relationship change" reissue.
   cancelCode?: string;
 };
+
+const DAY_TICKET_TYPE_IDS = new Set([8, 9]);
+const SELF_RELATIONSHIP_ID = 1;
+const ANONYMOUS_AFFILIATION = 0;
+const DAY_TICKET_GUEST_USER_ID = '00000000-0000-0000-0000-00000000d001';
 
 const padNumber = (value: number, length: number): string =>
   String(value).padStart(length, '0');
@@ -80,13 +85,6 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     throw new HttpError(400, 'Cannot issue more than 100 tickets at a time');
   }
 
-  if (
-    typeof turnstileToken !== 'string' ||
-    turnstileToken.trim().length === 0
-  ) {
-    throw new HttpError(400, 'Turnstileトークンがありません。');
-  }
-
   const cancelCode =
     typeof cancelCodeRaw === 'string' && cancelCodeRaw.trim().length > 0
       ? cancelCodeRaw.trim()
@@ -98,7 +96,8 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
     performanceId,
     scheduleId,
     issueCount,
-    turnstileToken: turnstileToken.trim(),
+    turnstileToken:
+      typeof turnstileToken === 'string' ? turnstileToken.trim() : undefined,
     cancelCode,
   };
 };
@@ -203,23 +202,21 @@ export const handleIssueTicketsRequest = async (
   }
 
   try {
-    const authorization = req.headers.get('Authorization') ?? '';
-
-    if (!authorization.startsWith('Bearer ')) {
-      throw new HttpError(
-        401,
-        '認証情報がありません。Bearerトークンを含むAuthorizationヘッダーが必要です。',
-      );
-    }
-
-    const accessToken = authorization.slice('Bearer '.length).trim();
-
-    if (!accessToken) {
-      throw new HttpError(401, '認証情報がありません。');
-    }
-
     const body = parseRequestBody(await req.json());
-    await verifyTurnstileToken(req, body.turnstileToken);
+    const isDayTicket = DAY_TICKET_TYPE_IDS.has(body.ticketTypeId);
+    if (!isDayTicket) {
+      if (!body.turnstileToken) {
+        throw new HttpError(400, 'Turnstileトークンがありません。');
+      }
+      await verifyTurnstileToken(req, body.turnstileToken);
+    }
+    const relationshipId = isDayTicket
+      ? SELF_RELATIONSHIP_ID
+      : body.relationshipId;
+    const authorization = req.headers.get('Authorization') ?? '';
+    const accessToken = authorization.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : '';
 
     const supabaseUrl = getEnv('SUPABASE_URL');
     const publishableKey = getEnv('PUBLISHABLE_KEY');
@@ -239,46 +236,90 @@ export const handleIssueTicketsRequest = async (
       },
     });
 
-    const {
-      data: { user },
-      error: authError,
-    } = await authClient.auth.getUser(accessToken);
+    if (!isDayTicket && !accessToken) {
+      throw new HttpError(
+        401,
+        '認証情報がありません。Bearerトークンを含むAuthorizationヘッダーが必要です。',
+      );
+    }
 
-    if (authError || !user) {
+    const shouldResolveUser = accessToken.length > 0;
+    let user:
+      | {
+          id: string;
+        }
+      | null = null;
+    let userRow:
+      | {
+          affiliation: number | null;
+          role: string | null;
+        }
+      | null = null;
+
+    if (shouldResolveUser) {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await authClient.auth.getUser(accessToken);
+
+      if (authError || !authUser) {
+        if (!isDayTicket) {
+          throw new HttpError(
+            401,
+            'ログイン情報の確認に失敗しました。正しくログインされていますか?',
+          );
+        }
+      } else {
+        user = { id: authUser.id };
+        const { data: resolvedUserRow, error: userRowError } = await adminClient
+          .from('users')
+          .select('affiliation, role')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (userRowError) {
+          throw new HttpError(
+            500,
+            'ユーザーデータの取得に失敗しました。外苑祭総務にお問い合わせください。',
+          );
+        }
+
+        userRow = (resolvedUserRow ?? null) as {
+          affiliation: number | null;
+          role: string | null;
+        } | null;
+      }
+    }
+
+    if (!isDayTicket && (!user || !userRow)) {
       throw new HttpError(
         401,
         'ログイン情報の確認に失敗しました。正しくログインされていますか?',
       );
     }
 
-    const { data: userRow, error: userRowError } = await adminClient
-      .from('users')
-      .select('affiliation, role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (userRowError) {
-      throw new HttpError(
-        500,
-        'ユーザーデータの取得に失敗しました。外苑祭総務にお問い合わせください。',
-      );
-    }
-
-    if (!userRow || userRow.role !== 'student') {
+    if (!isDayTicket && (!userRow || userRow.role !== 'student')) {
       throw new HttpError(403, '生徒以外はチケットを発行できません。');
     }
 
-    const affiliation = Number(userRow.affiliation ?? -1);
+    const isAuthenticatedStudent = Boolean(user && userRow);
+    const affiliation = isAuthenticatedStudent
+      ? Number(userRow?.affiliation ?? -1)
+      : ANONYMOUS_AFFILIATION;
 
-    if (
-      !Number.isInteger(affiliation) ||
-      affiliation < 1000 ||
-      affiliation > 3999
-    ) {
-      throw new HttpError(
-        400,
-        'ユーザーデータの学年クラス番号が不正です。外苑祭総務にお問い合わせください。',
-      );
+    if (isAuthenticatedStudent) {
+      if (
+        !Number.isInteger(affiliation) ||
+        affiliation < 1000 ||
+        affiliation > 3999
+      ) {
+        throw new HttpError(
+          400,
+          'ユーザーデータの学年クラス番号が不正です。外苑祭総務にお問い合わせください。',
+        );
+      }
+    } else if (!isDayTicket) {
+      throw new HttpError(401, 'ログイン情報の確認に失敗しました。');
     }
 
     const { data: admissionOnlyTicketTypes, error: admissionOnlyTypeError } =
@@ -309,6 +350,19 @@ export const handleIssueTicketsRequest = async (
       body,
       admissionOnlyTicketTypeIds,
     );
+    if (isDayTicket && body.ticketTypeId === 8 && issueMode !== 'class') {
+      throw new HttpError(
+        400,
+        '当日券(クラス公演)は class performance/schedule を指定してください。',
+      );
+    }
+    if (isDayTicket && body.ticketTypeId === 9 && issueMode !== 'gym') {
+      throw new HttpError(
+        400,
+        '当日券(体育館公演)は gym performance を指定してください。',
+      );
+    }
+    const issueUserId = user?.id ?? DAY_TICKET_GUEST_USER_ID;
 
     if (issueMode === 'gym') {
       const { data: gymPerformance, error: gymPerformanceError } =
@@ -328,6 +382,9 @@ export const handleIssueTicketsRequest = async (
 
     if (body.cancelCode && body.issueCount !== 1) {
       throw new HttpError(400, '差し替え発券は1枚ずつのみ対応しています。');
+    }
+    if (isDayTicket && body.cancelCode) {
+      throw new HttpError(400, '当日券の差し替え発券には対応していません。');
     }
 
     // Check per-user max tickets before reserving serial numbers to avoid
@@ -354,7 +411,7 @@ export const handleIssueTicketsRequest = async (
 
     const maxTicketsPerUser = Number(configRow.max_tickets_per_user);
 
-    if (body.issueCount > maxTicketsPerUser) {
+    if (!isDayTicket && body.issueCount > maxTicketsPerUser) {
       throw new HttpError(
         409,
         `1回の発行枚数がユーザ上限を超えています。最大 ${maxTicketsPerUser} 枚までです。
@@ -379,7 +436,7 @@ export const handleIssueTicketsRequest = async (
         );
       }
 
-      if (oldTicket.user_id !== user.id) {
+      if (oldTicket.user_id !== user?.id) {
         throw new HttpError(403, '差し替え対象のチケットが不正です。');
       }
 
@@ -459,7 +516,7 @@ export const handleIssueTicketsRequest = async (
       await adminClient
         .from('tickets')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', issueUserId)
         .eq('status', 'valid');
 
     if (existingCountError) {
@@ -472,7 +529,7 @@ export const handleIssueTicketsRequest = async (
     const existing = Number(existingCount ?? 0);
     const effectiveExisting = Math.max(0, existing - replaceTicketOffset);
 
-    if (effectiveExisting + body.issueCount > maxTicketsPerUser) {
+    if (!isDayTicket && effectiveExisting + body.issueCount > maxTicketsPerUser) {
       throw new HttpError(
         409,
         `チケット発行上限を超えています（既に ${existing} 枚）。1ユーザあたり最大 ${maxTicketsPerUser} 枚です。
@@ -482,7 +539,7 @@ export const handleIssueTicketsRequest = async (
 
     // チケットコードのプレフィックスを生成（学年クラス番号 + チケット種別 + 間柄 + 公演ID + 回ID + 発行年をYEAR_BITSで割ったあまり）
     const issuedYear = new Date().getUTCFullYear() % 2 ** Number(YEAR_BITS);
-    const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(body.relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
+    const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
     const basePrefix = encodeBase58(BigInt(concatenated));
 
     // プレフィックスをキーとして発行枚数をデータベースに登録し、シリアル番号を取得
@@ -521,11 +578,11 @@ export const handleIssueTicketsRequest = async (
     if (!body.cancelCode) {
       issuedTickets = await issueWithRollback({
         adminClient: adminClient as unknown as RpcClient,
-        userId: user.id,
+        userId: issueUserId,
         issueCount: body.issueCount,
         issueMode: issueMode === 'gym' ? 'gym' : 'class',
         ticketTypeId: body.ticketTypeId,
-        relationshipId: body.relationshipId,
+        relationshipId,
         performanceId: body.performanceId,
         scheduleId: body.scheduleId,
         affiliation,
@@ -543,7 +600,7 @@ export const handleIssueTicketsRequest = async (
         const serial = startSerial; // issueCount is validated to be 1
         const ticketData = {
           affiliation,
-          relationship: body.relationshipId,
+          relationship: relationshipId,
           type: body.ticketTypeId,
           performance: body.performanceId,
           schedule: body.scheduleId,
@@ -562,12 +619,12 @@ export const handleIssueTicketsRequest = async (
         const { data, error } = await adminClient.rpc(
           reissueRpcName,
           {
-            p_user_id: user.id,
+            p_user_id: issueUserId,
             p_old_code: body.cancelCode,
             p_ticket_type_id: body.ticketTypeId,
             p_performance_id: body.performanceId,
             p_schedule_id: body.scheduleId,
-            p_new_relationship_id: body.relationshipId,
+            p_new_relationship_id: relationshipId,
             p_issue_count: body.issueCount,
             p_codes: [code],
             p_signatures: [signature],
@@ -592,7 +649,7 @@ export const handleIssueTicketsRequest = async (
 
           if (rollbackError) {
             console.error('Failed to rollback ticket code counter', {
-              userId: user.id,
+              userId: issueUserId,
               prefix: basePrefix,
               issueCount: body.issueCount,
               endSerial,
@@ -602,7 +659,7 @@ export const handleIssueTicketsRequest = async (
             console.error(
               'Counter rollback was skipped because state changed',
               {
-                userId: user.id,
+                userId: issueUserId,
                 prefix: basePrefix,
                 issueCount: body.issueCount,
                 endSerial,
@@ -614,10 +671,13 @@ export const handleIssueTicketsRequest = async (
     }
 
     console.log('Issued tickets successfully', {
-      userId: user.id,
+      userId: issueUserId,
+      isDayTicket,
+      isAuthenticatedStudent,
       issueMode,
       ticketTypeId: body.ticketTypeId,
-      relationshipId: body.relationshipId,
+      affiliation,
+      relationshipId,
       performanceId: body.performanceId,
       scheduleId: body.scheduleId,
       issueCount: body.issueCount,

@@ -10,6 +10,7 @@ export type RelationshipRow = {
 export type TicketTypeOption = {
   id: number;
   name: string;
+  type?: string | null;
   is_active: boolean;
 };
 

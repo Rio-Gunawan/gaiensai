@@ -85,7 +85,10 @@ const buildSnapshot = async () => {
       .from('performances_schedule')
       .select('id, round_name, start_at')
       .order('id', { ascending: true }),
-    supabase.from('ticket_types').select('id, name').order('id', { ascending: true }),
+    supabase
+      .from('ticket_types')
+      .select('id, name, type')
+      .order('id', { ascending: true }),
     supabase.from('relationships').select('id, name').order('id', { ascending: true }),
     supabase
       .from('configs')

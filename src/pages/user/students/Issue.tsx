@@ -17,6 +17,7 @@ import styles from './Issue.module.css';
 import BackButton from '../../../components/ui/BackButton';
 import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
+import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
@@ -110,7 +111,7 @@ const Issue = () => {
     const loadTicketTypes = async () => {
       const { data, error } = await supabase
         .from('ticket_types')
-        .select('id, name, is_active')
+        .select('id, name, type, is_active')
         .eq('type', '招待券')
         .order('id', { ascending: true });
 
@@ -169,7 +170,7 @@ const Issue = () => {
       ): Promise<number | null> => {
         const { data, error } = await supabase
           .from('ticket_types')
-          .select('id, name, is_active')
+          .select('id, name, type, is_active')
           .eq('type', '招待券')
           .eq('is_active', true)
           .order('id', { ascending: true });
@@ -606,7 +607,10 @@ const Issue = () => {
         scheduleDate,
         scheduleTime,
         scheduleEndTime,
-        ticketTypeLabel: selectedTicketType.name,
+        ticketTypeLabel: formatTicketTypeLabel({
+          type: selectedTicketType.type,
+          name: selectedTicketType.name,
+        }),
         relationshipName: selectedRelationshipName ?? '-',
         relationshipId: selectedRelationshipId ?? 1,
         issuedTickets,

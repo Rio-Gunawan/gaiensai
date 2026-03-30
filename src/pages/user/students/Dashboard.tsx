@@ -30,6 +30,7 @@ import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
 import { formatDateText } from '../../../utils/formatDateText';
 import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
+import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -42,7 +43,7 @@ type TicketSnapshot = {
     title?: string | null;
   }>;
   schedules?: Array<{ id: number; round_name: string }>;
-  ticketTypes?: Array<{ id: number; name: string }>;
+  ticketTypes?: Array<{ id: number; name: string; type?: string | null }>;
   relationships?: Array<{ id: number; name: string }>;
 };
 
@@ -350,8 +351,16 @@ const Dashboard = ({ userData }: DashboardProps) => {
           (ticketSnapshot.ticketTypes ?? []) as Array<{
             id: number;
             name: string;
+            type?: string | null;
           }>
-        ).map((ticketType) => [ticketType.id, ticketType.name]),
+        ).map((ticketType) => [
+          ticketType.id,
+          formatTicketTypeLabel({
+            type: ticketType.type,
+            name: ticketType.name,
+            fallback: `券種${ticketType.id}`,
+          }),
+        ]),
       );
       const relationshipMap = new Map(
         (

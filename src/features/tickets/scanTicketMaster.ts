@@ -1,7 +1,8 @@
 import { supabase } from '../../lib/supabase';
 import type { TicketDecodedDisplaySeed } from './ticketCodeDecode';
+import { formatTicketTypeLabel } from './formatTicketTypeLabel';
 
-const SCAN_TICKET_MASTER_CACHE_KEY = 'scan-ticket-master:v2';
+const SCAN_TICKET_MASTER_CACHE_KEY = 'scan-ticket-master:v3';
 const SCAN_TICKET_MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type ScanPerformance = {
@@ -28,11 +29,15 @@ type ScanNamedMaster = {
   name: string;
 };
 
+type ScanTicketType = ScanNamedMaster & {
+  type?: string | null;
+};
+
 export type ScanTicketMaster = {
   performances: ScanPerformance[];
   gymPerformances: ScanGymPerformance[];
   schedules: ScanSchedule[];
-  ticketTypes: ScanNamedMaster[];
+  ticketTypes: ScanTicketType[];
   relationships: ScanNamedMaster[];
   showLengthMinutes: number;
   fetchedAt: number;
@@ -122,7 +127,7 @@ const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
       .order('id', { ascending: true }),
     supabase
       .from('ticket_types')
-      .select('id, name')
+      .select('id, name, type')
       .order('id', { ascending: true }),
     supabase
       .from('relationships')
@@ -151,7 +156,7 @@ const fetchMasterFromSupabase = async (): Promise<ScanTicketMaster> => {
     performances: (performancesRes.data ?? []) as ScanPerformance[],
     gymPerformances: (gymPerformancesRes.data ?? []) as ScanGymPerformance[],
     schedules: (schedulesRes.data ?? []) as ScanSchedule[],
-    ticketTypes: (ticketTypesRes.data ?? []) as ScanNamedMaster[],
+    ticketTypes: (ticketTypesRes.data ?? []) as ScanTicketType[],
     relationships: (relationshipsRes.data ?? []) as ScanNamedMaster[],
     showLengthMinutes: Number(configRes.data?.show_length ?? 0),
     fetchedAt: Date.now(),
@@ -192,6 +197,11 @@ export const resolveScanTicketDisplay = (
   const ticketType = master.ticketTypes.find(
     (item) => item.id === decoded.ticketTypeId,
   );
+  const ticketTypeLabel = formatTicketTypeLabel({
+    type: ticketType?.type,
+    name: ticketType?.name,
+    separator: ' ',
+  });
   const relationship = master.relationships.find(
     (item) => item.id === decoded.relationshipId,
   );
@@ -204,7 +214,7 @@ export const resolveScanTicketDisplay = (
       scheduleDate: '',
       scheduleTime: '',
       scheduleEndTime: '',
-      ticketTypeLabel: ticketType?.name ?? '-',
+      ticketTypeLabel,
       relationshipName: relationship?.name ?? '-',
     };
   }
@@ -242,7 +252,7 @@ export const resolveScanTicketDisplay = (
             minute: '2-digit',
           })
         : '-',
-      ticketTypeLabel: ticketType?.name ?? '-',
+      ticketTypeLabel,
       relationshipName: relationship?.name ?? '-',
     };
   }
@@ -277,7 +287,7 @@ export const resolveScanTicketDisplay = (
           minute: '2-digit',
         })
       : '-',
-    ticketTypeLabel: ticketType?.name ?? '-',
+    ticketTypeLabel,
     relationshipName: relationship?.name ?? '-',
   };
 };

@@ -400,3 +400,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/issue-tickets/deno.json"
 entrypoint = "./functions/issue-tickets/index.ts"
+
+[functions.admin-auth]
+enabled = true
+verify_jwt = false
+import_map = "./functions/admin-auth/deno.json"
+entrypoint = "./functions/admin-auth/index.ts"

@@ -32,6 +32,11 @@ const adminHome = () => {
               チケットスキャン履歴
             </a>
           </li>
+          <li>
+            <a href='/admin/settings' onMouseEnter={() => preload(Scan)}>
+              コントロールパネル
+            </a>
+          </li>
         </ul>
       </section>
     </div>

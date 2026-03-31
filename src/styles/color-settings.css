@@ -96,4 +96,7 @@
   --scan-result-reentry-bg-color: #e2e1e1;
   --scan-result-reentry-border-color: #9f9f9f;
   --result-success-reentry-overlay-bg-color: #6a6a6a40;
+
+  --settings-border-color: rgba(255, 255, 255, 0.2);
+  --settings-hint-color: #b3b3b3;
 }

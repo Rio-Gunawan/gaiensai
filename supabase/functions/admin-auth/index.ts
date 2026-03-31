@@ -18,17 +18,37 @@ type AdminAuthRequest = {
   password?: unknown;
   currentPassword?: unknown;
   newPassword?: unknown;
+  eventYear?: unknown;
+  showLength?: unknown;
+  maxTicketsPerUser?: unknown;
+  juniorReleaseOpen?: unknown;
 };
 
 type AdminAuthBody =
   | { mode: 'login'; password: string }
   | { mode: 'verifySession' }
   | { mode: 'logoutSession' }
-  | { mode: 'changePassword'; currentPassword: string; newPassword: string };
+  | { mode: 'changePassword'; currentPassword: string; newPassword: string }
+  | { mode: 'getSettings' }
+  | {
+    mode: 'updateSettings';
+    eventYear: number;
+    showLength: number;
+    maxTicketsPerUser: number;
+    juniorReleaseOpen: boolean;
+  };
 
 type AdminConfigRow = {
   id: number;
   admin_password: string;
+};
+
+type AdminSettingsRow = {
+  id: number;
+  event_year: number;
+  show_length: number;
+  max_tickets_per_user: number;
+  junior_release_open: boolean;
 };
 
 type AdminSessionRow = {
@@ -109,6 +129,30 @@ const normalizePassword = (value: unknown, fieldName: string): string => {
   return trimmedPassword;
 };
 
+const normalizeInteger = (
+  value: unknown,
+  fieldName: string,
+  min: number,
+  max: number,
+) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new HttpError(400, `${fieldName} は数値で送信してください。`);
+  }
+
+  if (!Number.isInteger(value)) {
+    throw new HttpError(400, `${fieldName} は整数で送信してください。`);
+  }
+
+  if (value < min || value > max) {
+    throw new HttpError(
+      400,
+      `${fieldName} は${min}〜${max}の範囲で指定してください。`,
+    );
+  }
+
+  return value;
+};
+
 const parseBody = (
   body: unknown,
 ): AdminAuthBody => {
@@ -145,6 +189,36 @@ const parseBody = (
       mode: 'changePassword',
       currentPassword: normalizedCurrentPassword,
       newPassword: normalizedNewPassword,
+    };
+  }
+
+  if (action === 'getSettings') {
+    return { mode: 'getSettings' };
+  }
+
+  if (action === 'updateSettings') {
+    const {
+      eventYear,
+      showLength,
+      maxTicketsPerUser,
+      juniorReleaseOpen,
+    } = body as AdminAuthRequest;
+
+    if (typeof juniorReleaseOpen !== 'boolean') {
+      throw new HttpError(400, 'juniorReleaseOpen は真偽値で送信してください。');
+    }
+
+    return {
+      mode: 'updateSettings',
+      eventYear: normalizeInteger(eventYear, 'eventYear', 2020, 2100),
+      showLength: normalizeInteger(showLength, 'showLength', 1, 300),
+      maxTicketsPerUser: normalizeInteger(
+        maxTicketsPerUser,
+        'maxTicketsPerUser',
+        1,
+        100,
+      ),
+      juniorReleaseOpen,
     };
   }
 
@@ -214,6 +288,24 @@ const fetchAdminConfig = async (adminClient: SupabaseClient) => {
     id: config.id,
     passwordHash: config.admin_password,
   };
+};
+
+const fetchAdminSettings = async (adminClient: SupabaseClient) => {
+  const { data, error } = await adminClient
+    .from('configs')
+    .select('id, event_year, show_length, max_tickets_per_user, junior_release_open')
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  const row = data?.[0] as AdminSettingsRow | undefined;
+  if (!row || typeof row.id !== 'number') {
+    throw new HttpError(500, 'configs が取得できませんでした。');
+  }
+
+  return row;
 };
 
 const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$.{53}$/.test(value);
@@ -361,6 +453,20 @@ const findActiveSession = async (
   return { ...session, tokenHash };
 };
 
+const requireValidSession = async (adminClient: SupabaseClient, req: Request) => {
+  const sessionToken = readSessionToken(req);
+  if (!sessionToken) {
+    throw new HttpError(401, 'セッションが無効です。再ログインしてください。');
+  }
+
+  const session = await findActiveSession(adminClient, sessionToken);
+  if (!session) {
+    throw new HttpError(401, 'セッションが無効です。再ログインしてください。');
+  }
+
+  return session;
+};
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -473,6 +579,77 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (body.mode === 'getSettings') {
+      const session = await requireValidSession(adminClient, req);
+      const settings = await fetchAdminSettings(adminClient);
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(
+        JSON.stringify({
+          settings: {
+            eventYear: settings.event_year,
+            showLength: settings.show_length,
+            maxTicketsPerUser: settings.max_tickets_per_user,
+            juniorReleaseOpen: settings.junior_release_open,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    }
+
+    if (body.mode === 'updateSettings') {
+      const session = await requireValidSession(adminClient, req);
+      const currentSettings = await fetchAdminSettings(adminClient);
+
+      const { error: updateError } = await adminClient
+        .from('configs')
+        .update({
+          event_year: body.eventYear,
+          show_length: body.showLength,
+          max_tickets_per_user: body.maxTicketsPerUser,
+          junior_release_open: body.juniorReleaseOpen,
+        })
+        .eq('id', currentSettings.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(
+        JSON.stringify({
+          updated: true,
+          settings: {
+            eventYear: body.eventYear,
+            showLength: body.showLength,
+            maxTicketsPerUser: body.maxTicketsPerUser,
+            juniorReleaseOpen: body.juniorReleaseOpen,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    }
+
     const config = await fetchAdminConfig(adminClient);
 
     if (body.mode === 'changePassword') {
@@ -480,15 +657,7 @@ Deno.serve(async (req) => {
       const currentRateLimitRow = await getRateLimitRow(adminClient, clientIp);
       ensureIpIsNotLocked(currentRateLimitRow);
 
-      const sessionToken = readSessionToken(req);
-      if (!sessionToken) {
-        throw new HttpError(401, 'セッションが無効です。再ログインしてください。');
-      }
-
-      const session = await findActiveSession(adminClient, sessionToken);
-      if (!session) {
-        throw new HttpError(401, 'セッションが無効です。再ログインしてください。');
-      }
+      const session = await requireValidSession(adminClient, req);
 
       const currentPasswordMatched = await compare(
         body.currentPassword,

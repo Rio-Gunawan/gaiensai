@@ -4,16 +4,100 @@
   margin-left: 1rem;
 }
 
+.headerText {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pageLead {
+  margin: 0;
+  margin-left: 1rem;
+  font-size: 0.95rem;
+}
+
 .authForm {
   display: grid;
   max-width: 600px;
-  margin: 1em auto;
-  gap: 1em;
+  margin: 1rem auto;
+  gap: 0.9rem;
+}
+
+.authLoginForm {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.75rem;
+}
+
+.field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--settings-border-color);
+  gap: 0.4rem;
+}
+
+.field:last-child {
+  border-bottom: none;
+}
+
+.settingLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.settingLabelGroup {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.settingHint {
+  margin: 0 !important;
+  font-size: 0.8rem;
+  color: var(--settings-hint-color);
+}
+
+.fieldControl {
+  min-height: 2.6rem;
+  box-sizing: border-box;
+  border: 1px solid var(--login-input-border);
+  border-radius: 10px;
+  color: var(--login-input-text);
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+}
+
+.settingControlGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.fieldValue {
+  font-weight: 600;
+}
+
+.inlineEditButton {
+  border: 1px solid var(--settings-border-color);
+  border-radius: 8px;
+  background: transparent;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.inlineEditButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .authLabel {
   font-weight: 600;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.2em;
 }
 
 .authInput {
@@ -66,6 +150,7 @@
 }
 
 .lockButton {
+  margin-top: 1em;
   margin-left: auto;
   margin-right: 1em;
 }
@@ -73,4 +158,41 @@
 .passwordForm {
   max-width: 640px;
   margin: 1em auto;
+}
+
+.settingModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.settingModal {
+  width: 90%;
+  max-width: 500px;
+  border-radius: 12px;
+  background: var(--main-bg-color);
+  padding: 1rem;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.28);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settingModalTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.settingModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.settingModalCancel {
+  border: 1px solid var(--login-input-border);
+  background: transparent;
 }

@@ -283,6 +283,10 @@
   gap: 1rem;
 }
 
+.onlyOwnClassAlert {
+  margin: 0 1rem;
+}
+
 .ticketCard {
   position: relative;
   padding: 1.25rem;

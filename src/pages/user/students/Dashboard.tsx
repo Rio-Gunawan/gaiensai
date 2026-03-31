@@ -59,6 +59,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [ticketNotice, setTicketNotice] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
+  const [hasAnyActiveInviteTicketType, setHasAnyActiveInviteTicketType] =
+    useState(true);
   const [myTicketSortMode, setMyTicketSortMode] = useState<TicketListSortMode>(
     () => {
       try {
@@ -85,6 +88,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
       }
     });
   const [ticketDisplayCacheVersion, setTicketDisplayCacheVersion] = useState(0);
+  const [classInviteMode, setClassInviteMode] = useState<
+    'open' | 'only-own' | 'off'
+  >('open');
+  const [ownClassName, setOwnClassName] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -130,6 +137,116 @@ const Dashboard = ({ userData }: DashboardProps) => {
       window.removeEventListener('storage', refresh);
     };
   }, []);
+
+  useEffect(() => {
+    const loadIssuingState = async () => {
+      const { data } = await supabase
+        .from('configs')
+        .select('is_active')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (typeof data?.is_active === 'boolean') {
+        setIsTicketIssuingEnabled(data.is_active);
+      }
+    };
+
+    void loadIssuingState();
+  }, []);
+
+  useEffect(() => {
+    const loadInviteTicketTypeState = async () => {
+      const { data, error } = await supabase
+        .from('ticket_issue_controls')
+        .select(
+          'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode',
+        )
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (error) {
+        return;
+      }
+
+      const hasActive =
+        data &&
+        (data.class_invite_mode !== 'off' ||
+          data.rehearsal_invite_mode !== 'off' ||
+          data.gym_invite_mode !== 'off' ||
+          data.entry_only_mode !== 'off');
+      setHasAnyActiveInviteTicketType(!!hasActive);
+    };
+
+    void loadInviteTicketTypeState();
+  }, []);
+
+  useEffect(() => {
+    const loadOwnClassName = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('affiliation')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        return;
+      }
+
+      const affiliation = Number(
+        (data as { affiliation?: number | null } | null)?.affiliation ?? -1,
+      );
+      if (!Number.isInteger(affiliation) || affiliation < 1000) {
+        return;
+      }
+
+      const grade = Math.floor(affiliation / 1000);
+      const classNo = Math.floor((affiliation % 1000) / 100);
+      if (grade >= 1 && grade <= 3 && classNo >= 1 && classNo <= 7) {
+        setOwnClassName(`${grade}-${classNo}`);
+      }
+    };
+
+    void loadOwnClassName();
+  }, []);
+
+  useEffect(() => {
+    const loadClassInviteMode = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ticket_issue_controls')
+          .select('class_invite_mode')
+          .eq('id', 1)
+          .maybeSingle();
+
+        if (error) {
+          return;
+        }
+
+        const mode = (data as { class_invite_mode?: unknown } | null)
+          ?.class_invite_mode;
+
+        if (mode === 'open' || mode === 'only-own' || mode === 'off') {
+          setClassInviteMode(mode);
+        }
+      } catch (err) {
+        // 特にエラーは表示しない
+      }
+    };
+
+    void loadClassInviteMode();
+  }, []);
+
+  const isIssueReceptionStopped =
+    !isTicketIssuingEnabled || !hasAnyActiveInviteTicketType;
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -392,9 +509,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
         const gymPerformance = decoded
           ? gymPerformanceMap.get(decoded.performanceId)
           : undefined;
-        const schedule = !isGymPerformance && decoded
-          ? scheduleMap.get(decoded.scheduleId)
-          : undefined;
+        const schedule =
+          !isGymPerformance && decoded
+            ? scheduleMap.get(decoded.scheduleId)
+            : undefined;
         const isAdmissionOnly =
           decoded?.performanceId === 0 && decoded?.scheduleId === 0;
 
@@ -444,12 +562,14 @@ const Dashboard = ({ userData }: DashboardProps) => {
           const gymPerformance = decoded
             ? gymPerformanceMap.get(decoded.performanceId)
             : undefined;
-          const schedule = !isGymPerformance && decoded
-            ? scheduleMap.get(decoded.scheduleId)
-            : undefined;
-          const scheduleTimes = !isGymPerformance && decoded
-            ? scheduleTimesMap.get(decoded.scheduleId)
-            : undefined;
+          const schedule =
+            !isGymPerformance && decoded
+              ? scheduleMap.get(decoded.scheduleId)
+              : undefined;
+          const scheduleTimes =
+            !isGymPerformance && decoded
+              ? scheduleTimesMap.get(decoded.scheduleId)
+              : undefined;
           const isAdmissionOnly =
             decoded?.performanceId === 0 && decoded?.scheduleId === 0;
 
@@ -570,6 +690,12 @@ const Dashboard = ({ userData }: DashboardProps) => {
     await supabase.auth.signOut();
   };
 
+  const restrictedClassName = useMemo(() => {
+    const result =
+      classInviteMode === 'only-own' ? (ownClassName ?? null) : null;
+    return result;
+  }, [classInviteMode, ownClassName]);
+
   return (
     <>
       <h1 className={subPageStyles.pageTitle}>ダッシュボード</h1>
@@ -579,11 +705,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
         </h2>
         <a
           href='/students/issue'
-          className={`${styles.buttonLink} ${!isOnline ? styles.buttonLinkDisabled : ''}`}
-          aria-disabled={!isOnline}
-          tabIndex={!isOnline ? -1 : 0}
+          className={`${styles.buttonLink} ${!isOnline || isIssueReceptionStopped ? styles.buttonLinkDisabled : ''}`}
+          aria-disabled={!isOnline || isIssueReceptionStopped}
+          tabIndex={!isOnline || isIssueReceptionStopped ? -1 : 0}
           onClick={(event) => {
-            if (!isOnline) {
+            if (!isOnline || isIssueReceptionStopped) {
               event.preventDefault();
             }
           }}
@@ -594,6 +720,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
         {!isOnline && (
           <p className={styles.issueOfflineNote}>
             オフライン中は新規チケットを発行できません。
+          </p>
+        )}
+        {isIssueReceptionStopped && (
+          <p className={styles.issueOfflineNote}>
+            現在チケット発券は受付停止中です。
           </p>
         )}
       </section>
@@ -658,7 +789,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
       <NormalSection>
         <h2>公演空き状況</h2>
         <h3>クラス公演</h3>
-        <PerformancesTable enableIssueJump={true} />
+        <PerformancesTable
+          enableIssueJump={true}
+          restrictedClassName={restrictedClassName}
+        />
         <h3>体育館公演</h3>
         <GymPerformancesTable enableIssueJump={true} />
       </NormalSection>

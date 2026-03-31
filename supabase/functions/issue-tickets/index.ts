@@ -27,10 +27,41 @@ type IssueTicketsRequest = {
   cancelCode?: string;
 };
 
+type TicketIssueMode =
+  | 'open'
+  | 'only-own'
+  | 'public-rehearsals'
+  | 'auto'
+  | 'off';
+
+type TicketIssueControls = {
+  classInvite: TicketIssueMode;
+  rehearsalInvite: TicketIssueMode;
+  gymInvite: TicketIssueMode;
+  entryOnly: TicketIssueMode;
+  sameDayClass: TicketIssueMode;
+  sameDayGym: TicketIssueMode;
+};
+
 const DAY_TICKET_TYPE_IDS = new Set([8, 9]);
 const SELF_RELATIONSHIP_ID = 1;
 const ANONYMOUS_AFFILIATION = 0;
 const DAY_TICKET_GUEST_USER_ID = '00000000-0000-0000-0000-00000000d001';
+const TICKET_ISSUE_MODE_VALUES = new Set<string>([
+  'open',
+  'only-own',
+  'public-rehearsals',
+  'auto',
+  'off',
+]);
+const DEFAULT_TICKET_ISSUE_CONTROLS: TicketIssueControls = {
+  classInvite: 'open',
+  rehearsalInvite: 'open',
+  gymInvite: 'open',
+  entryOnly: 'open',
+  sameDayClass: 'open',
+  sameDayGym: 'open',
+};
 
 const padNumber = (value: number, length: number): string =>
   String(value).padStart(length, '0');
@@ -184,6 +215,86 @@ const validatePerformanceAndSchedule = (
   return 'class';
 };
 
+const getStudentGradeClass = (
+  affiliation: number,
+): { grade: number; classNo: number } => ({
+  grade: Math.floor(affiliation / 1000),
+  classNo: Math.floor((affiliation % 1000) / 100),
+});
+
+const getJstDateKey = (date: Date): string => {
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+};
+
+const readTicketIssueControls = async (
+  adminClient: ReturnType<typeof createClient>,
+): Promise<TicketIssueControls> => {
+  const { data, error } = await adminClient
+    .from('ticket_issue_controls')
+    .select(
+      'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode, same_day_class_mode, same_day_gym_mode',
+    )
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      'ticket_issue_controls read failed, fallback to defaults',
+      error,
+    );
+    return DEFAULT_TICKET_ISSUE_CONTROLS;
+  }
+
+  if (!data) {
+    return DEFAULT_TICKET_ISSUE_CONTROLS;
+  }
+
+  const classInvite = (data as Record<string, unknown>).class_invite_mode;
+  const rehearsalInvite = (data as Record<string, unknown>)
+    .rehearsal_invite_mode;
+  const gymInvite = (data as Record<string, unknown>).gym_invite_mode;
+  const entryOnly = (data as Record<string, unknown>).entry_only_mode;
+  const sameDayClass = (data as Record<string, unknown>).same_day_class_mode;
+  const sameDayGym = (data as Record<string, unknown>).same_day_gym_mode;
+
+  if (
+    typeof classInvite !== 'string' ||
+    typeof rehearsalInvite !== 'string' ||
+    typeof gymInvite !== 'string' ||
+    typeof entryOnly !== 'string' ||
+    typeof sameDayClass !== 'string' ||
+    typeof sameDayGym !== 'string'
+  ) {
+    return DEFAULT_TICKET_ISSUE_CONTROLS;
+  }
+
+  if (
+    !TICKET_ISSUE_MODE_VALUES.has(classInvite) ||
+    !TICKET_ISSUE_MODE_VALUES.has(rehearsalInvite) ||
+    !TICKET_ISSUE_MODE_VALUES.has(gymInvite) ||
+    !TICKET_ISSUE_MODE_VALUES.has(entryOnly) ||
+    !TICKET_ISSUE_MODE_VALUES.has(sameDayClass) ||
+    !TICKET_ISSUE_MODE_VALUES.has(sameDayGym)
+  ) {
+    return DEFAULT_TICKET_ISSUE_CONTROLS;
+  }
+
+  return {
+    classInvite: classInvite as TicketIssueMode,
+    rehearsalInvite: rehearsalInvite as TicketIssueMode,
+    gymInvite: gymInvite as TicketIssueMode,
+    entryOnly: entryOnly as TicketIssueMode,
+    sameDayClass: sameDayClass as TicketIssueMode,
+    sameDayGym: sameDayGym as TicketIssueMode,
+  };
+};
+
 export const handleIssueTicketsRequest = async (
   req: Request,
 ): Promise<Response> => {
@@ -244,17 +355,13 @@ export const handleIssueTicketsRequest = async (
     }
 
     const shouldResolveUser = accessToken.length > 0;
-    let user:
-      | {
-          id: string;
-        }
-      | null = null;
-    let userRow:
-      | {
-          affiliation: number | null;
-          role: string | null;
-        }
-      | null = null;
+    let user: {
+      id: string;
+    } | null = null;
+    let userRow: {
+      affiliation: number | null;
+      role: string | null;
+    } | null = null;
 
     if (shouldResolveUser) {
       const {
@@ -391,7 +498,7 @@ export const handleIssueTicketsRequest = async (
     // incrementing the counter when the user would exceed their limit.
     const { data: configRow, error: configError } = await adminClient
       .from('configs')
-      .select('max_tickets_per_user')
+      .select('max_tickets_per_user, is_active')
       .order('id', { ascending: true })
       .maybeSingle();
 
@@ -407,6 +514,122 @@ export const handleIssueTicketsRequest = async (
         500,
         'チケット発行上限の設定が見つかりません。外苑祭総務にお問い合わせください。',
       );
+    }
+
+    if (configRow.is_active === false) {
+      throw new HttpError(
+        409,
+        '現在チケット発券は停止中です。しばらくしてから再度お試しください。',
+      );
+    }
+
+    const ticketIssueControls = await readTicketIssueControls(adminClient);
+
+    if (body.ticketTypeId === 1) {
+      if (ticketIssueControls.classInvite === 'off') {
+        throw new HttpError(409, 'クラス公演招待券の受付は停止中です。');
+      }
+      if (ticketIssueControls.classInvite === 'only-own') {
+        const { grade, classNo } = getStudentGradeClass(affiliation);
+        const ownClassName = `${grade}-${classNo}`;
+        const { data: classPerformance, error: classPerformanceError } =
+          await adminClient
+            .from('class_performances')
+            .select('class_name')
+            .eq('id', body.performanceId)
+            .maybeSingle();
+        if (classPerformanceError || !classPerformance) {
+          throw new HttpError(
+            409,
+            'クラス公演情報の取得に失敗しました。ページを更新してからやり直してください。',
+          );
+        }
+        if (classPerformance.class_name !== ownClassName) {
+          throw new HttpError(
+            403,
+            'この設定では自クラス公演のみ発券できます。',
+          );
+        }
+      }
+    } else if (body.ticketTypeId === 2) {
+      if (ticketIssueControls.rehearsalInvite === 'off') {
+        throw new HttpError(409, 'リハーサル招待券の受付は停止中です。');
+      }
+      if (ticketIssueControls.rehearsalInvite === 'public-rehearsals') {
+        const { data: rehearsalRow, error: rehearsalError } = await adminClient
+          .from('rehearsals')
+          .select('id')
+          .eq('class_id', body.performanceId)
+          .eq('round_id', body.scheduleId)
+          .eq('is_active', true)
+          .eq('type', 'unofficial')
+          .limit(1)
+          .maybeSingle();
+        if (rehearsalError) {
+          throw new HttpError(
+            500,
+            '公開リハーサル情報の取得に失敗しました。時間をおいて再度お試しください。',
+          );
+        }
+        if (!rehearsalRow) {
+          throw new HttpError(
+            403,
+            'この設定では公開リハーサルのみ発券できます。',
+          );
+        }
+      }
+    } else if (body.ticketTypeId === 3) {
+      if (ticketIssueControls.gymInvite === 'off') {
+        throw new HttpError(409, '体育館公演招待券の受付は停止中です。');
+      }
+    } else if (body.ticketTypeId === 4) {
+      if (ticketIssueControls.entryOnly === 'off') {
+        throw new HttpError(409, '入場専用券の受付は停止中です。');
+      }
+    } else if (body.ticketTypeId === 8 || body.ticketTypeId === 9) {
+      const mode =
+        body.ticketTypeId === 8
+          ? ticketIssueControls.sameDayClass
+          : ticketIssueControls.sameDayGym;
+      if (mode === 'off') {
+        throw new HttpError(409, '当日券受付は停止中です。');
+      }
+      if (mode === 'auto') {
+        const todayKey = getJstDateKey(new Date());
+        if (body.ticketTypeId === 8) {
+          const { data: scheduleRow, error: scheduleError } = await adminClient
+            .from('performances_schedule')
+            .select('start_at')
+            .eq('id', body.scheduleId)
+            .maybeSingle();
+          if (scheduleError || !scheduleRow?.start_at) {
+            throw new HttpError(409, '公演日時の取得に失敗しました。');
+          }
+          const scheduleKey = getJstDateKey(new Date(scheduleRow.start_at));
+          if (scheduleKey !== todayKey) {
+            throw new HttpError(
+              403,
+              'この設定では当日分の当日券のみ発券できます。',
+            );
+          }
+        } else {
+          const { data: gymRow, error: gymError } = await adminClient
+            .from('gym_performances')
+            .select('start_at')
+            .eq('id', body.performanceId)
+            .maybeSingle();
+          if (gymError || !gymRow?.start_at) {
+            throw new HttpError(409, '公演日時の取得に失敗しました。');
+          }
+          const scheduleKey = getJstDateKey(new Date(gymRow.start_at));
+          if (scheduleKey !== todayKey) {
+            throw new HttpError(
+              403,
+              'この設定では当日分の当日券のみ発券できます。',
+            );
+          }
+        }
+      }
     }
 
     const maxTicketsPerUser = Number(configRow.max_tickets_per_user);
@@ -529,7 +752,10 @@ export const handleIssueTicketsRequest = async (
     const existing = Number(existingCount ?? 0);
     const effectiveExisting = Math.max(0, existing - replaceTicketOffset);
 
-    if (!isDayTicket && effectiveExisting + body.issueCount > maxTicketsPerUser) {
+    if (
+      !isDayTicket &&
+      effectiveExisting + body.issueCount > maxTicketsPerUser
+    ) {
       throw new HttpError(
         409,
         `チケット発行上限を超えています（既に ${existing} 枚）。1ユーザあたり最大 ${maxTicketsPerUser} 枚です。
@@ -616,20 +842,17 @@ export const handleIssueTicketsRequest = async (
             ? 'reissue_gym_ticket_change_relationship_with_codes'
             : 'reissue_ticket_change_relationship_with_codes';
 
-        const { data, error } = await adminClient.rpc(
-          reissueRpcName,
-          {
-            p_user_id: issueUserId,
-            p_old_code: body.cancelCode,
-            p_ticket_type_id: body.ticketTypeId,
-            p_performance_id: body.performanceId,
-            p_schedule_id: body.scheduleId,
-            p_new_relationship_id: relationshipId,
-            p_issue_count: body.issueCount,
-            p_codes: [code],
-            p_signatures: [signature],
-          },
-        );
+        const { data, error } = await adminClient.rpc(reissueRpcName, {
+          p_user_id: issueUserId,
+          p_old_code: body.cancelCode,
+          p_ticket_type_id: body.ticketTypeId,
+          p_performance_id: body.performanceId,
+          p_schedule_id: body.scheduleId,
+          p_new_relationship_id: relationshipId,
+          p_issue_count: body.issueCount,
+          p_codes: [code],
+          p_signatures: [signature],
+        });
 
         if (error) {
           throw new HttpError(409, error.message);

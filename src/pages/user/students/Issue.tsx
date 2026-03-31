@@ -18,11 +18,13 @@ import BackButton from '../../../components/ui/BackButton';
 import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
+import Alert from '../../../components/ui/Alert';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
 const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
 const GYM_TICKET_KEYWORD = '体育館';
+const CLASS_INVITE_TICKET_ID = 1;
 
 const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   const fallback =
@@ -83,6 +85,12 @@ const Issue = () => {
   const [selectedPerformance, setSelectedPerformance] =
     useState<SelectedPerformance>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeOption[]>([]);
+  const [issueControls, setIssueControls] = useState<{
+    class_invite_mode: 'open' | 'only-own' | 'off';
+    rehearsal_invite_mode: 'open' | 'only-own' | 'off';
+    gym_invite_mode: 'open' | 'only-own' | 'off';
+    entry_only_mode: 'open' | 'only-own' | 'off';
+  } | null>(null);
   const [relationships, setRelationships] = useState<RelationshipRow[]>([]);
   const [relationshipLoading, setRelationshipLoading] = useState(true);
   const [relationshipError, setRelationshipError] = useState<string | null>(
@@ -93,9 +101,15 @@ const Issue = () => {
   >(null);
   const [issueCount, setIssueCount] = useState(1);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
+  const [classInviteMode, setClassInviteMode] = useState<
+    'open' | 'only-own' | 'off'
+  >('open');
+  const [ownClassName, setOwnClassName] = useState<string | null>(null);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
+  const prevSelectedPerformanceRef = useRef<SelectedPerformance>(null);
   const turnstileContainerId = 'issue-turnstile-widget';
   const {
     token: turnstileToken,
@@ -108,10 +122,89 @@ const Issue = () => {
   const { config } = useEventConfig();
 
   useEffect(() => {
+    const loadIssuingState = async () => {
+      const { data } = await supabase
+        .from('configs')
+        .select('is_active')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (typeof data?.is_active === 'boolean') {
+        setIsTicketIssuingEnabled(data.is_active);
+      }
+    };
+
+    void loadIssuingState();
+  }, []);
+
+  useEffect(() => {
+    const loadOwnClassName = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('affiliation')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        return;
+      }
+
+      const affiliation = Number(
+        (data as { affiliation?: number | null } | null)?.affiliation ?? -1,
+      );
+      if (!Number.isInteger(affiliation) || affiliation < 1000) {
+        return;
+      }
+
+      const grade = Math.floor(affiliation / 1000);
+      const classNo = Math.floor((affiliation % 1000) / 100);
+      if (grade >= 1 && grade <= 3 && classNo >= 1 && classNo <= 7) {
+        setOwnClassName(`${grade}-${classNo}`);
+      }
+    };
+
+    void loadOwnClassName();
+  }, []);
+
+  useEffect(() => {
+    const loadIssueControls = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ticket_issue_controls')
+          .select('*')
+          .eq('id', 1)
+          .maybeSingle();
+
+        if (error) {
+          return;
+        }
+
+        if (data) {
+          setIssueControls(data);
+          setClassInviteMode(data.class_invite_mode);
+        }
+      } catch (err) {
+        // 特にエラーは表示しない
+      }
+    };
+
+    void loadIssueControls();
+  }, []);
+
+  useEffect(() => {
     const loadTicketTypes = async () => {
       const { data, error } = await supabase
         .from('ticket_types')
-        .select('id, name, type, is_active')
+        .select('id, name, type')
         .eq('type', '招待券')
         .order('id', { ascending: true });
 
@@ -120,11 +213,39 @@ const Issue = () => {
         return;
       }
 
-      setTicketTypes((data ?? []) as TicketTypeOption[]);
+      const nextTypes = (data ?? []) as TicketTypeOption[];
+      setTicketTypes(nextTypes);
     };
 
     void loadTicketTypes();
   }, []);
+
+  // ticket_issue_controls に基づいて有効な券種を計算
+  const activeTicketTypes = useMemo(() => {
+    if (!issueControls) {
+      return [];
+    }
+    return ticketTypes.map((t) => {
+      let isActive = false;
+      if (t.id === 1) {
+        isActive = issueControls.class_invite_mode !== 'off';
+      } else if (t.id === 2) {
+        isActive = issueControls.rehearsal_invite_mode !== 'off';
+      } else if (t.id === 3) {
+        isActive = issueControls.gym_invite_mode !== 'off';
+      } else if (t.id === 4) {
+        isActive = issueControls.entry_only_mode !== 'off';
+      }
+      return { ...t, is_active: isActive };
+    });
+  }, [ticketTypes, issueControls]);
+
+  useEffect(() => {
+    const firstActive = activeTicketTypes.find((t) => t.is_active);
+    if (firstActive) {
+      setSelectedTicketTypeId(firstActive.id);
+    }
+  }, [activeTicketTypes]);
 
   useEffect(() => {
     const loadRelationships = async () => {
@@ -170,9 +291,8 @@ const Issue = () => {
       ): Promise<number | null> => {
         const { data, error } = await supabase
           .from('ticket_types')
-          .select('id, name, type, is_active')
+          .select('id, name, type')
           .eq('type', '招待券')
-          .eq('is_active', true)
           .order('id', { ascending: true });
 
         if (error) {
@@ -182,10 +302,25 @@ const Issue = () => {
         const options = (data ?? []) as Array<{
           id: number;
           name: string;
-          is_active: boolean;
         }>;
 
+        // issueControls の状態と照らし合わせてフィルタリング
         const picked = options.find((ticketType) => {
+          let isActive = false;
+          if (ticketType.id === 1) {
+            isActive = issueControls?.class_invite_mode !== 'off';
+          } else if (ticketType.id === 2) {
+            isActive = issueControls?.rehearsal_invite_mode !== 'off';
+          } else if (ticketType.id === 3) {
+            isActive = issueControls?.gym_invite_mode !== 'off';
+          } else if (ticketType.id === 4) {
+            isActive = issueControls?.entry_only_mode !== 'off';
+          }
+
+          if (!isActive) {
+            return false;
+          }
+
           const isAdmissionOnly =
             ticketType.name === ADMISSION_ONLY_TICKET_NAME;
           const isGym = ticketType.name.includes(GYM_TICKET_KEYWORD);
@@ -315,6 +450,13 @@ const Issue = () => {
     void loadSelectionFromQuery();
   }, []);
 
+  // selectedPerformance の変更を追跡（アラート表示判定用）
+  useEffect(() => {
+    if (selectedPerformance) {
+      prevSelectedPerformanceRef.current = selectedPerformance;
+    }
+  }, [selectedPerformance]);
+
   const selectedTicketType = useMemo(
     () =>
       ticketTypes.find(
@@ -327,6 +469,17 @@ const Issue = () => {
   const isGymPerformanceTicket = Boolean(
     selectedTicketType?.name.includes(GYM_TICKET_KEYWORD),
   );
+  const hasAnyActiveTicketType = useMemo(
+    () => activeTicketTypes.some((ticketType) => ticketType.is_active),
+    [activeTicketTypes],
+  );
+  const isIssueReceptionStopped =
+    !isTicketIssuingEnabled || !hasAnyActiveTicketType;
+  const restrictedClassName =
+    selectedTicketType?.id === CLASS_INVITE_TICKET_ID &&
+    classInviteMode === 'only-own'
+      ? (ownClassName ?? '__NO_CLASS__')
+      : null;
 
   useEffect(() => {
     if (!selectedTicketType) {
@@ -400,6 +553,51 @@ const Issue = () => {
     selectedRelationshipId !== null &&
     issueCount > 0;
 
+  const shouldShowOnlyOwnClassAlert = useMemo(() => {
+    if (
+      classInviteMode !== 'only-own' ||
+      !ownClassName ||
+      !selectedTicketType
+    ) {
+      return false;
+    }
+
+    // クラス招待券ではない場合は表示しない
+    if (selectedTicketType.id !== CLASS_INVITE_TICKET_ID) {
+      return false;
+    }
+
+    if (isAdmissionOnlyTicket) {
+      return false;
+    }
+
+    // 現在の selectedPerformance がない場合、前の値を使用
+    const targetPerformance =
+      selectedPerformance || prevSelectedPerformanceRef.current;
+
+    if (!targetPerformance) {
+      return false;
+    }
+
+    // 体育館公演（performanceId > 0 && scheduleId === 0）の場合は表示しない
+    if (
+      targetPerformance.performanceId > 0 &&
+      targetPerformance.scheduleId === 0
+    ) {
+      return false;
+    }
+
+    // クラス公演で、選択されたクラスが自分のクラスと異なる場合に表示
+    const shouldShow = targetPerformance.performanceName !== ownClassName;
+    return shouldShow;
+  }, [
+    classInviteMode,
+    ownClassName,
+    selectedPerformance,
+    selectedTicketType,
+    isAdmissionOnlyTicket,
+  ]);
+
   const transitionToStep = (nextStep: Step) => {
     if (nextStep === step) {
       return;
@@ -445,6 +643,11 @@ const Issue = () => {
   };
 
   const handleIssue = async () => {
+    if (isIssueReceptionStopped) {
+      alert('現在チケット発券は受付停止中です。');
+      return;
+    }
+
     if (!canSubmit || !selectedPerformance || !selectedTicketType) {
       return;
     }
@@ -623,14 +826,32 @@ const Issue = () => {
     route('/students/issue/result');
   };
 
+  if (isIssueReceptionStopped) {
+    return (
+      <div className={styles.issuePage}>
+        <BackButton href='/students/dashboard' />
+        <h1 className={styles.pageTitle}>チケット発券</h1>
+        <Alert type='warning'>
+          <p>現在チケット発券は受付停止中です。</p>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.issuePage}>
       <BackButton href='/students/dashboard' />
       <h1 className={styles.pageTitle}>チケット発券</h1>
+      {shouldShowOnlyOwnClassAlert && (
+        <Alert type='info' className={styles.onlyOwnClassAlert}>
+          <p>現在自クラスのみ発券可能です。</p>
+        </Alert>
+      )}
+
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>
           <IssueStepTicketType
-            options={ticketTypes}
+            options={activeTicketTypes}
             selectedTicketTypeId={selectedTicketTypeId}
             onSelectTicketType={setSelectedTicketTypeId}
           />
@@ -641,6 +862,7 @@ const Issue = () => {
             isGymPerformanceTicket={isGymPerformanceTicket}
             selectedPerformance={selectedPerformance}
             selectedCellKey={selectedCellKey}
+            restrictedClassName={restrictedClassName}
             onSelectPerformance={setSelectedPerformance}
           />
         </div>
@@ -724,7 +946,12 @@ const Issue = () => {
               type='button'
               className={styles.generateButton}
               onClick={handleIssue}
-              disabled={!canSubmit || isIssuing || !turnstileToken}
+              disabled={
+                !canSubmit ||
+                isIssuing ||
+                !turnstileToken ||
+                !isTicketIssuingEnabled
+              }
               style={step !== 3 ? { display: 'none' } : undefined}
             >
               {isIssuing ? '発券中...' : '発券する'}

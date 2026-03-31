@@ -4,7 +4,6 @@ import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../lib/supabase';
 import styles from './Settings.module.css';
 import Switch from '../../components/ui/Switch';
-
 const ADMIN_CONTROL_PANEL_SESSION_TOKEN_KEY = 'admin_control_panel_session_v2';
 
 const getSessionToken = () => {
@@ -56,7 +55,94 @@ type ControlPanelSettings = {
   showLength: number;
   maxTicketsPerUser: number;
   juniorReleaseOpen: boolean;
+  ticketIssuingEnabled: boolean;
+  activeTicketTypeIds: number[];
 };
+
+type TicketTypeControlValue =
+  | 'open'
+  | 'only-own'
+  | 'public-rehearsals'
+  | 'auto'
+  | 'off';
+
+type TicketTypeControlKey =
+  | 'classInvite'
+  | 'rehearsalInvite'
+  | 'gymInvite'
+  | 'entryOnly'
+  | 'sameDayClass'
+  | 'sameDayGym';
+
+type TicketTypeControls = Record<TicketTypeControlKey, TicketTypeControlValue>;
+
+const TICKET_TYPE_IDS = {
+  classInvite: 1,
+  rehearsalInvite: 2,
+  gymInvite: 3,
+  entryOnly: 4,
+  sameDayClass: 8,
+  sameDayGym: 9,
+} as const;
+
+const DEFAULT_TICKET_TYPE_CONTROLS: TicketTypeControls = {
+  classInvite: 'open',
+  rehearsalInvite: 'open',
+  gymInvite: 'open',
+  entryOnly: 'open',
+  sameDayClass: 'open',
+  sameDayGym: 'open',
+};
+
+const buildActiveTicketTypeIds = (controls: TicketTypeControls): number[] => {
+  const activeIds = new Set<number>();
+  if (controls.classInvite !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.classInvite);
+  }
+  if (controls.rehearsalInvite !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.rehearsalInvite);
+  }
+  if (controls.gymInvite !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.gymInvite);
+  }
+  if (controls.entryOnly !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.entryOnly);
+  }
+  if (controls.sameDayClass !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.sameDayClass);
+  }
+  if (controls.sameDayGym !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.sameDayGym);
+  }
+  return Array.from(activeIds);
+};
+
+const mapActiveIdsToTicketTypeControls = (
+  activeTicketTypeIds: number[],
+): TicketTypeControls => {
+  const activeIdSet = new Set(activeTicketTypeIds);
+  return {
+    classInvite: activeIdSet.has(TICKET_TYPE_IDS.classInvite) ? 'open' : 'off',
+    rehearsalInvite: activeIdSet.has(TICKET_TYPE_IDS.rehearsalInvite)
+      ? 'open'
+      : 'off',
+    gymInvite: activeIdSet.has(TICKET_TYPE_IDS.gymInvite) ? 'open' : 'off',
+    entryOnly: activeIdSet.has(TICKET_TYPE_IDS.entryOnly) ? 'open' : 'off',
+    sameDayClass: activeIdSet.has(TICKET_TYPE_IDS.sameDayClass)
+      ? 'open'
+      : 'off',
+    sameDayGym: activeIdSet.has(TICKET_TYPE_IDS.sameDayGym) ? 'open' : 'off',
+  };
+};
+
+const isTicketTypeControlValue = (
+  value: unknown,
+): value is TicketTypeControlValue =>
+  value === 'open' ||
+  value === 'only-own' ||
+  value === 'public-rehearsals' ||
+  value === 'auto' ||
+  value === 'off';
 
 const NUMERIC_SETTING_META = {
   eventYear: { label: '年度', min: 2020, max: 2100 },
@@ -92,7 +178,18 @@ const Settings = () => {
     showLength: 60,
     maxTicketsPerUser: 20,
     juniorReleaseOpen: false,
+    ticketIssuingEnabled: true,
+    activeTicketTypeIds: [
+      TICKET_TYPE_IDS.classInvite,
+      TICKET_TYPE_IDS.rehearsalInvite,
+      TICKET_TYPE_IDS.gymInvite,
+      TICKET_TYPE_IDS.entryOnly,
+      TICKET_TYPE_IDS.sameDayClass,
+      TICKET_TYPE_IDS.sameDayGym,
+    ],
   });
+  const [ticketTypeControls, setTicketTypeControls] =
+    useState<TicketTypeControls>(DEFAULT_TICKET_TYPE_CONTROLS);
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
   const [isSyncingSetting, setIsSyncingSetting] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -231,6 +328,7 @@ const Settings = () => {
     setSettingsError(null);
     setSettingsSuccess(null);
     setSettingsMessageScope(null);
+    setTicketTypeControls(DEFAULT_TICKET_TYPE_CONTROLS);
     setEditingNumericKey(null);
     setEditingNumericValue('');
   };
@@ -324,13 +422,65 @@ const Settings = () => {
           typeof nextSettings.eventYear !== 'number' ||
           typeof nextSettings.showLength !== 'number' ||
           typeof nextSettings.maxTicketsPerUser !== 'number' ||
-          typeof nextSettings.juniorReleaseOpen !== 'boolean'
+          typeof nextSettings.juniorReleaseOpen !== 'boolean' ||
+          typeof nextSettings.ticketIssuingEnabled !== 'boolean' ||
+          !Array.isArray(nextSettings.activeTicketTypeIds)
         ) {
           throw new Error('設定データの形式が不正です。');
         }
 
         if (isActive) {
-          setSettings(nextSettings);
+          const activeTicketTypeIds = nextSettings.activeTicketTypeIds
+            .filter((id: unknown) => typeof id === 'number')
+            .map((id: number) => Math.trunc(id));
+          const controlsFromApi = nextSettings.ticketIssueModes;
+          const nextControls: TicketTypeControls =
+            controlsFromApi &&
+            typeof controlsFromApi === 'object' &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).classInvite,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).rehearsalInvite,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).gymInvite,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).entryOnly,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).sameDayClass,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).sameDayGym,
+            )
+              ? {
+                  classInvite: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).classInvite,
+                  rehearsalInvite: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).rehearsalInvite,
+                  gymInvite: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).gymInvite,
+                  entryOnly: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).entryOnly,
+                  sameDayClass: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).sameDayClass,
+                  sameDayGym: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).sameDayGym,
+                }
+              : mapActiveIdsToTicketTypeControls(activeTicketTypeIds);
+          setSettings({
+            ...nextSettings,
+            activeTicketTypeIds,
+          });
+          setTicketTypeControls(nextControls);
         }
       } catch (error) {
         const message = await readErrorMessage(error);
@@ -377,6 +527,7 @@ const Settings = () => {
           showLength: nextSettings.showLength,
           maxTicketsPerUser: nextSettings.maxTicketsPerUser,
           juniorReleaseOpen: nextSettings.juniorReleaseOpen,
+          ticketIssuingEnabled: nextSettings.ticketIssuingEnabled,
         },
         headers: {
           'x-admin-session-token': token,
@@ -397,6 +548,72 @@ const Settings = () => {
     } catch (error) {
       const message = await readErrorMessage(error);
       setSettingsError(`設定の保存に失敗しました。${message}`);
+      return false;
+    } finally {
+      setIsSyncingSetting(false);
+    }
+  };
+
+  const syncTicketTypeControls = async (
+    nextControls: TicketTypeControls,
+    successMessage = '券種別の受付設定を更新しました。',
+  ) => {
+    const token = getSessionToken();
+    if (!token) {
+      setSettingsMessageScope('ticketSection');
+      setSettingsError('セッションがありません。再ログインしてください。');
+      return false;
+    }
+
+    const activeTicketTypeIds = buildActiveTicketTypeIds(nextControls);
+    const previousActiveTicketTypeIds = settings.activeTicketTypeIds;
+
+    setSettingsMessageScope('ticketSection');
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    setIsSyncingSetting(true);
+
+    setSettings((prev) => ({
+      ...prev,
+      activeTicketTypeIds,
+    }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-auth', {
+        body: {
+          action: 'updateTicketTypeSettings',
+          activeTicketTypeIds,
+          ticketIssueModes: {
+            classInvite: nextControls.classInvite,
+            rehearsalInvite: nextControls.rehearsalInvite,
+            gymInvite: nextControls.gymInvite,
+            entryOnly: nextControls.entryOnly,
+            sameDayClass: nextControls.sameDayClass,
+            sameDayGym: nextControls.sameDayGym,
+          },
+        },
+        headers: {
+          'x-admin-session-token': token,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.updated) {
+        throw new Error('券種別設定の保存に失敗しました。');
+      }
+
+      setSettingsSuccess(successMessage);
+      return true;
+    } catch (error) {
+      const message = await readErrorMessage(error);
+      setSettingsError(`券種別設定の保存に失敗しました。${message}`);
+      setSettings((prev) => ({
+        ...prev,
+        activeTicketTypeIds: previousActiveTicketTypeIds,
+      }));
       return false;
     } finally {
       setIsSyncingSetting(false);
@@ -448,6 +665,40 @@ const Settings = () => {
       closeNumericEditModal();
     }
     setIsModalSubmitting(false);
+  };
+
+  const handleTicketTypeControlChange = (
+    key: TicketTypeControlKey,
+    nextValue: TicketTypeControlValue,
+  ) => {
+    if (isSettingsLoading || isSyncingSetting) {
+      return;
+    }
+
+    const previousControls = ticketTypeControls;
+    const nextControls: TicketTypeControls = {
+      ...previousControls,
+      [key]: nextValue,
+    };
+    setTicketTypeControls(nextControls);
+
+    const labelByKey: Record<TicketTypeControlKey, string> = {
+      classInvite: '招待券(クラス公演)受付',
+      rehearsalInvite: '招待券(リハーサル)受付',
+      gymInvite: '招待券(体育館公演)受付',
+      entryOnly: '招待券(入場専用券)受付',
+      sameDayClass: '当日券(クラス公演)受付',
+      sameDayGym: '当日券(体育館公演)受付',
+    };
+
+    void syncTicketTypeControls(
+      nextControls,
+      `${labelByKey[key]}を更新しました。`,
+    ).then((updated) => {
+      if (!updated) {
+        setTicketTypeControls(previousControls);
+      }
+    });
   };
 
   if (authState === 'checking') {
@@ -538,10 +789,7 @@ const Settings = () => {
               </p>
             </div>
             <div className={styles.settingControlGroup}>
-              <span
-                id='settings-event-year'
-                className={styles.fieldValue}
-              >
+              <span id='settings-event-year' className={styles.fieldValue}>
                 {settings.eventYear}
               </span>
               <button
@@ -592,8 +840,39 @@ const Settings = () => {
       <NormalSection>
         <h2>チケット発券</h2>
         <div className={styles.formGrid}>
-          {/* <div>
+          <div>
             <h3>券種別の受付設定</h3>
+            <label className={styles.field} htmlFor='ticket-issuing-enabled'>
+              <span className={styles.settingLabel}>チケット発券全体</span>
+              <Switch
+                id='ticket-issuing-enabled'
+                onChange={(checked: boolean) => {
+                  if (isSettingsLoading || isSyncingSetting) {
+                    return;
+                  }
+
+                  setSettings((prev) => {
+                    const next = { ...prev, ticketIssuingEnabled: checked };
+                    void syncSettings(
+                      next,
+                      checked
+                        ? 'チケット発券を有効化しました。'
+                        : 'チケット発券を停止しました。',
+                      'ticketSection',
+                    ).then((updated) => {
+                      if (!updated) {
+                        setSettings((current) => ({
+                          ...current,
+                          ticketIssuingEnabled: prev.ticketIssuingEnabled,
+                        }));
+                      }
+                    });
+                    return next;
+                  });
+                }}
+                checked={settings.ticketIssuingEnabled}
+              />
+            </label>
             <div className={styles.field}>
               <label
                 className={styles.settingLabel}
@@ -601,7 +880,19 @@ const Settings = () => {
               >
                 招待券(クラス公演)受付
               </label>
-              <select id='ticket-class-invite' className={styles.fieldControl}>
+              <select
+                id='ticket-class-invite'
+                className={styles.fieldControl}
+                value={ticketTypeControls.classInvite}
+                onChange={(event) =>
+                  handleTicketTypeControlChange(
+                    'classInvite',
+                    (event.target as HTMLSelectElement)
+                      .value as TicketTypeControlValue,
+                  )
+                }
+                disabled={isSettingsLoading || isSyncingSetting}
+              >
                 <option value='open'>すべて</option>
                 <option value='only-own'>自クラスのみ</option>
                 <option value='off'>無効</option>
@@ -617,6 +908,15 @@ const Settings = () => {
               <select
                 id='ticket-rehearsal-invite'
                 className={styles.fieldControl}
+                value={ticketTypeControls.rehearsalInvite}
+                onChange={(event) =>
+                  handleTicketTypeControlChange(
+                    'rehearsalInvite',
+                    (event.target as HTMLSelectElement)
+                      .value as TicketTypeControlValue,
+                  )
+                }
+                disabled={isSettingsLoading || isSyncingSetting}
               >
                 <option value='open'>すべて</option>
                 <option value='public-rehearsals'>公開リハーサルのみ</option>
@@ -630,35 +930,90 @@ const Settings = () => {
               >
                 招待券(体育館公演)受付
               </label>
-              <select id='ticket-gym-invite' className={styles.fieldControl}>
+              <select
+                id='ticket-gym-invite'
+                className={styles.fieldControl}
+                value={ticketTypeControls.gymInvite}
+                onChange={(event) =>
+                  handleTicketTypeControlChange(
+                    'gymInvite',
+                    (event.target as HTMLSelectElement)
+                      .value as TicketTypeControlValue,
+                  )
+                }
+                disabled={isSettingsLoading || isSyncingSetting}
+              >
                 <option value='open'>すべて</option>
                 <option value='only-own'>自部活のみ</option>
+                <option value='off'>無効</option>
+              </select>
+            </div>
+            <label className={styles.field} htmlFor='ticket-entry-only'>
+              <span className={styles.settingLabel}>
+                招待券(入場専用券)受付
+              </span>
+              <Switch
+                id='ticket-entry-only'
+                checked={ticketTypeControls.entryOnly === 'open'}
+                onChange={(checked) =>
+                  handleTicketTypeControlChange(
+                    'entryOnly',
+                    checked ? 'open' : 'off',
+                  )
+                }
+              ></Switch>
+            </label>
+            <div className={styles.field}>
+              <label
+                className={styles.settingLabel}
+                htmlFor='ticket-same-day-class'
+              >
+                当日券(クラス公演)受付
+              </label>
+              <select
+                id='ticket-same-day-class'
+                className={styles.fieldControl}
+                value={ticketTypeControls.sameDayClass}
+                onChange={(event) =>
+                  handleTicketTypeControlChange(
+                    'sameDayClass',
+                    (event.target as HTMLSelectElement)
+                      .value as TicketTypeControlValue,
+                  )
+                }
+                disabled={isSettingsLoading || isSyncingSetting}
+              >
+                <option value='open'>有効</option>
+                <option value='auto'>当日のみ</option>
                 <option value='off'>無効</option>
               </select>
             </div>
             <div className={styles.field}>
               <label
                 className={styles.settingLabel}
-                htmlFor='ticket-entry-only'
+                htmlFor='ticket-same-day-gym'
               >
-                招待券(入場専用券)受付
+                当日券(体育館公演)受付
               </label>
-              <select id='ticket-entry-only' className={styles.fieldControl}>
-                <option value='open'>有効</option>
-                <option value='off'>無効</option>
-              </select>
-            </div>
-            <div className={styles.field}>
-              <label className={styles.settingLabel} htmlFor='ticket-same-day'>
-                当日券受付
-              </label>
-              <select id='ticket-same-day' className={styles.fieldControl}>
+              <select
+                id='ticket-same-day-gym'
+                className={styles.fieldControl}
+                value={ticketTypeControls.sameDayGym}
+                onChange={(event) =>
+                  handleTicketTypeControlChange(
+                    'sameDayGym',
+                    (event.target as HTMLSelectElement)
+                      .value as TicketTypeControlValue,
+                  )
+                }
+                disabled={isSettingsLoading || isSyncingSetting}
+              >
                 <option value='open'>有効</option>
                 <option value='auto'>当日のみ</option>
                 <option value='off'>無効</option>
               </select>
             </div>
-          </div> */}
+          </div>
           {/* <div>
             <h3>チケット数の受付設定</h3>
             <div className={styles.field}>
@@ -717,10 +1072,7 @@ const Settings = () => {
                 1人あたりのチケット発行上限
               </label>
               <div className={styles.settingControlGroup}>
-                <span
-                  id='ticket-max-per-user'
-                  className={styles.fieldValue}
-                >
+                <span id='ticket-max-per-user' className={styles.fieldValue}>
                   {settings.maxTicketsPerUser}
                 </span>
                 <button
@@ -870,9 +1222,7 @@ const Settings = () => {
               max={NUMERIC_SETTING_META[editingNumericKey].max}
               value={editingNumericValue}
               onInput={(event) =>
-                setEditingNumericValue(
-                  (event.target as HTMLInputElement).value,
-                )
+                setEditingNumericValue((event.target as HTMLInputElement).value)
               }
             />
             {settingsMessageScope === 'modal' && settingsError && (

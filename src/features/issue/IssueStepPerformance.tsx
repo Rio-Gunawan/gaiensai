@@ -9,6 +9,7 @@ type IssueStepPerformanceProps = {
   selectedPerformance: SelectedPerformance;
   selectedCellKey?: string;
   classRemainingMode?: 'general' | 'total';
+  restrictedClassName?: string | null;
   onSelectPerformance: (selection: SelectedPerformance) => void;
 };
 
@@ -17,6 +18,7 @@ const IssueStepPerformance = ({
   selectedPerformance,
   selectedCellKey,
   classRemainingMode = 'general',
+  restrictedClassName = null,
   onSelectPerformance,
 }: IssueStepPerformanceProps) => {
   return (
@@ -33,6 +35,7 @@ const IssueStepPerformance = ({
       ) : (
         <PerformancesTable
           remainingMode={classRemainingMode}
+          restrictedClassName={restrictedClassName}
           onAvailableCellClick={onSelectPerformance}
           selectedCellKey={selectedCellKey}
         />

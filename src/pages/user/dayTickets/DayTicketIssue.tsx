@@ -19,6 +19,7 @@ import NormalSection from '../../../components/ui/NormalSection';
 import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
+import Alert from '../../../components/ui/Alert';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
@@ -87,8 +88,13 @@ const DayTicketIssue = () => {
   const [selectedPerformance, setSelectedPerformance] =
     useState<SelectedPerformance>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeOption[]>([]);
+  const [issueControls, setIssueControls] = useState<{
+    same_day_class_mode: 'open' | 'auto' | 'off';
+    same_day_gym_mode: 'open' | 'auto' | 'off';
+  } | null>(null);
   const [issueCount, setIssueCount] = useState(1);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
@@ -97,13 +103,49 @@ const DayTicketIssue = () => {
   const { config } = useEventConfig();
 
   useEffect(() => {
+    const loadIssuingState = async () => {
+      const { data } = await supabase
+        .from('configs')
+        .select('is_active')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (typeof data?.is_active === 'boolean') {
+        setIsTicketIssuingEnabled(data.is_active);
+      }
+    };
+
+    void loadIssuingState();
+  }, []);
+
+  useEffect(() => {
+    const loadIssueControls = async () => {
+      const { data, error } = await supabase
+        .from('ticket_issue_controls')
+        .select('same_day_class_mode, same_day_gym_mode')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (error) {
+        return;
+      }
+
+      if (data) {
+        setIssueControls(data);
+      }
+    };
+
+    void loadIssueControls();
+  }, []);
+
+  useEffect(() => {
     const loadTicketTypes = async () => {
       const { data, error } = await supabase
         .from('ticket_types')
-        .select('id, name, type, is_active')
+        .select('id, name, type')
         .eq('type', '当日券')
         .in('id', [CLASS_DAY_TICKET_ID, GYM_DAY_TICKET_ID])
-        .eq('is_active', true)
         .order('id', { ascending: true });
 
       if (error) {
@@ -113,14 +155,35 @@ const DayTicketIssue = () => {
 
       const nextTypes = (data ?? []) as TicketTypeOption[];
       setTicketTypes(nextTypes);
-
-      if (nextTypes.length > 0) {
-        setSelectedTicketTypeId(nextTypes[0].id);
-      }
     };
 
     void loadTicketTypes();
   }, []);
+
+  // ticket_issue_controls に基づいて有効な当日券種を計算
+  const activeTicketTypes = useMemo(() => {
+    if (!issueControls) {
+      return [];
+    }
+    return ticketTypes.map((t) => {
+      let isActive = false;
+      if (t.id === CLASS_DAY_TICKET_ID) {
+        isActive = issueControls.same_day_class_mode !== 'off';
+      } else if (t.id === GYM_DAY_TICKET_ID) {
+        isActive = issueControls.same_day_gym_mode !== 'off';
+      }
+      return { ...t, is_active: isActive };
+    });
+  }, [ticketTypes, issueControls]);
+
+  useEffect(() => {
+    if (
+      activeTicketTypes.length > 0 &&
+      !activeTicketTypes.find((t) => t.id === selectedTicketTypeId)
+    ) {
+      setSelectedTicketTypeId(activeTicketTypes[0].id);
+    }
+  }, [activeTicketTypes, selectedTicketTypeId]);
 
   useEffect(
     () => () => {
@@ -133,11 +196,14 @@ const DayTicketIssue = () => {
 
   const selectedTicketType = useMemo(
     () =>
-      ticketTypes.find(
+      activeTicketTypes.find(
         (ticketType) => ticketType.id === selectedTicketTypeId,
       ) ?? null,
-    [ticketTypes, selectedTicketTypeId],
+    [activeTicketTypes, selectedTicketTypeId],
   );
+  const hasAnyActiveTicketType = activeTicketTypes.length > 0;
+  const isIssueReceptionStopped =
+    !isTicketIssuingEnabled || !hasAnyActiveTicketType;
 
   const isGymPerformanceTicket = selectedTicketTypeId === GYM_DAY_TICKET_ID;
 
@@ -165,7 +231,9 @@ const DayTicketIssue = () => {
     : undefined;
 
   const canSubmit =
-    Boolean(selectedTicketType) && Boolean(selectedPerformance) && issueCount > 0;
+    Boolean(selectedTicketType?.is_active) &&
+    Boolean(selectedPerformance) &&
+    issueCount > 0;
 
   const transitionToStep = (nextStep: Step) => {
     if (nextStep === step) {
@@ -212,6 +280,11 @@ const DayTicketIssue = () => {
   };
 
   const handleIssue = async () => {
+    if (isIssueReceptionStopped) {
+      alert('現在チケット発券は受付停止中です。');
+      return;
+    }
+
     if (!canSubmit || !selectedPerformance || !selectedTicketType) {
       return;
     }
@@ -364,6 +437,18 @@ const DayTicketIssue = () => {
 
   const eventDateText = formatDateText(config.date);
 
+  if (isIssueReceptionStopped) {
+    return (
+      <div className={styles.issuePage}>
+        <BackButton href='/' />
+        <h1 className={styles.pageTitle}>当日券発券</h1>
+        <Alert type='warning'>
+          <p>現在チケット発券は受付停止中です。</p>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.issuePage}>
       <BackButton href='/' />
@@ -377,7 +462,7 @@ const DayTicketIssue = () => {
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>
           <IssueStepTicketType
-            options={ticketTypes}
+            options={activeTicketTypes}
             selectedTicketTypeId={selectedTicketTypeId}
             onSelectTicketType={setSelectedTicketTypeId}
           />
@@ -411,13 +496,14 @@ const DayTicketIssue = () => {
                   setIssueCount(Number(event.currentTarget.value))
                 }
               >
-                {Array.from({ length: MAX_ISSUE_COUNT }, (_, index) => index + 1).map(
-                  (count) => (
-                    <option key={count} value={count}>
-                      {count}枚
-                    </option>
-                  ),
-                )}
+                {Array.from(
+                  { length: MAX_ISSUE_COUNT },
+                  (_, index) => index + 1,
+                ).map((count) => (
+                  <option key={count} value={count}>
+                    {count}枚
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -430,7 +516,9 @@ const DayTicketIssue = () => {
               <li>
                 <span>公演のクラス/団体</span>
                 <strong>
-                  {selectedPerformance ? selectedPerformance.performanceName : '-'}
+                  {selectedPerformance
+                    ? selectedPerformance.performanceName
+                    : '-'}
                 </strong>
               </li>
               <li>
@@ -453,7 +541,11 @@ const DayTicketIssue = () => {
 
         <div className={styles.actions}>
           <div className={styles.progressSection}>
-            <progress className={styles.progressBar} max={3} value={step}></progress>
+            <progress
+              className={styles.progressBar}
+              max={3}
+              value={step}
+            ></progress>
             <p className={styles.stepIndicator}>STEP {step} / 3</p>
           </div>
 
@@ -485,7 +577,8 @@ const DayTicketIssue = () => {
                 }
               }}
               disabled={
-                (step === 1 && !selectedTicketType) ||
+                (step === 1 &&
+                  (!selectedTicketType || !selectedTicketType.is_active)) ||
                 (step === 2 && !selectedPerformance) ||
                 step === 3
               }
@@ -497,7 +590,7 @@ const DayTicketIssue = () => {
               type='button'
               className={styles.generateButton}
               onClick={handleIssue}
-              disabled={!canSubmit || isIssuing}
+              disabled={!canSubmit || isIssuing || isIssueReceptionStopped}
               style={step !== 3 ? { display: 'none' } : undefined}
             >
               {isIssuing ? '発券中...' : '発券する'}

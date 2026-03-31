@@ -22,6 +22,25 @@ type AdminAuthRequest = {
   showLength?: unknown;
   maxTicketsPerUser?: unknown;
   juniorReleaseOpen?: unknown;
+  ticketIssuingEnabled?: unknown;
+  activeTicketTypeIds?: unknown;
+  ticketIssueModes?: unknown;
+};
+
+type TicketIssueMode =
+  | 'open'
+  | 'only-own'
+  | 'public-rehearsals'
+  | 'auto'
+  | 'off';
+
+type TicketIssueModes = {
+  classInvite: TicketIssueMode;
+  rehearsalInvite: TicketIssueMode;
+  gymInvite: TicketIssueMode;
+  entryOnly: TicketIssueMode;
+  sameDayClass: TicketIssueMode;
+  sameDayGym: TicketIssueMode;
 };
 
 type AdminAuthBody =
@@ -31,12 +50,18 @@ type AdminAuthBody =
   | { mode: 'changePassword'; currentPassword: string; newPassword: string }
   | { mode: 'getSettings' }
   | {
-    mode: 'updateSettings';
-    eventYear: number;
-    showLength: number;
-    maxTicketsPerUser: number;
-    juniorReleaseOpen: boolean;
-  };
+      mode: 'updateTicketTypeSettings';
+      activeTicketTypeIds: number[];
+      ticketIssueModes: TicketIssueModes;
+    }
+  | {
+      mode: 'updateSettings';
+      eventYear: number;
+      showLength: number;
+      maxTicketsPerUser: number;
+      juniorReleaseOpen: boolean;
+      ticketIssuingEnabled: boolean;
+    };
 
 type AdminConfigRow = {
   id: number;
@@ -49,6 +74,7 @@ type AdminSettingsRow = {
   show_length: number;
   max_tickets_per_user: number;
   junior_release_open: boolean;
+  is_active: boolean;
 };
 
 type AdminSessionRow = {
@@ -62,9 +88,34 @@ type AdminRateLimitRow = {
   locked_until: string | null;
 };
 
+type TicketIssueControlsRow = {
+  class_invite_mode: TicketIssueMode;
+  rehearsal_invite_mode: TicketIssueMode;
+  gym_invite_mode: TicketIssueMode;
+  entry_only_mode: TicketIssueMode;
+  same_day_class_mode: TicketIssueMode;
+  same_day_gym_mode: TicketIssueMode;
+};
+
 const ADMIN_SESSION_TOKEN_HEADER = 'x-admin-session-token';
 const MAX_SESSION_TOKEN_LENGTH = 512;
 const MAX_IP_ADDRESS_LENGTH = 128;
+const MANAGED_TICKET_TYPE_IDS = [1, 2, 3, 4, 8, 9] as const;
+const TICKET_ISSUE_MODE_VALUES = [
+  'open',
+  'only-own',
+  'public-rehearsals',
+  'auto',
+  'off',
+] as const;
+const DEFAULT_TICKET_ISSUE_MODES: TicketIssueModes = {
+  classInvite: 'open',
+  rehearsalInvite: 'open',
+  gymInvite: 'open',
+  entryOnly: 'open',
+  sameDayClass: 'open',
+  sameDayGym: 'open',
+};
 
 const toHex = (bytes: Uint8Array): string =>
   Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -153,9 +204,41 @@ const normalizeInteger = (
   return value;
 };
 
-const parseBody = (
-  body: unknown,
-): AdminAuthBody => {
+const isTicketIssueMode = (value: unknown): value is TicketIssueMode =>
+  typeof value === 'string' &&
+  (TICKET_ISSUE_MODE_VALUES as readonly string[]).includes(value);
+
+const normalizeTicketIssueModes = (value: unknown): TicketIssueModes => {
+  if (!value || typeof value !== 'object') {
+    throw new HttpError(
+      400,
+      'ticketIssueModes はオブジェクトで送信してください。',
+    );
+  }
+
+  const raw = value as Record<string, unknown>;
+  if (
+    !isTicketIssueMode(raw.classInvite) ||
+    !isTicketIssueMode(raw.rehearsalInvite) ||
+    !isTicketIssueMode(raw.gymInvite) ||
+    !isTicketIssueMode(raw.entryOnly) ||
+    !isTicketIssueMode(raw.sameDayClass) ||
+    !isTicketIssueMode(raw.sameDayGym)
+  ) {
+    throw new HttpError(400, 'ticketIssueModes の値が不正です。');
+  }
+
+  return {
+    classInvite: raw.classInvite,
+    rehearsalInvite: raw.rehearsalInvite,
+    gymInvite: raw.gymInvite,
+    entryOnly: raw.entryOnly,
+    sameDayClass: raw.sameDayClass,
+    sameDayGym: raw.sameDayGym,
+  };
+};
+
+const parseBody = (body: unknown): AdminAuthBody => {
   if (!body || typeof body !== 'object') {
     throw new HttpError(400, 'リクエストボディが不正です。');
   }
@@ -179,10 +262,7 @@ const parseBody = (
     const normalizedNewPassword = normalizePassword(newPassword, 'newPassword');
 
     if (normalizedNewPassword.length < 8) {
-      throw new HttpError(
-        400,
-        'newPassword は8文字以上で設定してください。',
-      );
+      throw new HttpError(400, 'newPassword は8文字以上で設定してください。');
     }
 
     return {
@@ -202,10 +282,20 @@ const parseBody = (
       showLength,
       maxTicketsPerUser,
       juniorReleaseOpen,
+      ticketIssuingEnabled,
     } = body as AdminAuthRequest;
 
     if (typeof juniorReleaseOpen !== 'boolean') {
-      throw new HttpError(400, 'juniorReleaseOpen は真偽値で送信してください。');
+      throw new HttpError(
+        400,
+        'juniorReleaseOpen は真偽値で送信してください。',
+      );
+    }
+    if (typeof ticketIssuingEnabled !== 'boolean') {
+      throw new HttpError(
+        400,
+        'ticketIssuingEnabled は真偽値で送信してください。',
+      );
     }
 
     return {
@@ -219,24 +309,60 @@ const parseBody = (
         100,
       ),
       juniorReleaseOpen,
+      ticketIssuingEnabled,
+    };
+  }
+
+  if (action === 'updateTicketTypeSettings') {
+    const { activeTicketTypeIds, ticketIssueModes } = body as AdminAuthRequest;
+    if (!Array.isArray(activeTicketTypeIds)) {
+      throw new HttpError(
+        400,
+        'activeTicketTypeIds は数値配列で送信してください。',
+      );
+    }
+
+    const normalizedIds = Array.from(
+      new Set(
+        activeTicketTypeIds.map((value) =>
+          normalizeInteger(value, 'activeTicketTypeIds', 1, 1000),
+        ),
+      ),
+    );
+
+    for (const id of normalizedIds) {
+      if (
+        !MANAGED_TICKET_TYPE_IDS.includes(
+          id as (typeof MANAGED_TICKET_TYPE_IDS)[number],
+        )
+      ) {
+        throw new HttpError(400, `管理対象外の券種IDです: ${id}`);
+      }
+    }
+
+    return {
+      mode: 'updateTicketTypeSettings',
+      activeTicketTypeIds: normalizedIds,
+      ticketIssueModes: normalizeTicketIssueModes(ticketIssueModes),
     };
   }
 
   if (action === 'login' || typeof action === 'undefined') {
     const isLegacyChangePasswordRequest =
-      typeof currentPassword !== 'undefined' || typeof newPassword !== 'undefined';
+      typeof currentPassword !== 'undefined' ||
+      typeof newPassword !== 'undefined';
     if (isLegacyChangePasswordRequest) {
       const normalizedCurrentPassword = normalizePassword(
         currentPassword,
         'currentPassword',
       );
-      const normalizedNewPassword = normalizePassword(newPassword, 'newPassword');
+      const normalizedNewPassword = normalizePassword(
+        newPassword,
+        'newPassword',
+      );
 
       if (normalizedNewPassword.length < 8) {
-        throw new HttpError(
-          400,
-          'newPassword は8文字以上で設定してください。',
-        );
+        throw new HttpError(400, 'newPassword は8文字以上で設定してください。');
       }
 
       return {
@@ -293,7 +419,9 @@ const fetchAdminConfig = async (adminClient: SupabaseClient) => {
 const fetchAdminSettings = async (adminClient: SupabaseClient) => {
   const { data, error } = await adminClient
     .from('configs')
-    .select('id, event_year, show_length, max_tickets_per_user, junior_release_open')
+    .select(
+      'id, event_year, show_length, max_tickets_per_user, junior_release_open, is_active',
+    )
     .limit(1);
 
   if (error) {
@@ -306,6 +434,36 @@ const fetchAdminSettings = async (adminClient: SupabaseClient) => {
   }
 
   return row;
+};
+
+const fetchTicketIssueControls = async (
+  adminClient: SupabaseClient,
+): Promise<TicketIssueModes> => {
+  const { data, error } = await adminClient
+    .from('ticket_issue_controls')
+    .select(
+      'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode, same_day_class_mode, same_day_gym_mode',
+    )
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const row = data as TicketIssueControlsRow | null;
+  if (!row) {
+    return DEFAULT_TICKET_ISSUE_MODES;
+  }
+
+  return {
+    classInvite: row.class_invite_mode,
+    rehearsalInvite: row.rehearsal_invite_mode,
+    gymInvite: row.gym_invite_mode,
+    entryOnly: row.entry_only_mode,
+    sameDayClass: row.same_day_class_mode,
+    sameDayGym: row.same_day_gym_mode,
+  };
 };
 
 const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$.{53}$/.test(value);
@@ -360,7 +518,9 @@ const registerFailedAttempt = async (
     typeof rateLimitRow?.locked_until === 'string' &&
     new Date(rateLimitRow.locked_until).getTime() > now.getTime();
 
-  const baseFailedAttempts = lockStillActive ? 0 : rateLimitRow?.failed_attempts ?? 0;
+  const baseFailedAttempts = lockStillActive
+    ? 0
+    : (rateLimitRow?.failed_attempts ?? 0);
   const nextFailedAttempts = baseFailedAttempts + 1;
   const shouldLock = nextFailedAttempts >= ADMIN_AUTH_MAX_FAILED_ATTEMPTS;
   const lockedUntil = shouldLock
@@ -453,7 +613,10 @@ const findActiveSession = async (
   return { ...session, tokenHash };
 };
 
-const requireValidSession = async (adminClient: SupabaseClient, req: Request) => {
+const requireValidSession = async (
+  adminClient: SupabaseClient,
+  req: Request,
+) => {
   const sessionToken = readSessionToken(req);
   if (!sessionToken) {
     throw new HttpError(401, 'セッションが無効です。再ログインしてください。');
@@ -582,6 +745,27 @@ Deno.serve(async (req) => {
     if (body.mode === 'getSettings') {
       const session = await requireValidSession(adminClient, req);
       const settings = await fetchAdminSettings(adminClient);
+      const ticketIssueModes = await fetchTicketIssueControls(adminClient);
+
+      const activeTicketTypeIds: number[] = [];
+      if (ticketIssueModes.classInvite !== 'off') {
+        activeTicketTypeIds.push(1);
+      }
+      if (ticketIssueModes.rehearsalInvite !== 'off') {
+        activeTicketTypeIds.push(2);
+      }
+      if (ticketIssueModes.gymInvite !== 'off') {
+        activeTicketTypeIds.push(3);
+      }
+      if (ticketIssueModes.entryOnly !== 'off') {
+        activeTicketTypeIds.push(4);
+      }
+      if (ticketIssueModes.sameDayClass !== 'off') {
+        activeTicketTypeIds.push(8);
+      }
+      if (ticketIssueModes.sameDayGym !== 'off') {
+        activeTicketTypeIds.push(9);
+      }
 
       await adminClient
         .from('admin_sessions')
@@ -595,6 +779,9 @@ Deno.serve(async (req) => {
             showLength: settings.show_length,
             maxTicketsPerUser: settings.max_tickets_per_user,
             juniorReleaseOpen: settings.junior_release_open,
+            ticketIssuingEnabled: settings.is_active,
+            activeTicketTypeIds,
+            ticketIssueModes,
           },
         }),
         {
@@ -618,6 +805,7 @@ Deno.serve(async (req) => {
           show_length: body.showLength,
           max_tickets_per_user: body.maxTicketsPerUser,
           junior_release_open: body.juniorReleaseOpen,
+          is_active: body.ticketIssuingEnabled,
         })
         .eq('id', currentSettings.id);
 
@@ -638,7 +826,52 @@ Deno.serve(async (req) => {
             showLength: body.showLength,
             maxTicketsPerUser: body.maxTicketsPerUser,
             juniorReleaseOpen: body.juniorReleaseOpen,
+            ticketIssuingEnabled: body.ticketIssuingEnabled,
           },
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    }
+
+    if (body.mode === 'updateTicketTypeSettings') {
+      const session = await requireValidSession(adminClient, req);
+
+      const { error: ticketIssueModeUpdateError } = await adminClient
+        .from('ticket_issue_controls')
+        .upsert(
+          {
+            id: 1,
+            class_invite_mode: body.ticketIssueModes.classInvite,
+            rehearsal_invite_mode: body.ticketIssueModes.rehearsalInvite,
+            gym_invite_mode: body.ticketIssueModes.gymInvite,
+            entry_only_mode: body.ticketIssueModes.entryOnly,
+            same_day_class_mode: body.ticketIssueModes.sameDayClass,
+            same_day_gym_mode: body.ticketIssueModes.sameDayGym,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' },
+        );
+
+      if (ticketIssueModeUpdateError) {
+        throw ticketIssueModeUpdateError;
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(
+        JSON.stringify({
+          updated: true,
+          activeTicketTypeIds: body.activeTicketTypeIds,
+          ticketIssueModes: body.ticketIssueModes,
         }),
         {
           status: 200,
@@ -679,15 +912,15 @@ Deno.serve(async (req) => {
           );
         }
 
-        throw new HttpError(
-          401,
-          '現在の管理者パスワードが正しくありません。',
-        );
+        throw new HttpError(401, '現在の管理者パスワードが正しくありません。');
       }
 
       await clearFailedLoginAttempts(adminClient, clientIp);
 
-      const isSameAsCurrent = await compare(body.newPassword, config.passwordHash);
+      const isSameAsCurrent = await compare(
+        body.newPassword,
+        config.passwordHash,
+      );
       if (isSameAsCurrent) {
         throw new HttpError(
           400,

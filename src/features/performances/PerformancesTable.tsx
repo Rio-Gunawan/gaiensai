@@ -28,6 +28,7 @@ type PerformancesTableProps = {
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
   remainingMode?: 'general' | 'total';
+  restrictedClassName?: string | null;
 };
 
 const PerformancesTable = ({
@@ -35,6 +36,7 @@ const PerformancesTable = ({
   onAvailableCellClick,
   selectedCellKey,
   remainingMode = 'general',
+  restrictedClassName = null,
 }: PerformancesTableProps) => {
   const autoSelectedCellKeyRef = useRef<string | null>(null);
   const [performances, setPerformances] = useState<PerformanceRow[]>([]);
@@ -110,9 +112,16 @@ const PerformancesTable = ({
       window.removeEventListener('resize', updateScrollState);
       resizeObserver.disconnect();
     };
-  }, [performances, schedules, remainingSeatMap, selectedPerformanceId, selectedScheduleId]);
+  }, [
+    performances,
+    schedules,
+    remainingSeatMap,
+    selectedPerformanceId,
+    selectedScheduleId,
+  ]);
 
   useEffect(() => {
+    let isMounted = true;
     const load = async () => {
       setLoading(true);
       setErrorMessage(null);
@@ -131,13 +140,23 @@ const PerformancesTable = ({
           .order('id', { ascending: true }),
       ]);
 
+      if (!isMounted) {
+        return;
+      }
+
       if (performanceError || scheduleError) {
         setErrorMessage('公演空き状況の取得に失敗しました。');
         setLoading(false);
         return;
       }
 
-      const loadedPerformances = (performanceData ?? []) as PerformanceRow[];
+      const loadedPerformances = (
+        (performanceData ?? []) as PerformanceRow[]
+      ).filter(
+        (performance) =>
+          !restrictedClassName ||
+          performance.class_name === restrictedClassName,
+      );
       const loadedSchedules = (scheduleData ?? []) as PerformanceSchedule[];
       const seatMap = new Map<string, number>();
 
@@ -151,6 +170,10 @@ const PerformancesTable = ({
 
         const rpcResults = await Promise.all(rpcCalls);
 
+        if (!isMounted) {
+          return;
+        }
+
         for (let i = 0; i < loadedPerformances.length; i += 1) {
           const performance = loadedPerformances[i];
           const { data, error } = rpcResults[i] as {
@@ -158,7 +181,7 @@ const PerformancesTable = ({
             error: unknown;
           };
 
-          if (error) {
+          if (error && isMounted) {
             setErrorMessage('残席情報の取得に失敗しました。');
             setLoading(false);
             return;
@@ -177,6 +200,10 @@ const PerformancesTable = ({
         }
       }
 
+      if (!isMounted) {
+        return;
+      }
+
       setRemainingSeatMap(seatMap);
       setPerformances(loadedPerformances);
       setSchedules(loadedSchedules);
@@ -184,7 +211,11 @@ const PerformancesTable = ({
     };
 
     void load();
-  }, [remainingMode]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [remainingMode, restrictedClassName]);
 
   const statusByKey = useMemo(() => {
     const map = new Map<string, 'circle' | 'triangle' | 'cross'>();

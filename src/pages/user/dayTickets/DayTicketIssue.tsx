@@ -165,23 +165,38 @@ const DayTicketIssue = () => {
     if (!issueControls) {
       return [];
     }
+
+    const todayStr = new Date().toLocaleDateString('sv-SE');
+    const isTodayEventDay = (config.date ?? [])
+      .filter((d) => typeof d === 'string' && d.length > 0)
+      .includes(todayStr);
+
     return ticketTypes.map((t) => {
+      let mode: 'open' | 'auto' | 'off' = 'off';
       let isActive = false;
       if (t.id === CLASS_DAY_TICKET_ID) {
-        isActive = issueControls.same_day_class_mode !== 'off';
+        mode = issueControls.same_day_class_mode;
       } else if (t.id === GYM_DAY_TICKET_ID) {
-        isActive = issueControls.same_day_gym_mode !== 'off';
+        mode = issueControls.same_day_gym_mode;
       }
+
+      if (mode === 'open') {
+        isActive = true;
+      } else if (mode === 'auto') {
+        isActive = isTodayEventDay;
+      }
+
       return { ...t, is_active: isActive };
     });
-  }, [ticketTypes, issueControls]);
+  }, [ticketTypes, issueControls, config.date]);
 
   useEffect(() => {
+    const active = activeTicketTypes.filter((t) => t.is_active);
     if (
-      activeTicketTypes.length > 0 &&
-      !activeTicketTypes.find((t) => t.id === selectedTicketTypeId)
+      active.length > 0 &&
+      !active.find((t) => t.id === selectedTicketTypeId)
     ) {
-      setSelectedTicketTypeId(activeTicketTypes[0].id);
+      setSelectedTicketTypeId(active[0].id);
     }
   }, [activeTicketTypes, selectedTicketTypeId]);
 
@@ -201,7 +216,10 @@ const DayTicketIssue = () => {
       ) ?? null,
     [activeTicketTypes, selectedTicketTypeId],
   );
-  const hasAnyActiveTicketType = activeTicketTypes.length > 0;
+  const hasAnyActiveTicketType = useMemo(
+    () => activeTicketTypes.some((t) => t.is_active),
+    [activeTicketTypes],
+  );
   const isIssueReceptionStopped =
     !isTicketIssuingEnabled || !hasAnyActiveTicketType;
 

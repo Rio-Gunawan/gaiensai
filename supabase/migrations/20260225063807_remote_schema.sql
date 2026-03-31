@@ -162,13 +162,13 @@ ALTER FUNCTION "public"."get_remaining_seats"("p_performance_id" smallint, "p_sc
 CREATE OR REPLACE FUNCTION "public"."get_user_by_email"("user_email" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
-    AS $$  
-BEGIN  
-  RETURN (SELECT id  
-          FROM auth.users  
-          WHERE email = user_email  
-          LIMIT 1);  
-END;  
+    AS $$
+BEGIN
+  RETURN (SELECT id
+          FROM auth.users
+          WHERE email = user_email
+          LIMIT 1);
+END;
 $$;
 
 
@@ -417,7 +417,7 @@ end;$$;
 ALTER FUNCTION "public"."issue_class_tickets_with_codes"("p_user_id" "uuid", "p_ticket_type_id" smallint, "p_relationship_id" smallint, "p_performance_id" smallint, "p_schedule_id" smallint, "p_issue_count" integer, "p_codes" "text"[], "p_signatures" "text"[]) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text", "clubs" "text"[]) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$declare
@@ -443,18 +443,19 @@ begin
   end if;
 
   -- 3. ユーザー登録
-  insert into users (id, email, name, affiliation, role)
+  insert into users (id, email, name, affiliation, role, clubs)
   values (
     auth.uid(),
     (select email from auth.users where id = auth.uid()),
     student_name,
     (grade_no * 1000 + class_no * 100 + student_no),
-    'student'
+    'student',
+    clubs
   );
 end;$$;
 
 
-ALTER FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text", "clubs" "text"[]) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
@@ -1134,9 +1135,9 @@ GRANT ALL ON FUNCTION "public"."issue_class_tickets_with_codes"("p_user_id" "uui
 
 
 
-GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text", "clubs" "text"[]) TO "anon";
+GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text", "clubs" "text"[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."register_student"("student_name" "text", "grade_no" integer, "class_no" integer, "student_no" integer, "teacher_name_input" "text", "clubs" "text"[]) TO "service_role";
 
 
 
@@ -1335,5 +1336,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 drop extension if exists "pg_net";
-
-

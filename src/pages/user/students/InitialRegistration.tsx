@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
@@ -17,6 +17,8 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const [studentClass, setStudentClass] = useState('');
   const [number, setNumber] = useState('');
   const [teacherName, setTeacherName] = useState('');
+  const [availableClubs, setAvailableClubs] = useState<string[]>([]);
+  const [selectedClubs, setSelectedClubs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -28,6 +30,21 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     getToken: getTurnstileToken,
     reset: resetTurnstile,
   } = useTurnstile({ containerId: 'initial-registration-turnstile' });
+
+  useEffect(() => {
+    const fetchClubs = async () => {
+      const { data, error } = await supabase
+        .from('gym_performances')
+        .select('group_name');
+
+      if (!error && data) {
+        const names = data.map((d) => d.group_name).filter(Boolean);
+        const uniqueClubs = Array.from(new Set(names)).sort();
+        setAvailableClubs(uniqueClubs);
+      }
+    };
+    void fetchClubs();
+  }, []);
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
@@ -91,6 +108,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       class_no: parsedClass,
       student_no: parsedNumber,
       teacher_name_input: teacherName,
+      clubs: selectedClubs.length > 0 ? selectedClubs : null,
     });
 
     setLoading(false);
@@ -211,6 +229,33 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
             番
           </label>
         </fieldset>
+
+        <div className={styles.clubSelection}>
+          <p className={styles.label}>
+            部活(所属しているものをすべて選択してください)
+          </p>
+          <div className={styles.checkboxGroup}>
+            {availableClubs.map((club) => (
+              <label key={club} className={styles.checkboxLabel}>
+                <input
+                  type='checkbox'
+                  className={styles.checkbox}
+                  checked={selectedClubs.includes(club)}
+                  onChange={(e) => {
+                    const isChecked = e.currentTarget.checked;
+                    setSelectedClubs((prev) =>
+                      isChecked
+                        ? [...prev, club]
+                        : prev.filter((c) => c !== club),
+                    );
+                  }}
+                />
+                {club}
+              </label>
+            ))}
+          </div>
+        </div>
+
         <p className={styles.info}>
           青高生であることの確認のため、担任の先生の名前の入力をお願いします。
         </p>

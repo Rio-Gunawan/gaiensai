@@ -48,6 +48,27 @@
   text-align: right;
 }
 
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1em;
+}
+
+.checkboxLabel {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1em;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 1.3em;
+  height: 1.3em;
+  cursor: pointer;
+}
+
 .error {
   margin: 0;
   color: var(--error-text-color);

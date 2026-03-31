@@ -57,6 +57,9 @@ type ControlPanelSettings = {
   juniorReleaseOpen: boolean;
   ticketIssuingEnabled: boolean;
   activeTicketTypeIds: number[];
+  defaultClassTotalCapacity: number;
+  defaultClassJuniorCapacity: number;
+  defaultGymCapacity: number;
 };
 
 type TicketTypeControlValue =
@@ -148,6 +151,17 @@ const NUMERIC_SETTING_META = {
   eventYear: { label: '年度', min: 2020, max: 2100 },
   showLength: { label: '1公演の長さ（分）', min: 1, max: 300 },
   maxTicketsPerUser: { label: '1人あたりのチケット購入上限', min: 1, max: 100 },
+  defaultClassTotalCapacity: {
+    label: 'クラス公演の定員(合計)',
+    min: 1,
+    max: 1000,
+  },
+  defaultClassJuniorCapacity: {
+    label: 'クラス公演の中学生枠',
+    min: 0,
+    max: 1000,
+  },
+  defaultGymCapacity: { label: '体育館公演の定員', min: 1, max: 2000 },
 } as const;
 
 type NumericSettingKey = keyof typeof NUMERIC_SETTING_META;
@@ -187,6 +201,9 @@ const Settings = () => {
       TICKET_TYPE_IDS.sameDayClass,
       TICKET_TYPE_IDS.sameDayGym,
     ],
+    defaultClassTotalCapacity: 40,
+    defaultClassJuniorCapacity: 5,
+    defaultGymCapacity: 300,
   });
   const [ticketTypeControls, setTicketTypeControls] =
     useState<TicketTypeControls>(DEFAULT_TICKET_TYPE_CONTROLS);
@@ -424,6 +441,9 @@ const Settings = () => {
           typeof nextSettings.maxTicketsPerUser !== 'number' ||
           typeof nextSettings.juniorReleaseOpen !== 'boolean' ||
           typeof nextSettings.ticketIssuingEnabled !== 'boolean' ||
+          typeof nextSettings.defaultClassTotalCapacity !== 'number' ||
+          typeof nextSettings.defaultClassJuniorCapacity !== 'number' ||
+          typeof nextSettings.defaultGymCapacity !== 'number' ||
           !Array.isArray(nextSettings.activeTicketTypeIds)
         ) {
           throw new Error('設定データの形式が不正です。');
@@ -528,6 +548,9 @@ const Settings = () => {
           maxTicketsPerUser: nextSettings.maxTicketsPerUser,
           juniorReleaseOpen: nextSettings.juniorReleaseOpen,
           ticketIssuingEnabled: nextSettings.ticketIssuingEnabled,
+          defaultClassTotalCapacity: nextSettings.defaultClassTotalCapacity,
+          defaultClassJuniorCapacity: nextSettings.defaultClassJuniorCapacity,
+          defaultGymCapacity: nextSettings.defaultGymCapacity,
         },
         headers: {
           'x-admin-session-token': token,
@@ -705,7 +728,9 @@ const Settings = () => {
     return (
       <div>
         <h1 className={styles.pageTitle}>コントロールパネル</h1>
-        <p>認証状態を確認しています...</p>
+        <section>
+          <p>認証状態を確認しています...</p>
+        </section>
       </div>
     );
   }
@@ -1014,7 +1039,7 @@ const Settings = () => {
               </select>
             </div>
           </div>
-          {/* <div>
+          <div>
             <h3>チケット数の受付設定</h3>
             <div className={styles.field}>
               <label
@@ -1023,14 +1048,21 @@ const Settings = () => {
               >
                 クラス公演の1公演あたりのチケット数(中学生券含む)
               </label>
-              <input
-                id='ticket-class-total'
-                className={styles.fieldControl}
-                type='number'
-                min={1}
-                max={100}
-                defaultValue={50}
-              />
+              <div className={styles.settingControlGroup}>
+                <span id='ticket-class-total' className={styles.fieldValue}>
+                  {settings.defaultClassTotalCapacity}
+                </span>
+                <button
+                  type='button'
+                  className={styles.inlineEditButton}
+                  onClick={() =>
+                    openNumericEditModal('defaultClassTotalCapacity')
+                  }
+                  disabled={isSettingsLoading || isSyncingSetting}
+                >
+                  変更する
+                </button>
+              </div>
             </div>
             <div className={styles.field}>
               <label
@@ -1039,29 +1071,41 @@ const Settings = () => {
               >
                 クラス公演の1公演あたり中学生枠
               </label>
-              <input
-                id='ticket-class-junior'
-                className={styles.fieldControl}
-                type='number'
-                min={1}
-                max={100}
-                defaultValue={10}
-              />
+              <div className={styles.settingControlGroup}>
+                <span id='ticket-class-junior' className={styles.fieldValue}>
+                  {settings.defaultClassJuniorCapacity}
+                </span>
+                <button
+                  type='button'
+                  className={styles.inlineEditButton}
+                  onClick={() =>
+                    openNumericEditModal('defaultClassJuniorCapacity')
+                  }
+                  disabled={isSettingsLoading || isSyncingSetting}
+                >
+                  変更する
+                </button>
+              </div>
             </div>
             <div className={styles.field}>
               <label className={styles.settingLabel} htmlFor='ticket-gym-total'>
                 体育館公演の1公演あたりのチケット数
               </label>
-              <input
-                id='ticket-gym-total'
-                className={styles.fieldControl}
-                type='number'
-                min={1}
-                max={100}
-                defaultValue={100}
-              />
+              <div className={styles.settingControlGroup}>
+                <span id='ticket-gym-total' className={styles.fieldValue}>
+                  {settings.defaultGymCapacity}
+                </span>
+                <button
+                  type='button'
+                  className={styles.inlineEditButton}
+                  onClick={() => openNumericEditModal('defaultGymCapacity')}
+                  disabled={isSettingsLoading || isSyncingSetting}
+                >
+                  変更する
+                </button>
+              </div>
             </div>
-          </div> */}
+          </div>
           <div>
             <h3>その他設定</h3>
             <div className={styles.field}>

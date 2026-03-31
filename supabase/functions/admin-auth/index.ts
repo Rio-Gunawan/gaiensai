@@ -25,6 +25,9 @@ type AdminAuthRequest = {
   ticketIssuingEnabled?: unknown;
   activeTicketTypeIds?: unknown;
   ticketIssueModes?: unknown;
+  defaultClassTotalCapacity?: unknown;
+  defaultClassJuniorCapacity?: unknown;
+  defaultGymCapacity?: unknown;
 };
 
 type TicketIssueMode =
@@ -61,6 +64,9 @@ type AdminAuthBody =
       maxTicketsPerUser: number;
       juniorReleaseOpen: boolean;
       ticketIssuingEnabled: boolean;
+      defaultClassTotalCapacity: number;
+      defaultClassJuniorCapacity: number;
+      defaultGymCapacity: number;
     };
 
 type AdminConfigRow = {
@@ -283,6 +289,9 @@ const parseBody = (body: unknown): AdminAuthBody => {
       maxTicketsPerUser,
       juniorReleaseOpen,
       ticketIssuingEnabled,
+      defaultClassTotalCapacity,
+      defaultClassJuniorCapacity,
+      defaultGymCapacity,
     } = body as AdminAuthRequest;
 
     if (typeof juniorReleaseOpen !== 'boolean') {
@@ -310,6 +319,24 @@ const parseBody = (body: unknown): AdminAuthBody => {
       ),
       juniorReleaseOpen,
       ticketIssuingEnabled,
+      defaultClassTotalCapacity: normalizeInteger(
+        defaultClassTotalCapacity,
+        'defaultClassTotalCapacity',
+        1,
+        1000,
+      ),
+      defaultClassJuniorCapacity: normalizeInteger(
+        defaultClassJuniorCapacity,
+        'defaultClassJuniorCapacity',
+        0,
+        1000,
+      ),
+      defaultGymCapacity: normalizeInteger(
+        defaultGymCapacity,
+        'defaultGymCapacity',
+        1,
+        2000,
+      ),
     };
   }
 
@@ -464,6 +491,39 @@ const fetchTicketIssueControls = async (
     sameDayClass: row.same_day_class_mode,
     sameDayGym: row.same_day_gym_mode,
   };
+};
+
+const fetchMaxCapacities = async (adminClient: SupabaseClient) => {
+  const { data: classData, error: classError } = await adminClient
+    .from('class_performances')
+    .select('total_capacity, junior_capacity');
+
+  if (classError) {
+    throw classError;
+  }
+
+  const { data: gymData, error: gymError } = await adminClient
+    .from('gym_performances')
+    .select('capacity');
+
+  if (gymError) {
+    throw gymError;
+  }
+
+  const maxClassTotal =
+    classData && classData.length > 0
+      ? Math.max(...classData.map((row) => row.total_capacity ?? 0))
+      : null;
+  const maxClassJunior =
+    classData && classData.length > 0
+      ? Math.max(...classData.map((row) => row.junior_capacity ?? 0))
+      : null;
+  const maxGym =
+    gymData && gymData.length > 0
+      ? Math.max(...gymData.map((row) => row.capacity ?? 0))
+      : null;
+
+  return { maxClassTotal, maxClassJunior, maxGym };
 };
 
 const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$.{53}$/.test(value);
@@ -745,6 +805,7 @@ Deno.serve(async (req) => {
     if (body.mode === 'getSettings') {
       const session = await requireValidSession(adminClient, req);
       const settings = await fetchAdminSettings(adminClient);
+      const maxCapacities = await fetchMaxCapacities(adminClient);
       const ticketIssueModes = await fetchTicketIssueControls(adminClient);
 
       const activeTicketTypeIds: number[] = [];
@@ -780,6 +841,9 @@ Deno.serve(async (req) => {
             maxTicketsPerUser: settings.max_tickets_per_user,
             juniorReleaseOpen: settings.junior_release_open,
             ticketIssuingEnabled: settings.is_active,
+            defaultClassTotalCapacity: maxCapacities.maxClassTotal ?? 0,
+            defaultClassJuniorCapacity: maxCapacities.maxClassJunior ?? 0,
+            defaultGymCapacity: maxCapacities.maxGym ?? 0,
             activeTicketTypeIds,
             ticketIssueModes,
           },
@@ -813,6 +877,31 @@ Deno.serve(async (req) => {
         throw updateError;
       }
 
+      // 全クラス公演のキャパシティを一括更新
+      const { error: classUpdateError } = await adminClient
+        .from('class_performances')
+        .update({
+          total_capacity: body.defaultClassTotalCapacity,
+          junior_capacity: body.defaultClassJuniorCapacity,
+        })
+        .neq('id', 0);
+
+      if (classUpdateError) {
+        throw classUpdateError;
+      }
+
+      // 全体育館公演のキャパシティを一括更新
+      const { error: gymUpdateError } = await adminClient
+        .from('gym_performances')
+        .update({
+          capacity: body.defaultGymCapacity,
+        })
+        .neq('id', 0);
+
+      if (gymUpdateError) {
+        throw gymUpdateError;
+      }
+
       await adminClient
         .from('admin_sessions')
         .update({ last_used_at: new Date().toISOString() })
@@ -827,6 +916,9 @@ Deno.serve(async (req) => {
             maxTicketsPerUser: body.maxTicketsPerUser,
             juniorReleaseOpen: body.juniorReleaseOpen,
             ticketIssuingEnabled: body.ticketIssuingEnabled,
+            defaultClassTotalCapacity: body.defaultClassTotalCapacity,
+            defaultClassJuniorCapacity: body.defaultClassJuniorCapacity,
+            defaultGymCapacity: body.defaultGymCapacity,
           },
         }),
         {

@@ -1,17 +1,3 @@
-INSERT INTO public.users (id, email, name, affiliation, role)
-VALUES (
-  '00000000-0000-0000-0000-00000000d001'::uuid,
-  'day-ticket-guest@gaiensai.local',
-  '当日券ゲスト',
-  0,
-  'guest'
-)
-ON CONFLICT (id) DO UPDATE
-SET
-  email = EXCLUDED.email,
-  name = EXCLUDED.name,
-  affiliation = EXCLUDED.affiliation,
-  role = EXCLUDED.role;
 
 CREATE OR REPLACE FUNCTION public.get_remaining_seats(
   p_performance_id smallint,

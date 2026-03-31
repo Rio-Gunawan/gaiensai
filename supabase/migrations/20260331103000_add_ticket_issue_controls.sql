@@ -8,15 +8,4 @@ create table if not exists public.ticket_issue_controls (
   updated_at timestamptz not null default now()
 );
 
-insert into public.ticket_issue_controls (
-  id,
-  class_invite_mode,
-  rehearsal_invite_mode,
-  gym_invite_mode,
-  entry_only_mode,
-  same_day_mode
-)
-values (1, 'open', 'open', 'open', 'open', 'open')
-on conflict (id) do nothing;
-
 grant all on table public.ticket_issue_controls to service_role;

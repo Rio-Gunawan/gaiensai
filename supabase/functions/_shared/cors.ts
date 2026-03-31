@@ -13,7 +13,7 @@ export const getCorsHeaders = (req: Request): HeadersInit => {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type',
+      'authorization, x-client-info, apikey, content-type, x-admin-session-token',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     Vary: 'Origin',
   };

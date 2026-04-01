@@ -302,7 +302,7 @@ const DayTicketIssue = () => {
 
   const handleIssue = async () => {
     if (isIssueReceptionStopped) {
-      alert('現在チケット発券は受付停止中です。');
+      alert('現在当日券は受付停止中です。');
       return;
     }
 

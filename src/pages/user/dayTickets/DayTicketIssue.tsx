@@ -464,7 +464,7 @@ const DayTicketIssue = () => {
         <BackButton href='/' />
         <h1 className={styles.pageTitle}>当日券発券</h1>
         <Alert type='warning'>
-          <p>現在チケット発券は受付停止中です。</p>
+          <p>現在当日券は受付停止中です。</p>
         </Alert>
       </div>
     );

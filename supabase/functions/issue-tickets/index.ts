@@ -361,6 +361,7 @@ export const handleIssueTicketsRequest = async (
     let userRow: {
       affiliation: number | null;
       role: string | null;
+      clubs: string[] | null;
     } | null = null;
 
     if (shouldResolveUser) {
@@ -380,7 +381,7 @@ export const handleIssueTicketsRequest = async (
         user = { id: authUser.id };
         const { data: resolvedUserRow, error: userRowError } = await adminClient
           .from('users')
-          .select('affiliation, role')
+          .select('affiliation, role, clubs')
           .eq('id', authUser.id)
           .maybeSingle();
 
@@ -394,6 +395,7 @@ export const handleIssueTicketsRequest = async (
         userRow = (resolvedUserRow ?? null) as {
           affiliation: number | null;
           role: string | null;
+          clubs: string[] | null;
         } | null;
       }
     }
@@ -471,20 +473,21 @@ export const handleIssueTicketsRequest = async (
     }
     const issueUserId = user?.id ?? DAY_TICKET_GUEST_USER_ID;
 
+    let gymPerformanceRow: { id: number; group_name: string } | null = null;
     if (issueMode === 'gym') {
-      const { data: gymPerformance, error: gymPerformanceError } =
-        await adminClient
-          .from('gym_performances')
-          .select('id')
-          .eq('id', body.performanceId)
-          .maybeSingle();
+      const { data, error } = await adminClient
+        .from('gym_performances')
+        .select('id, group_name')
+        .eq('id', body.performanceId)
+        .maybeSingle();
 
-      if (gymPerformanceError || !gymPerformance) {
+      if (error || !data) {
         throw new HttpError(
           409,
           '体育館公演情報が見つかりません。ページを更新してからやり直してください。',
         );
       }
+      gymPerformanceRow = data as { id: number; group_name: string };
     }
 
     if (body.cancelCode && body.issueCount !== 1) {
@@ -581,6 +584,18 @@ export const handleIssueTicketsRequest = async (
     } else if (body.ticketTypeId === 3) {
       if (ticketIssueControls.gymInvite === 'off') {
         throw new HttpError(409, '体育館公演招待券の受付は停止中です。');
+      }
+      if (ticketIssueControls.gymInvite === 'only-own') {
+        const clubs = userRow?.clubs ?? [];
+        if (
+          !gymPerformanceRow ||
+          !clubs.includes(gymPerformanceRow.group_name)
+        ) {
+          throw new HttpError(
+            403,
+            'この設定では自部活の公演のみ発券できます。',
+          );
+        }
       }
     } else if (body.ticketTypeId === 4) {
       if (ticketIssueControls.entryOnly === 'off') {

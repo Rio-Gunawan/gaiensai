@@ -10,6 +10,7 @@ type IssueStepPerformanceProps = {
   selectedCellKey?: string;
   classRemainingMode?: 'general' | 'total';
   restrictedClassName?: string | null;
+  restrictedGroupNames?: string[] | null;
   onSelectPerformance: (selection: SelectedPerformance) => void;
 };
 
@@ -19,6 +20,7 @@ const IssueStepPerformance = ({
   selectedCellKey,
   classRemainingMode = 'general',
   restrictedClassName = null,
+  restrictedGroupNames = null,
   onSelectPerformance,
 }: IssueStepPerformanceProps) => {
   return (
@@ -30,6 +32,7 @@ const IssueStepPerformance = ({
       {isGymPerformanceTicket ? (
         <GymPerformancesTable
           onAvailableCellClick={onSelectPerformance}
+          restrictedGroupNames={restrictedGroupNames}
           selectedCellKey={selectedCellKey}
         />
       ) : (

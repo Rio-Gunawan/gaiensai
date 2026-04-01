@@ -41,7 +41,7 @@ const Students = () => {
   const loadUserProfile = async (userId: string) => {
     const { data, error }: { data: UserData; error: unknown } = await supabase
       .from('users')
-      .select('email, name, affiliation')
+      .select('email, name, affiliation, clubs')
       .eq('id', userId)
       .maybeSingle();
 

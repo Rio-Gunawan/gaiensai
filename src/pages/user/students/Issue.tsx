@@ -26,6 +26,7 @@ const PANEL_ANIMATION_MS = 360;
 const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
 const GYM_TICKET_KEYWORD = '体育館';
 const CLASS_INVITE_TICKET_ID = 1;
+const GYM_INVITE_TICKET_ID = 3;
 
 const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   const fallback =
@@ -107,6 +108,7 @@ const Issue = () => {
     'open' | 'only-own' | 'off'
   >('open');
   const [ownClassName, setOwnClassName] = useState<string | null>(null);
+  const [ownClubs, setOwnClubs] = useState<string[] | null>(null);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
@@ -142,7 +144,7 @@ const Issue = () => {
   }, []);
 
   useEffect(() => {
-    const loadOwnClassName = async () => {
+    const loadOwnProfile = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -153,13 +155,15 @@ const Issue = () => {
 
       const { data, error } = await supabase
         .from('users')
-        .select('affiliation')
+        .select('affiliation, clubs')
         .eq('id', userId)
         .maybeSingle();
 
       if (error) {
         return;
       }
+
+      setOwnClubs((data as { clubs?: string[] | null })?.clubs ?? []);
 
       const affiliation = Number(
         (data as { affiliation?: number | null } | null)?.affiliation ?? -1,
@@ -175,7 +179,7 @@ const Issue = () => {
       }
     };
 
-    void loadOwnClassName();
+    void loadOwnProfile();
   }, []);
 
   useEffect(() => {
@@ -235,13 +239,16 @@ const Issue = () => {
       } else if (t.id === 2) {
         isActive = issueControls.rehearsal_invite_mode !== 'off';
       } else if (t.id === 3) {
-        isActive = issueControls.gym_invite_mode !== 'off';
+        isActive =
+          issueControls.gym_invite_mode !== 'off' &&
+          (issueControls.gym_invite_mode !== 'only-own' ||
+            (ownClubs !== null && ownClubs.length > 0));
       } else if (t.id === 4) {
         isActive = issueControls.entry_only_mode !== 'off';
       }
       return { ...t, is_active: isActive };
     });
-  }, [ticketTypes, issueControls]);
+  }, [ticketTypes, issueControls, ownClubs]);
 
   useEffect(() => {
     const firstActive = activeTicketTypes.find((t) => t.is_active);
@@ -483,6 +490,11 @@ const Issue = () => {
     classInviteMode === 'only-own'
       ? (ownClassName ?? '__NO_CLASS__')
       : null;
+  const restrictedGroupNames =
+    selectedTicketType?.id === GYM_INVITE_TICKET_ID &&
+    issueControls?.gym_invite_mode === 'only-own'
+      ? (ownClubs ?? [])
+      : null;
 
   useEffect(() => {
     if (!selectedTicketType) {
@@ -599,6 +611,42 @@ const Issue = () => {
     selectedPerformance,
     selectedTicketType,
     isAdmissionOnlyTicket,
+  ]);
+
+  const shouldShowOnlyOwnGymAlert = useMemo(() => {
+    if (
+      issueControls?.gym_invite_mode !== 'only-own' ||
+      !ownClubs ||
+      !selectedTicketType
+    ) {
+      return false;
+    }
+
+    if (selectedTicketType.id !== GYM_INVITE_TICKET_ID) {
+      return false;
+    }
+
+    const targetPerformance =
+      selectedPerformance || prevSelectedPerformanceRef.current;
+
+    if (!targetPerformance) {
+      return false;
+    }
+
+    const isGymSelection =
+      targetPerformance.performanceId > 0 &&
+      targetPerformance.scheduleId === 0;
+
+    if (!isGymSelection) {
+      return false;
+    }
+
+    return !ownClubs.includes(targetPerformance.performanceName);
+  }, [
+    issueControls?.gym_invite_mode,
+    ownClubs,
+    selectedPerformance,
+    selectedTicketType,
   ]);
 
   const transitionToStep = (nextStep: Step) => {
@@ -850,6 +898,11 @@ const Issue = () => {
           <p>現在自クラスのみ発券可能です。</p>
         </Alert>
       )}
+      {shouldShowOnlyOwnGymAlert && (
+        <Alert type='info' className={styles.onlyOwnClassAlert}>
+          <p>現在自部活のみ発券可能です。</p>
+        </Alert>
+      )}
 
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>
@@ -866,6 +919,7 @@ const Issue = () => {
             selectedPerformance={selectedPerformance}
             selectedCellKey={selectedCellKey}
             restrictedClassName={restrictedClassName}
+            restrictedGroupNames={restrictedGroupNames}
             onSelectPerformance={setSelectedPerformance}
           />
         </div>

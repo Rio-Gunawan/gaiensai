@@ -22,12 +22,14 @@ type GymPerformancesTableProps = {
   enableIssueJump?: boolean;
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
+  restrictedGroupNames?: string[] | null;
 };
 
 const GymPerformancesTable = ({
   enableIssueJump = false,
   onAvailableCellClick,
   selectedCellKey,
+  restrictedGroupNames = null,
 }: GymPerformancesTableProps) => {
   const [performances, setPerformances] = useState<GymPerformanceRow[]>([]);
   const [selectedGroupName, setSelectedGroupName] = useState<string | 'all'>(
@@ -62,7 +64,13 @@ const GymPerformancesTable = ({
         return;
       }
 
-      const loadedPerformances = (performanceData ?? []) as GymPerformanceRow[];
+      const loadedPerformances = (
+        (performanceData ?? []) as GymPerformanceRow[]
+      ).filter(
+        (performance) =>
+          !restrictedGroupNames ||
+          restrictedGroupNames.includes(performance.group_name),
+      );
       setPerformances(loadedPerformances);
 
       if (loadedPerformances.length === 0) {
@@ -84,7 +92,9 @@ const GymPerformancesTable = ({
 
       const issuedCountByPerformanceId = new Map<number, number>();
 
-      for (const row of (issuedTickets ?? []) as Array<{ performance_id: number }>) {
+      for (const row of (issuedTickets ?? []) as Array<{
+        performance_id: number;
+      }>) {
         issuedCountByPerformanceId.set(
           row.performance_id,
           (issuedCountByPerformanceId.get(row.performance_id) ?? 0) + 1,
@@ -94,7 +104,10 @@ const GymPerformancesTable = ({
       const remainingMap = new Map<number, number>();
       for (const performance of loadedPerformances) {
         const issued = issuedCountByPerformanceId.get(performance.id) ?? 0;
-        remainingMap.set(performance.id, Math.max(performance.capacity - issued, 0));
+        remainingMap.set(
+          performance.id,
+          Math.max(performance.capacity - issued, 0),
+        );
       }
 
       setRemainingByPerformanceId(remainingMap);
@@ -102,7 +115,7 @@ const GymPerformancesTable = ({
     };
 
     void load();
-  }, []);
+  }, [restrictedGroupNames]);
 
   const groupNames = useMemo(() => {
     const unique = new Set<string>();
@@ -131,7 +144,13 @@ const GymPerformancesTable = ({
   const cellData = useMemo(() => {
     const map = new Map<
       string,
-      { remaining: number; capacity: number; performanceId: number; roundName: string; groupName: string }
+      {
+        remaining: number;
+        capacity: number;
+        performanceId: number;
+        roundName: string;
+        groupName: string;
+      }
     >();
 
     for (const performance of performances) {
@@ -143,7 +162,8 @@ const GymPerformancesTable = ({
         roundName: performance.round_name,
         groupName: performance.group_name,
       };
-      const remaining = remainingByPerformanceId.get(performance.id) ?? performance.capacity;
+      const remaining =
+        remainingByPerformanceId.get(performance.id) ?? performance.capacity;
 
       map.set(key, {
         remaining: previous.remaining + remaining,
@@ -256,7 +276,9 @@ const GymPerformancesTable = ({
     return styles.statusCircle;
   };
 
-  const handleAvailableCellClick = (selection: AvailableSeatSelection): void => {
+  const handleAvailableCellClick = (
+    selection: AvailableSeatSelection,
+  ): void => {
     onAvailableCellClick?.(selection);
 
     if (!enableIssueJump) {
@@ -279,7 +301,11 @@ const GymPerformancesTable = ({
     return <p>{errorMessage}</p>;
   }
 
-  if (performances.length === 0 || groupNames.length === 0 || roundNames.length === 0) {
+  if (
+    performances.length === 0 ||
+    groupNames.length === 0 ||
+    roundNames.length === 0
+  ) {
     return <p>表示できる体育館公演データがありません。</p>;
   }
 
@@ -407,7 +433,10 @@ const GymPerformancesTable = ({
 
                   if (!cell) {
                     return (
-                      <td key={key} className={`${styles.td} ${styles.emptyCell}`}>
+                      <td
+                        key={key}
+                        className={`${styles.td} ${styles.emptyCell}`}
+                      >
                         -
                       </td>
                     );
@@ -426,9 +455,7 @@ const GymPerformancesTable = ({
                         cell.capacity,
                       )} ${isInteractive ? styles.jumpableCell : ''} ${
                         isInteractive ? styles.interactiveCell : ''
-                      } ${
-                        isSelected ? styles.selectedCell : ''
-                      }`}
+                      } ${isSelected ? styles.selectedCell : ''}`}
                       key={key}
                       onClick={() => {
                         if (cell.remaining <= 0) {
@@ -469,7 +496,9 @@ const GymPerformancesTable = ({
                       <div className={styles.mark}>
                         {getMark(cell.remaining, cell.capacity)}
                       </div>
-                      <div className={styles.remaining}>残り{cell.remaining}席</div>
+                      <div className={styles.remaining}>
+                        残り{cell.remaining}席
+                      </div>
                     </td>
                   );
                 })}

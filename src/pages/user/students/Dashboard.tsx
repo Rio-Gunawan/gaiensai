@@ -92,6 +92,9 @@ const Dashboard = ({ userData }: DashboardProps) => {
   const [classInviteMode, setClassInviteMode] = useState<
     'open' | 'only-own' | 'off'
   >('open');
+  const [gymInviteMode, setGymInviteMode] = useState<
+    'open' | 'only-own' | 'off'
+  >('open');
   const [ownClassName, setOwnClassName] = useState<string | null>(null);
 
   useTitle('ダッシュボード - 生徒用ページ');
@@ -178,6 +181,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
           data.rehearsal_invite_mode !== 'off' ||
           data.gym_invite_mode !== 'off' ||
           data.entry_only_mode !== 'off');
+
+      if (data) {
+        setGymInviteMode(data.gym_invite_mode);
+        setClassInviteMode(data.class_invite_mode);
+      }
       setHasAnyActiveInviteTicketType(!!hasActive);
     };
 
@@ -699,6 +707,11 @@ const Dashboard = ({ userData }: DashboardProps) => {
     return result;
   }, [classInviteMode, ownClassName]);
 
+  const restrictedGroupNames = useMemo(() => {
+    const clubs = (userData as { clubs?: string[] | null }).clubs;
+    return gymInviteMode === 'only-own' ? (clubs ?? []) : null;
+  }, [gymInviteMode, userData]);
+
   return (
     <>
       <h1 className={subPageStyles.pageTitle}>ダッシュボード</h1>
@@ -797,7 +810,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
           restrictedClassName={restrictedClassName}
         />
         <h3>体育館公演</h3>
-        <GymPerformancesTable enableIssueJump={true} />
+        <GymPerformancesTable
+          enableIssueJump={true}
+          restrictedGroupNames={restrictedGroupNames}
+        />
       </NormalSection>
       <section>
         <button onClick={handleLogout} className={styles.logoutBtn}>

@@ -32,6 +32,7 @@ import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts
 import iconUrl from '../../assets/icon.webp';
 import { formatDateText } from '../../utils/formatDateText.ts';
 import { useTicketStorage } from '../../features/tickets/useTicketStorage.ts';
+import { useTitle } from '../../hooks/useTitle.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
   code: string;
@@ -271,6 +272,8 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       return 'recent';
     }
   });
+
+  useTitle('チケット');
 
   useEffect(() => {
     try {

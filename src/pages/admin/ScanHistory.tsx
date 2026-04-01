@@ -59,6 +59,7 @@ import styles from './ScanHistory.module.css';
 import Alert from '../../components/ui/Alert';
 import BackButton from '../../components/ui/BackButton';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType';
+import { useTitle } from '../../hooks/useTitle';
 
 type ActiveTab = 'records' | 'tickets' | 'operations' | 'summary';
 
@@ -265,6 +266,8 @@ const ScanHistory = () => {
   const recordsTableWrapperRef = useRef<HTMLDivElement>(null);
   const ticketsTableWrapperRef = useRef<HTMLDivElement>(null);
   const operationsTableWrapperRef = useRef<HTMLDivElement>(null);
+
+  useTitle('チケットスキャン履歴 - 管理画面');
 
   useEffect(() => {
     const wrappers = [

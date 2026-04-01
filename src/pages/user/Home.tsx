@@ -50,6 +50,7 @@ import { PiMicrophoneStageFill } from 'react-icons/pi';
 
 // preload helper for code‑split routes
 import { preload, Students, Performances } from '../../routes';
+import { useTitle } from '../../hooks/useTitle';
 
 const prepareGallery: GalleryImage[] = [
   { src: prepare1, alt: '舞台準備の様子1', width: 300 },
@@ -84,6 +85,7 @@ const innerGallery: GalleryImage[] = [
 ];
 
 const Home = () => {
+  useTitle('');
   const { config } = useEventConfig();
 
   const formattedDateText = useMemo(() => {

@@ -9,10 +9,13 @@ import {
 import styles from '../students/Issue.module.css';
 import BackButton from '../../../components/ui/BackButton';
 import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
+import { useTitle } from '../../../hooks/useTitle';
 
 const DayTicketIssueResult = () => {
   const [result, setResult] = useState<IssueResultPayload | null>(null);
   const { saveTicketToCache } = useTicketStorage();
+
+  useTitle('当日券発券完了');
 
   useEffect(() => {
     const raw = window.sessionStorage.getItem(DAY_TICKET_RESULT_STORAGE_KEY);

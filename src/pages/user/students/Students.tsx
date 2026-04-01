@@ -19,6 +19,7 @@ import {
 import styles from '../../../styles/sub-pages.module.css';
 import NotFound from '../../../shared/NotFound';
 import Login from './Login';
+import { useTitle } from '../../../hooks/useTitle';
 
 type AuthState = Session | undefined;
 
@@ -27,6 +28,8 @@ const Students = () => {
   const [session, setSession] = useState<AuthState>(undefined);
   const [userData, setUserData] = useState<UserData | undefined>(undefined);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  useTitle('生徒用ページ');
 
   const formatErrorMessage = (error: unknown) => {
     if (error instanceof Error) {

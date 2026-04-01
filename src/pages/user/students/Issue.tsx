@@ -19,6 +19,7 @@ import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 import Alert from '../../../components/ui/Alert';
+import { useTitle } from '../../../hooks/useTitle';
 
 const MAX_ISSUE_COUNT = 5;
 const PANEL_ANIMATION_MS = 360;
@@ -120,6 +121,8 @@ const Issue = () => {
 
   const { route } = useLocation();
   const { config } = useEventConfig();
+
+  useTitle('チケット発券 - 生徒用ページ');
 
   useEffect(() => {
     const loadIssuingState = async () => {

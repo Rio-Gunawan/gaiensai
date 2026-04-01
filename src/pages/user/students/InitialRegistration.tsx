@@ -5,6 +5,7 @@ import styles from './InitialRegistration.module.css';
 import Modal from '../../../components/ui/Modal';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { useTurnstile } from '../../../hooks/useTurnstile';
+import { useTitle } from '../../../hooks/useTitle';
 
 type InitialRegistrationProps = {
   onRegistered: () => Promise<boolean>;
@@ -22,6 +23,8 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const [loading, setLoading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useTitle('初回登録 - 生徒用ページ');
 
   const { route } = useLocation();
   const {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { supabase } from '../../lib/supabase';
 import styles from './Settings.module.css';
 import Switch from '../../components/ui/Switch';
+import { useTitle } from '../../hooks/useTitle';
 const ADMIN_CONTROL_PANEL_SESSION_TOKEN_KEY = 'admin_control_panel_session_v2';
 
 const getSessionToken = () => {
@@ -217,6 +218,8 @@ const Settings = () => {
     useState<NumericSettingKey | null>(null);
   const [editingNumericValue, setEditingNumericValue] = useState('');
   const [isModalSubmitting, setIsModalSubmitting] = useState(false);
+
+  useTitle('コントロールパネル - 管理画面');
 
   useEffect(() => {
     let isActive = true;

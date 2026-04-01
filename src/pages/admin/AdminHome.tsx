@@ -1,7 +1,9 @@
 import styles from '../../styles/sub-pages.module.css';
 import { preload, Scan } from '../../routes';
+import { useTitle } from '../../hooks/useTitle';
 
 const adminHome = () => {
+  useTitle('管理画面');
   return (
     <div>
       <h1 className={styles.pageTitle}>管理画面</h1>

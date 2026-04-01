@@ -1,6 +1,8 @@
+import { useTitle } from '../../hooks/useTitle';
 import styles from '../../styles/sub-pages.module.css';
 
 const Performances = () => {
+  useTitle('公演一覧');
   return (
     <>
       <h1 className={styles.pageTitle}>公演一覧</h1>

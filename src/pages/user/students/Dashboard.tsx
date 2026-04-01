@@ -31,6 +31,7 @@ import Alert from '../../../components/ui/Alert';
 import { formatDateText } from '../../../utils/formatDateText';
 import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
+import { useTitle } from '../../../hooks/useTitle';
 
 type DashboardProps = {
   userData: Exclude<UserData, null>;
@@ -92,6 +93,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
     'open' | 'only-own' | 'off'
   >('open');
   const [ownClassName, setOwnClassName] = useState<string | null>(null);
+
+  useTitle('ダッシュボード - 生徒用ページ');
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);

@@ -11,6 +11,7 @@ import type {
 import { useDecodedSerialTickets } from '../../features/tickets/useDecodedSerialTickets';
 import pageStyles from '../../styles/sub-pages.module.css';
 import type { CachedTicketDisplay } from '../../types/types';
+import { useTitle } from '../../hooks/useTitle';
 
 const TicketHistory = () => {
   const [cacheVersion, setCacheVersion] = useState(0);
@@ -48,6 +49,8 @@ const TicketHistory = () => {
       return 'recent';
     }
   });
+
+  useTitle('チケット表示履歴');
 
   useEffect(() => {
     try {

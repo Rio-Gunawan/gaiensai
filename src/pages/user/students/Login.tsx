@@ -8,6 +8,7 @@ import styles from './Login.module.css';
 import subPageStyles from '../../../styles/sub-pages.module.css';
 
 import type { Session } from '../../../types/types';
+import { useTitle } from '../../../hooks/useTitle';
 
 function Login() {
   const [loading, setLoading] = useState(false);
@@ -21,6 +22,8 @@ function Login() {
   const [verifying, setVerifying] = useState(!!hasTokenHash);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  useTitle('ログイン - 生徒用ページ');
 
   const { route } = useLocation();
   const {

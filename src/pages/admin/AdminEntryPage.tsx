@@ -1459,13 +1459,19 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     if (effectiveMode !== 'scan') {
       return;
     }
+    const scanner = scannerRef.current;
+    if (!scanner) {
+      return;
+    }
 
     const cameras = await QrScanner.listCameras(true);
     if (cameras.length < 2) {
       return;
     }
 
-    setIsCameraReady(false);
+    // スキャナーを破棄する
+    await scanner.destroy();
+    scannerRef.current = null;
 
     // カメラモードを切り替える
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';

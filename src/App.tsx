@@ -32,6 +32,7 @@ import {
 import './styles/color-settings.css';
 import './styles/index.css';
 import subPageStyles from './styles/sub-pages.module.css';
+import { useTicketCleanup } from './features/tickets/useTicketCleanup';
 
 const userPageLayout = () => (
   <MainLayout>
@@ -111,6 +112,7 @@ const InnerApp = () => {
 };
 
 const App = () => {
+  useTicketCleanup();
   return (
     <LocationProvider>
       <ScrollToTop />

@@ -228,3 +228,42 @@ export const markTicketDisplayCacheCancelled = (code: string): void => {
     // ignore
   }
 };
+
+/**
+ * 指定されたタイムスタンプ以前に作成・更新されたキャッシュを削除する
+ * @param threshold タイムスタンプの閾値 (ms)
+ */
+export const clearTicketDisplayCacheBefore = (threshold: number): void => {
+  const keysToRemove: string[] = [];
+  // localStorage の走査中に項目を削除するとインデックスがずれるため、一旦キーを収集する
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (key?.startsWith(TICKET_CACHE_PREFIX)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  for (const key of keysToRemove) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) {
+        continue;
+      }
+      const parsed = JSON.parse(raw) as {
+        lastOpenedAt?: number;
+        cachedAt?: number;
+      };
+      const timestamp = normalizeLastOpenedAt(
+        parsed.lastOpenedAt ?? parsed.cachedAt,
+      );
+      if (timestamp <= threshold) {
+        window.localStorage.removeItem(key);
+        // キャッシュが削除されたことを他のコンポーネントに通知する
+        notifyTicketDisplayCacheUpdated(key.replace(TICKET_CACHE_PREFIX, ''));
+      }
+    } catch {
+      // パースできない異常なデータも削除対象とする
+      window.localStorage.removeItem(key);
+    }
+  }
+};

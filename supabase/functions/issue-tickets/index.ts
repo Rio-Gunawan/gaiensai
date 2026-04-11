@@ -8,12 +8,16 @@ import { getCorsHeaders } from '@shared/cors.ts';
 import { getEnv } from '@shared/getEnv.ts';
 import HttpError from '@shared/HttpError.ts';
 import {
-  encodeBase58,
+  generateManualCode,
   generateTicketCode,
   signCode,
 } from '@shared/generateTicketCode.ts';
 import { issueWithRollback, type RpcClient } from './issueWithRollback.ts';
-import { YEAR_BITS } from '@shared/ticketDataType.ts';
+import {
+  YEAR_BITS,
+  AFFILIATION_NUMBER_BITS,
+  SERIAL_BITS,
+} from '@shared/ticketDataType.ts';
 
 type IssueTicketsRequest = {
   ticketTypeId: number;
@@ -43,9 +47,9 @@ type TicketIssueControls = {
   sameDayGym: TicketIssueMode;
 };
 
-const DAY_TICKET_TYPE_IDS = new Set([8, 9]);
 const SELF_RELATIONSHIP_ID = 1;
 const ANONYMOUS_AFFILIATION = 0;
+const DAY_TICKET_ANONYMOUS_AFFILIATION = 1600; // 学年=16、クラス=00 として当日券を表す
 const DAY_TICKET_GUEST_USER_ID = '00000000-0000-0000-0000-00000000d001';
 const TICKET_ISSUE_MODE_VALUES = new Set<string>([
   'open',
@@ -102,10 +106,6 @@ const parseRequestBody = (body: unknown): IssueTicketsRequest => {
       400,
       'リクエストボディに無効な数値範囲が含まれています。システム担当にお問い合わせください。',
     );
-  }
-
-  if (ticketTypeId > 9 || relationshipId > 9) {
-    throw new HttpError(400, 'ticketTypeId or relationshipId exceeds 1 digit');
   }
 
   if (performanceId > 99 || scheduleId > 99) {
@@ -218,8 +218,8 @@ const validatePerformanceAndSchedule = (
 const getStudentGradeClass = (
   affiliation: number,
 ): { grade: number; classNo: number } => ({
-  grade: Math.floor(affiliation / 1000),
-  classNo: Math.floor((affiliation % 1000) / 100),
+  grade: Math.floor(affiliation / 10000),
+  classNo: Math.floor((affiliation % 10000) / 100),
 });
 
 const getJstDateKey = (date: Date): string => {
@@ -232,8 +232,24 @@ const getJstDateKey = (date: Date): string => {
   return formatter.format(date);
 };
 
+type TicketIssueControlsReader = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (
+        column: string,
+        value: unknown,
+      ) => {
+        maybeSingle: () => PromiseLike<{
+          data: unknown;
+          error: { message: string } | null;
+        }>;
+      };
+    };
+  };
+};
+
 const readTicketIssueControls = async (
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: TicketIssueControlsReader,
 ): Promise<TicketIssueControls> => {
   const { data, error } = await adminClient
     .from('ticket_issue_controls')
@@ -314,16 +330,6 @@ export const handleIssueTicketsRequest = async (
 
   try {
     const body = parseRequestBody(await req.json());
-    const isDayTicket = DAY_TICKET_TYPE_IDS.has(body.ticketTypeId);
-    if (!isDayTicket) {
-      if (!body.turnstileToken) {
-        throw new HttpError(400, 'Turnstileトークンがありません。');
-      }
-      await verifyTurnstileToken(req, body.turnstileToken);
-    }
-    const relationshipId = isDayTicket
-      ? SELF_RELATIONSHIP_ID
-      : body.relationshipId;
     const authorization = req.headers.get('Authorization') ?? '';
     const accessToken = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
@@ -346,6 +352,59 @@ export const handleIssueTicketsRequest = async (
         autoRefreshToken: false,
       },
     });
+
+    const { data: allTicketTypes, error: ticketTypesError } = await adminClient
+      .from('ticket_types')
+      .select('id, name, type');
+
+    const findIdByName = (name: string, type: string) =>
+      allTicketTypes?.find((t) => t.name === name && t.type === type)?.id;
+
+    const classInviteId = findIdByName('クラス公演(当日)', '招待券');
+    const rehearsalInviteId = findIdByName('クラス公演(リハーサル)', '招待券');
+    const gymInviteId = findIdByName('体育館公演', '招待券');
+    const entryOnlyId = findIdByName('入場専用券', '招待券');
+    const sameDayClassId = findIdByName('クラス公演', '当日券');
+    const sameDayGymId = findIdByName('体育館公演', '当日券');
+
+    if (ticketTypesError || !allTicketTypes) {
+      throw new HttpError(
+        500,
+        'チケット情報の取得に失敗しました。外苑祭総務にお問い合わせください。',
+      );
+    }
+
+    const dayTicketTypeIds = new Set(
+      (allTicketTypes as Array<{ id: number; type: string | null }>)
+        .filter((t) => t.type === '当日券')
+        .map((t) => Number(t.id)),
+    );
+
+    const admissionOnlyTicketTypeIds = (
+      allTicketTypes as Array<{ id: number; name: string }>
+    )
+      .filter((t) => t.name === '入場専用券')
+      .map((t) => Number(t.id));
+
+    if (admissionOnlyTicketTypeIds.length === 0) {
+      throw new HttpError(
+        500,
+        "ticket_types に name='入場専用券' のデータがありません。外苑祭総務にお問い合わせください。",
+      );
+    }
+
+    const isDayTicket = dayTicketTypeIds.has(body.ticketTypeId);
+
+    if (!isDayTicket) {
+      if (!body.turnstileToken) {
+        throw new HttpError(400, 'Turnstileトークンがありません。');
+      }
+      await verifyTurnstileToken(req, body.turnstileToken);
+    }
+
+    const relationshipId = isDayTicket
+      ? SELF_RELATIONSHIP_ID
+      : body.relationshipId;
 
     if (!isDayTicket && !accessToken) {
       throw new HttpError(
@@ -414,13 +473,15 @@ export const handleIssueTicketsRequest = async (
     const isAuthenticatedStudent = Boolean(user && userRow);
     const affiliation = isAuthenticatedStudent
       ? Number(userRow?.affiliation ?? -1)
-      : ANONYMOUS_AFFILIATION;
+      : isDayTicket
+        ? DAY_TICKET_ANONYMOUS_AFFILIATION
+        : ANONYMOUS_AFFILIATION;
 
     if (isAuthenticatedStudent) {
       if (
         !Number.isInteger(affiliation) ||
-        affiliation < 1000 ||
-        affiliation > 3999
+        affiliation < 10000 ||
+        affiliation > 39999
       ) {
         throw new HttpError(
           400,
@@ -431,46 +492,10 @@ export const handleIssueTicketsRequest = async (
       throw new HttpError(401, 'ログイン情報の確認に失敗しました。');
     }
 
-    const { data: admissionOnlyTicketTypes, error: admissionOnlyTypeError } =
-      await adminClient
-        .from('ticket_types')
-        .select('id')
-        .eq('name', '入場専用券');
-
-    if (admissionOnlyTypeError) {
-      throw new HttpError(
-        500,
-        '入場専用券情報の取得に失敗しました。外苑祭総務にお問い合わせください。',
-      );
-    }
-
-    const admissionOnlyTicketTypeIds = (
-      (admissionOnlyTicketTypes ?? []) as Array<{ id: number }>
-    ).map((row) => Number(row.id));
-
-    if (admissionOnlyTicketTypeIds.length === 0) {
-      throw new HttpError(
-        500,
-        "ticket_types に name='入場専用券' のデータがありません。外苑祭総務にお問い合わせください。",
-      );
-    }
-
     const issueMode = validatePerformanceAndSchedule(
       body,
       admissionOnlyTicketTypeIds,
     );
-    if (isDayTicket && body.ticketTypeId === 8 && issueMode !== 'class') {
-      throw new HttpError(
-        400,
-        '当日券(クラス公演)は class performance/schedule を指定してください。',
-      );
-    }
-    if (isDayTicket && body.ticketTypeId === 9 && issueMode !== 'gym') {
-      throw new HttpError(
-        400,
-        '当日券(体育館公演)は gym performance を指定してください。',
-      );
-    }
     const issueUserId = user?.id ?? DAY_TICKET_GUEST_USER_ID;
 
     let gymPerformanceRow: { id: number; group_name: string } | null = null;
@@ -501,7 +526,7 @@ export const handleIssueTicketsRequest = async (
     // incrementing the counter when the user would exceed their limit.
     const { data: configRow, error: configError } = await adminClient
       .from('configs')
-      .select('max_tickets_per_user, is_active')
+      .select('max_tickets_per_user, is_active, event_year')
       .order('id', { ascending: true })
       .maybeSingle();
 
@@ -512,10 +537,14 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
-    if (!configRow || configRow.max_tickets_per_user === null) {
+    if (
+      !configRow ||
+      configRow.max_tickets_per_user === null ||
+      configRow.event_year === null
+    ) {
       throw new HttpError(
         500,
-        'チケット発行上限の設定が見つかりません。外苑祭総務にお問い合わせください。',
+        'チケット発行設定が見つかりません。外苑祭総務にお問い合わせください。',
       );
     }
 
@@ -526,9 +555,11 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
-    const ticketIssueControls = await readTicketIssueControls(adminClient);
+    const ticketIssueControls = await readTicketIssueControls(
+      adminClient as unknown as TicketIssueControlsReader,
+    );
 
-    if (body.ticketTypeId === 1) {
+    if (classInviteId !== undefined && body.ticketTypeId === classInviteId) {
       if (ticketIssueControls.classInvite === 'off') {
         throw new HttpError(409, 'クラス公演招待券の受付は停止中です。');
       }
@@ -554,7 +585,10 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (body.ticketTypeId === 2) {
+    } else if (
+      rehearsalInviteId !== undefined &&
+      body.ticketTypeId === rehearsalInviteId
+    ) {
       if (ticketIssueControls.rehearsalInvite === 'off') {
         throw new HttpError(409, 'リハーサル招待券の受付は停止中です。');
       }
@@ -581,7 +615,7 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (body.ticketTypeId === 3) {
+    } else if (gymInviteId !== undefined && body.ticketTypeId === gymInviteId) {
       if (ticketIssueControls.gymInvite === 'off') {
         throw new HttpError(409, '体育館公演招待券の受付は停止中です。');
       }
@@ -597,13 +631,16 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (body.ticketTypeId === 4) {
+    } else if (entryOnlyId !== undefined && body.ticketTypeId === entryOnlyId) {
       if (ticketIssueControls.entryOnly === 'off') {
         throw new HttpError(409, '入場専用券の受付は停止中です。');
       }
-    } else if (body.ticketTypeId === 8 || body.ticketTypeId === 9) {
+    } else if (
+      (sameDayClassId !== undefined && body.ticketTypeId === sameDayClassId) ||
+      (sameDayGymId !== undefined && body.ticketTypeId === sameDayGymId)
+    ) {
       const mode =
-        body.ticketTypeId === 8
+        body.ticketTypeId === sameDayClassId
           ? ticketIssueControls.sameDayClass
           : ticketIssueControls.sameDayGym;
       if (mode === 'off') {
@@ -611,7 +648,7 @@ export const handleIssueTicketsRequest = async (
       }
       if (mode === 'auto') {
         const todayKey = getJstDateKey(new Date());
-        if (body.ticketTypeId === 8) {
+        if (body.ticketTypeId === sameDayClassId) {
           const { data: scheduleRow, error: scheduleError } = await adminClient
             .from('performances_schedule')
             .select('start_at')
@@ -648,6 +685,13 @@ export const handleIssueTicketsRequest = async (
     }
 
     const maxTicketsPerUser = Number(configRow.max_tickets_per_user);
+    const configuredYear = Number(configRow.event_year);
+    if (!Number.isInteger(configuredYear) || configuredYear < 0) {
+      throw new HttpError(
+        500,
+        '設定された年度が不正です。外苑祭総務にお問い合わせください。',
+      );
+    }
 
     if (!isDayTicket && body.issueCount > maxTicketsPerUser) {
       throw new HttpError(
@@ -692,7 +736,7 @@ export const handleIssueTicketsRequest = async (
         );
       }
 
-      if (body.ticketTypeId === 4) {
+      if (entryOnlyId !== undefined && body.ticketTypeId === entryOnlyId) {
         if (body.performanceId !== 0 || body.scheduleId !== 0) {
           throw new HttpError(
             409,
@@ -779,9 +823,15 @@ export const handleIssueTicketsRequest = async (
     }
 
     // チケットコードのプレフィックスを生成（学年クラス番号 + チケット種別 + 間柄 + 公演ID + 回ID + 発行年をYEAR_BITSで割ったあまり）
-    const issuedYear = new Date().getUTCFullYear() % 2 ** Number(YEAR_BITS);
-    const concatenated = `${padNumber(affiliation, 4)}${padNumber(body.ticketTypeId, 1)}${padNumber(relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYear, 2)}`;
-    const basePrefix = encodeBase58(BigInt(concatenated));
+    const issuedYear = configuredYear;
+    const issuedYearForPrefix = issuedYear % 2 ** Number(YEAR_BITS);
+    const concatenated = `${padNumber(affiliation, 5)}${padNumber(body.ticketTypeId, 1)}${padNumber(relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYearForPrefix, 2)}`;
+    const basePrefix = generateManualCode(BigInt(concatenated));
+
+    const maxSerialLimit =
+      affiliation === DAY_TICKET_ANONYMOUS_AFFILIATION && isDayTicket
+        ? 2 ** (Number(AFFILIATION_NUMBER_BITS) + Number(SERIAL_BITS))
+        : 2 ** Number(SERIAL_BITS);
 
     // プレフィックスをキーとして発行枚数をデータベースに登録し、シリアル番号を取得
     const { data: counterData, error: counterError } = await adminClient.rpc(
@@ -789,13 +839,14 @@ export const handleIssueTicketsRequest = async (
       {
         p_prefix: basePrefix,
         p_increment: body.issueCount,
+        p_max_value: maxSerialLimit,
       },
     );
 
     if (counterError?.message.includes('exceeded')) {
       throw new HttpError(
         409,
-        '同一種類(公演クラス・回・間柄が同じチケット)のチケット発行可能最大枚数(15枚)を超えています。申し訳ありませんが、公演回を変えて発行してください。',
+        `同一種類(公演クラス・回・間柄が同じチケット)のチケット発行可能最大枚数(${maxSerialLimit - 1}枚)を超えています。申し訳ありませんが、公演回を変えて発行してください。`,
       );
     }
 
@@ -845,7 +896,7 @@ export const handleIssueTicketsRequest = async (
           type: body.ticketTypeId,
           performance: body.performanceId,
           schedule: body.scheduleId,
-          year: new Date().getUTCFullYear(),
+          year: issuedYear,
           serial,
         };
 

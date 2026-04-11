@@ -1,15 +1,6 @@
 /* eslint-disable no-console */
-import { YEAR_BITS } from './ticketDataType.ts';
-
-type TicketData = {
-  affiliation: number;
-  relationship: number;
-  type: number;
-  performance: number;
-  schedule: number;
-  year: number;
-  serial: number;
-};
+import { YEAR_MASK } from './ticketDataType.ts';
+import type { TicketData } from './ticketDataType.ts';
 
 type QRPayload = {
   code: string;
@@ -41,8 +32,7 @@ const assertTicketDataEqual = (
     actual.type !== expected.type ||
     actual.performance !== expected.performance ||
     actual.schedule !== expected.schedule ||
-    actual.year % 2 ** Number(YEAR_BITS) !==
-      expected.year % 2 ** Number(YEAR_BITS) ||
+    actual.year !== (expected.year & Number(YEAR_MASK)) ||
     actual.serial !== expected.serial
   ) {
     throw new Error(
@@ -174,42 +164,286 @@ const isValidQR = async (
 };
 
 Deno.test({
+  name: 'convertAffiliation encode and decode are consistent',
+  fn: async () => {
+    const { encodeAffiliation, decodeAffiliation, getAffiliationEligibility } =
+      await import('./convertAffiliation.ts');
+    const cases = [
+      {
+        affiliation: 0,
+        relationship: 0,
+      },
+      {
+        affiliation: 10101, // Grade 1, Class 1, Number 1
+        relationship: 0,
+      },
+      {
+        affiliation: 21563, // Grade 2, Class 15, Number 63 (Max)
+        relationship: 2,
+      },
+      {
+        affiliation: 31663, // Grade 3, Class 16, Number 63
+        relationship: 7,
+      },
+      {
+        affiliation: 100001, // 中学生モード: flag 0, ID 1
+        relationship: 0,
+        eligibility: 'middle-school',
+      },
+      {
+        affiliation: 101919, // 中学生モードの上限値
+        relationship: 5,
+        eligibility: 'both',
+      },
+      {
+        affiliation: 100257, // 中学生モード: flag 1, ID 257
+        relationship: 2,
+        eligibility: 'guardian',
+      },
+      {
+        affiliation: 101025, // 中学生モード: flag 2, ID 1025
+        relationship: 5,
+        eligibility: 'both',
+      },
+    ];
+
+    for (const { affiliation, relationship, eligibility } of cases) {
+      const encoded = encodeAffiliation(affiliation);
+      const decoded = decodeAffiliation(encoded, relationship);
+      if (decoded !== affiliation) {
+        throw new Error(
+          `Affiliation round-trip mismatch: original=${affiliation} decoded=${decoded}`,
+        );
+      }
+
+      if (eligibility) {
+        const resolvedEligibility = getAffiliationEligibility(
+          encoded,
+          relationship,
+        );
+        if (resolvedEligibility !== eligibility) {
+          throw new Error(
+            `Eligibility mismatch: original=${affiliation} relationship=${relationship} eligibility=${resolvedEligibility}`,
+          );
+        }
+      }
+    }
+  },
+});
+
+Deno.test({
+  name: 'getAffiliationEligibility returns null for non-junior and day-ticket modes',
+  fn: async () => {
+    const { encodeAffiliation, getAffiliationEligibility } =
+      await import('./convertAffiliation.ts');
+
+    const nonJuniorBits = encodeAffiliation(10101);
+    const dayTicketBits = encodeAffiliation(1601);
+
+    if (getAffiliationEligibility(0, 0) !== null) {
+      throw new Error('Expected null for anonymous affiliation');
+    }
+    if (getAffiliationEligibility(nonJuniorBits, 2) !== null) {
+      throw new Error('Expected null for non-junior affiliation');
+    }
+    if (getAffiliationEligibility(dayTicketBits, 2) !== null) {
+      throw new Error('Expected null for day-ticket affiliation');
+    }
+  },
+});
+
+Deno.test({
   name: 'generateTicketCode -> decodeTicketCode round-trip keeps original data',
   permissions: { env: true },
   fn: async () => {
     const { generateTicketCode, decodeTicketCode } = await setupTestEnv();
 
-    const cases: TicketData[] = [
+    const cases: Array<{ source: TicketData; expected: TicketData }> = [
       {
-        affiliation: 1101,
-        relationship: 1,
-        type: 1,
-        performance: 1,
-        schedule: 1,
-        year: 2025,
-        serial: 1,
+        source: {
+          affiliation: 10101, // Grade 1, Class 1, Number 1
+          relationship: 1,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 1,
+        },
+        expected: {
+          affiliation: 10101,
+          relationship: 1,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 1,
+        },
       },
       {
-        affiliation: 2411,
-        relationship: 2,
-        type: 9,
-        performance: 11,
-        schedule: 54,
-        year: 2020,
-        serial: 15,
+        source: {
+          affiliation: 100001, // 中学生モード: flag 0, ID 1
+          relationship: 0,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 1,
+        },
+        expected: {
+          affiliation: 100001,
+          relationship: 0,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 1,
+        },
       },
       {
-        affiliation: 4863,
-        relationship: 7,
-        type: 15,
-        performance: 31,
-        schedule: 63,
-        year: 2080,
-        serial: 15,
+        source: {
+          affiliation: 101919, // 中学生モード上限
+          relationship: 2,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 2,
+        },
+        expected: {
+          affiliation: 101919,
+          relationship: 5,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 2,
+        },
+      },
+      {
+        source: {
+          affiliation: 100257, // 中学生モード: flag 1, ID 257
+          relationship: 1,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 3,
+        },
+        expected: {
+          affiliation: 100257,
+          relationship: 2,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 3,
+        },
+      },
+      {
+        source: {
+          affiliation: 101025, // 中学生モード: flag 2, ID 1025
+          relationship: 2,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 4,
+        },
+        expected: {
+          affiliation: 101025,
+          relationship: 5,
+          type: 1,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 4,
+        },
+      },
+      {
+        source: {
+          affiliation: 21563, // Grade 2, Class 15, Number 63 (Max)
+          relationship: 2,
+          type: 4,
+          performance: 11,
+          schedule: 8,
+          year: 2020,
+          serial: 15,
+        },
+        expected: {
+          affiliation: 21563,
+          relationship: 2,
+          type: 4,
+          performance: 11,
+          schedule: 8,
+          year: 2020,
+          serial: 15,
+        },
+      },
+      {
+        source: {
+          affiliation: 31663, // Grade 3, Class 16, Number 63
+          relationship: 7,
+          type: 15,
+          performance: 31,
+          schedule: 15,
+          year: 2080,
+          serial: 31, // 5bit max
+        },
+        expected: {
+          affiliation: 31663,
+          relationship: 7,
+          type: 15,
+          performance: 31,
+          schedule: 15,
+          year: 2080,
+          serial: 31,
+        },
       },
     ];
 
-    for (const source of cases) {
+    const dayTicketCases: TicketData[] = [
+      {
+        affiliation: 1600, // Grade 0, Class 16, Number 0 -> 当日券モード
+        relationship: 3,
+        type: 1, // Typeが当日券以外でも affiliation で当日券モードになる
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial: 31,
+      },
+      {
+        affiliation: 1600, // Grade 0, Class 16
+        relationship: 2,
+        type: 8,
+        performance: 5,
+        schedule: 2,
+        year: 2025,
+        serial: 12,
+      },
+      {
+        affiliation: 10101, // Grade 1, Class 1 -> 通常モード (Type 8/9であっても)
+        relationship: 0,
+        type: 8,
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial: 10,
+      },
+    ];
+
+    for (const { source, expected } of cases) {
+      const code = await generateTicketCode(source);
+      const decoded = await decodeTicketCode(code);
+      console.debug(`Source data: ${JSON.stringify(source)}`);
+      console.debug(`Decoded data: ${JSON.stringify(decoded)}`);
+      assertTicketDataEqual(
+        decoded,
+        expected,
+        `round-trip mismatch for code=${code}`,
+      );
+    }
+
+    for (const source of dayTicketCases) {
       const code = await generateTicketCode(source);
       const decoded = await decodeTicketCode(code);
       console.debug(`Source data: ${JSON.stringify(source)}`);
@@ -224,6 +458,120 @@ Deno.test({
 });
 
 Deno.test({
+  name: 'Day ticket serial number extension (11-bit) works at boundaries',
+  permissions: { env: true },
+  fn: async () => {
+    const { generateTicketCode, decodeTicketCode } = await setupTestEnv();
+
+    // Grade 0, Class 16 (内部的には1600) は当日券フラグとして扱われる
+    const dayTicketAffiliation = 1600;
+
+    // 11ビットの境界値テスト: 0, 31 (5bit最大), 32 (拡張開始), 2047 (11bit最大)
+    const testSerials = [0, 31, 32, 1024, 2047];
+
+    for (const serial of testSerials) {
+      const source: TicketData = {
+        affiliation: dayTicketAffiliation,
+        relationship: 1,
+        type: 8,
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial,
+      };
+
+      const code = await generateTicketCode(source);
+      const decoded = await decodeTicketCode(code);
+
+      assertTicketDataEqual(
+        decoded,
+        source,
+        `Day ticket serial 11-bit extension failed for serial=${serial}`,
+      );
+    }
+
+    // 11ビットの上限超過 (2048) でエラーになることを確認
+    let overflowError: unknown;
+    try {
+      await generateTicketCode({
+        affiliation: dayTicketAffiliation,
+        relationship: 1,
+        type: 8,
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial: 2048,
+      });
+    } catch (e) {
+      overflowError = e;
+    }
+
+    if (
+      !(overflowError instanceof Error) ||
+      !overflowError.message.includes('serial out of range')
+    ) {
+      throw new Error(
+        'Expected serial=2048 to throw out of range error for day ticket',
+      );
+    }
+  },
+});
+
+Deno.test({
+  name: 'generateTicketCode rejects junior affiliations that collide with day tickets',
+  permissions: { env: true },
+  fn: async () => {
+    const { generateTicketCode } = await setupTestEnv();
+    let thrown: unknown;
+    try {
+      await generateTicketCode({
+        affiliation: 100960, // class bits 15 => day ticket overlap
+        relationship: 0,
+        type: 1,
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial: 1,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    if (!(thrown instanceof Error)) {
+      throw new Error('Expected junior/day-ticket overlap to throw');
+    }
+  },
+});
+
+Deno.test({
+  name: 'generateTicketCode rejects out-of-range junior relationship flags',
+  permissions: { env: true },
+  fn: async () => {
+    const { generateTicketCode } = await setupTestEnv();
+    let thrown: unknown;
+    try {
+      await generateTicketCode({
+        affiliation: 100001,
+        relationship: 3, // junior flag supports only 0..2
+        type: 1,
+        performance: 1,
+        schedule: 1,
+        year: 2025,
+        serial: 1,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    if (!(thrown instanceof Error)) {
+      throw new Error(
+        'Expected out-of-range junior relationship flag to throw',
+      );
+    }
+  },
+});
+
+Deno.test({
   name: 'generateTicketCode throws error for out-of-range values',
   permissions: { env: true },
   fn: async () => {
@@ -231,7 +579,7 @@ Deno.test({
 
     const outOfRangeCases: TicketData[] = [
       {
-        affiliation: 1901,
+        affiliation: 40101, // Grade 4 (out of 0-3)
         relationship: 1,
         type: 1,
         performance: 1,
@@ -240,8 +588,8 @@ Deno.test({
         serial: 1,
       },
       {
-        affiliation: 1101,
-        relationship: 8,
+        affiliation: 11701, // Class 17 (out of 1-16)
+        relationship: 1,
         type: 1,
         performance: 1,
         schedule: 1,
@@ -249,40 +597,67 @@ Deno.test({
         serial: 1,
       },
       {
-        affiliation: 1101,
+        affiliation: 10164, // Number 64 (out of 0-63)
         relationship: 1,
-        type: 16,
+        type: 1,
         performance: 1,
         schedule: 1,
         year: 2026,
         serial: 1,
       },
       {
-        affiliation: 1101,
-        relationship: 1,
-        type: 1,
-        performance: 32,
-        schedule: 1,
-        year: 2026,
-        serial: 1,
-      },
-      {
-        affiliation: 1101,
-        relationship: 1,
-        type: 1,
-        performance: 1,
-        schedule: 64,
-        year: 2026,
-        serial: 1,
-      },
-      {
-        affiliation: 1101,
+        affiliation: 101920, // junior affiliation upper bound exceeded
         relationship: 1,
         type: 1,
         performance: 1,
         schedule: 1,
         year: 2026,
-        serial: 16,
+        serial: 1,
+      },
+      {
+        affiliation: 10101,
+        relationship: 8, // 3bit max is 7
+        type: 1,
+        performance: 1,
+        schedule: 1,
+        year: 2026,
+        serial: 1,
+      },
+      {
+        affiliation: 10101,
+        relationship: 1,
+        type: 16, // 4bit max is 15
+        performance: 1,
+        schedule: 1,
+        year: 2026,
+        serial: 1,
+      },
+      {
+        affiliation: 10101,
+        relationship: 1,
+        type: 1,
+        performance: 32, // 5bit max is 31
+        schedule: 1,
+        year: 2026,
+        serial: 1,
+      },
+      {
+        affiliation: 10101,
+        relationship: 1,
+        type: 1,
+        performance: 1,
+        schedule: 16, // 4bit max is 15
+        year: 2026,
+        serial: 1,
+      },
+      {
+        affiliation: 10101,
+        relationship: 1,
+        type: 1,
+        performance: 1,
+        schedule: 1,
+        year: 2026,
+        serial: 32, // 5bit max is 31
       },
     ];
 
@@ -457,9 +832,9 @@ Deno.test({
   fn: async () => {
     const { decodeTicketCode } = await setupTestEnv();
 
-    // too long
-    if ((await decodeTicketCode('123456789')) !== null) {
-      throw new Error('Expected null for code longer than 8');
+    // too long (Base58 46bit is approx 8 chars, limit is 10)
+    if ((await decodeTicketCode('12345678901')) !== null) {
+      throw new Error('Expected null for code longer than 10');
     }
     // zero length
     if ((await decodeTicketCode('')) !== null) {

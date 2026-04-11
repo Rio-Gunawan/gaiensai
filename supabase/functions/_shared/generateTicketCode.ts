@@ -1,4 +1,7 @@
-import { encodeAffiliation } from './convertAffiliation.ts';
+import {
+  encodeAffiliation,
+  encodeJuniorRelationshipBits,
+} from './convertAffiliation.ts';
 import { getBase58Alphabet, getEnv } from './getEnv.ts';
 import {
   decodeBase64,
@@ -10,22 +13,113 @@ import {
 } from './cryptoUtils.ts';
 import {
   AFFILIATION_BITS,
+  AFFILIATION_DATA_MASK,
+  AFFILIATION_SHIFT,
+  FEISTEL_HALF_BITS,
+  FEISTEL_HALF_MASK,
+  MAC_BITS,
+  MANUAL_CODE_LENGTH,
   PERFORMANCE_BITS,
+  PERFORMANCE_MASK,
+  PERFORMANCE_SHIFT,
   RELATIONSHIP_BITS,
+  RELATIONSHIP_MASK,
+  RELATIONSHIP_SHIFT,
   SCHEDULE_BITS,
+  SCHEDULE_MASK,
+  SCHEDULE_SHIFT,
   SERIAL_BITS,
+  SERIAL_MASK,
+  SERIAL_SHIFT,
   TYPE_BITS,
+  TYPE_MASK,
+  TYPE_SHIFT,
   YEAR_BITS,
+  YEAR_MASK,
+  YEAR_SHIFT,
   type TicketData,
+  JUNIOR_AFFILIATION_MIN,
+  JUNIOR_AFFILIATION_PREFIX,
+  isDayTicketAffiliation,
 } from './ticketDataType.ts';
 
 // ---------------------------------------------------------
 // チケットコード生成関数
 // ---------------------------------------------------------
 
-// ---------------------------------------------------------
-// 2. ビットパッキング (同期処理・変更なし)
-// ---------------------------------------------------------
+function generateJuniorRelationship(
+  affiliation: number,
+  relationshipFlag: number,
+): number {
+  if (affiliation < JUNIOR_AFFILIATION_MIN) {
+    return relationshipFlag;
+  }
+
+  const juniorId = affiliation - JUNIOR_AFFILIATION_PREFIX;
+  return encodeJuniorRelationshipBits(relationshipFlag, juniorId);
+}
+
+function generateDayTicketAffiliation(relationship: number): number {
+  return relationship;
+}
+
+/**
+ * オブジェクトを46bitのBigIntに変換 (MAC領域を除く36bit分)
+ */
+export function packTicket(data: TicketData): bigint {
+  const affiliationBits = encodeAffiliation(data.affiliation);
+  const serialBits = data.serial & Number(SERIAL_MASK);
+  let relationshipBits: number;
+  let finalAffiliationBits = affiliationBits;
+
+  if (isDayTicketAffiliation(affiliationBits)) {
+    // 当日券モード: grade=0 かつ class=16 の affiliation をフラグとして扱う
+    relationshipBits = generateDayTicketAffiliation(data.relationship);
+    // 拡張シリアル: 下位5bitはそのまま、上位6bitをaffiliationのnumber部分(下位6bit)に入れる
+    const serialHigh = (data.serial >> Number(SERIAL_BITS)) & 0x3f;
+    finalAffiliationBits = (affiliationBits & ~0x3f) | serialHigh;
+  } else {
+    const grade = (affiliationBits >> 10) & 0x3;
+    if (grade === 0) {
+      // 中学生モード: affiliation の下位11bitに ID を持たせ、relationship には入場属性フラグを詰める
+      relationshipBits = generateJuniorRelationship(
+        data.affiliation,
+        data.relationship,
+      );
+    } else {
+      relationshipBits = data.relationship;
+    }
+  }
+
+  assertBitRange('affiliation', finalAffiliationBits, AFFILIATION_BITS);
+  assertBitRange('relationship', relationshipBits, RELATIONSHIP_BITS);
+  assertBitRange('type', data.type, TYPE_BITS);
+  assertBitRange('performance', data.performance, PERFORMANCE_BITS);
+  assertBitRange('schedule', data.schedule, SCHEDULE_BITS);
+  assertBitRange('year', data.year, YEAR_BITS);
+
+  // シリアル番号のバリデーション (当日券モードなら11bit、通常なら5bit)
+  const serialMaxBits = isDayTicketAffiliation(affiliationBits)
+    ? SERIAL_BITS + 6n
+    : SERIAL_BITS;
+  assertBitRange('serial', data.serial, serialMaxBits);
+
+  let packed = 0n;
+  packed |= BigInt(serialBits & Number(SERIAL_MASK)) << SERIAL_SHIFT;
+  packed |= BigInt(data.year & Number(YEAR_MASK)) << YEAR_SHIFT;
+  packed |= BigInt(data.schedule & Number(SCHEDULE_MASK)) << SCHEDULE_SHIFT;
+  packed |=
+    BigInt(data.performance & Number(PERFORMANCE_MASK)) << PERFORMANCE_SHIFT;
+  packed |= BigInt(data.type & Number(TYPE_MASK)) << TYPE_SHIFT;
+  packed |=
+    BigInt(relationshipBits & Number(RELATIONSHIP_MASK)) << RELATIONSHIP_SHIFT;
+  packed |=
+    BigInt(finalAffiliationBits & Number(AFFILIATION_DATA_MASK)) <<
+    AFFILIATION_SHIFT;
+
+  return packed; // 36 bits
+}
+
 function assertBitRange(name: string, value: number, bits: bigint): void {
   if (!Number.isInteger(value)) {
     throw new Error(`${name} must be an integer`);
@@ -37,31 +131,6 @@ function assertBitRange(name: string, value: number, bits: bigint): void {
   if (valueAsBigInt < 0n || valueAsBigInt > max) {
     throw new Error(`${name} out of range (0..${max.toString()})`);
   }
-}
-
-function packData(data: TicketData): bigint {
-  const convertedAffiliation = encodeAffiliation(data.affiliation); // 11 bit
-  assertBitRange(
-    'convertedAffiliation',
-    convertedAffiliation,
-    AFFILIATION_BITS,
-  );
-  assertBitRange('relationship', data.relationship, RELATIONSHIP_BITS);
-  assertBitRange('type', data.type, TYPE_BITS);
-  assertBitRange('performance', data.performance, PERFORMANCE_BITS);
-  assertBitRange('schedule', data.schedule, SCHEDULE_BITS);
-  assertBitRange('year', data.year, YEAR_BITS);
-  assertBitRange('serial', data.serial, SERIAL_BITS);
-
-  let packed = 0n;
-  packed = (packed << AFFILIATION_BITS) | BigInt(convertedAffiliation);
-  packed = (packed << RELATIONSHIP_BITS) | BigInt(data.relationship);
-  packed = (packed << TYPE_BITS) | BigInt(data.type);
-  packed = (packed << PERFORMANCE_BITS) | BigInt(data.performance);
-  packed = (packed << SCHEDULE_BITS) | BigInt(data.schedule);
-  packed = (packed << YEAR_BITS) | BigInt(data.year);
-  packed = (packed << SERIAL_BITS) | BigInt(data.serial);
-  return packed;
 }
 
 // ---------------------------------------------------------
@@ -76,19 +145,19 @@ const RAW_CIPHER_KEY = decodeBase64(
 
 const ENCRYPTION_ROUNDS = 8;
 
-async function encryptFeistel46(
+export async function encryptFeistel46(
   data46: bigint,
   key: CryptoKey,
 ): Promise<bigint> {
-  let L = data46 >> 23n;
-  let R = data46 & 0x7fffffn;
+  let L = data46 >> FEISTEL_HALF_BITS;
+  let R = data46 & FEISTEL_HALF_MASK;
   for (let i = 0; i < ENCRYPTION_ROUNDS; i++) {
     const nextL = R;
-    const nextR = L ^ (await feistelFunction(R, i, key)); // await が必要
+    const nextR = L ^ (await feistelFunction(R, i, key));
     L = nextL;
     R = nextR;
   }
-  return (L << 23n) | R;
+  return (L << FEISTEL_HALF_BITS) | R;
 }
 
 // ---------------------------------------------------------
@@ -103,7 +172,7 @@ async function encryptFeistel46(
 const BASE58_ALPHABET = getBase58Alphabet();
 const BASE58_BASE = 58n;
 
-export function encodeBase58(num: bigint): string {
+export function generateManualCode(num: bigint): string {
   if (num < 0n) {
     throw new Error('負の数はBase58に変換できません。');
   }
@@ -117,7 +186,8 @@ export function encodeBase58(num: bigint): string {
     encoded = BASE58_ALPHABET[Number(temp % BASE58_BASE)] + encoded;
     temp /= BASE58_BASE;
   }
-  return encoded;
+
+  return encoded.padStart(MANUAL_CODE_LENGTH, BASE58_ALPHABET[0]);
 }
 
 // ---------------------------------------------------------
@@ -130,17 +200,24 @@ export function encodeBase58(num: bigint): string {
  * @returns 生成されたチケットコード (Base58エンコードされた文字列)
  */
 export async function generateTicketCode(data: TicketData): Promise<string> {
+  // 暗号化キーのインポート
   const macKey = await importHmacKey(RAW_MAC_KEY);
   const cipherKey = await importHmacKey(RAW_CIPHER_KEY);
 
-  data.year = data.year % 2 ** Number(YEAR_BITS); // 年は下3bitのみ使用
+  // yearをYEAR_MASKの範囲内に収める
+  data.year = data.year % Number(YEAR_MASK + 1n);
 
-  const data36 = packData(data);
+  // チケットコード(本体)の生成
+  const data36 = packTicket(data);
+  // MAC(署名および誤り検知)の生成
   const mac10 = await generateMAC10(data36, macKey);
-  const payload46 = (data36 << 10n) | mac10;
 
+  const payload46 = (data36 << MAC_BITS) | mac10;
+
+  // Feistel暗号でpayload46をシャッフル
   const encrypted46 = await encryptFeistel46(payload46, cipherKey);
-  return encodeBase58(encrypted46);
+  // Base58でエンコードして最終的なチケットコードを生成
+  return generateManualCode(encrypted46);
 }
 
 // ---------------------------------------------------------

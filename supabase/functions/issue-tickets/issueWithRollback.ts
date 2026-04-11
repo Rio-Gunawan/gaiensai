@@ -36,6 +36,7 @@ export const issueWithRollback = async ({
   performanceId,
   scheduleId,
   affiliation,
+  issuedYear,
   basePrefix,
   endSerial,
   generateCode,
@@ -48,7 +49,6 @@ export const issueWithRollback = async ({
     const codes = await Promise.all(
       Array.from({ length: issueCount }, (_, i) => {
         const serial = startSerial + i;
-        const issuedYear = new Date().getUTCFullYear();
         const ticketData: TicketData = {
           affiliation,
           relationship: relationshipId,

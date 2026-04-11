@@ -105,6 +105,20 @@ const resolveTicketTypeLabel = (params: {
   });
 };
 
+const isCurrentTicketYear = (
+  year: unknown,
+  currentYear: unknown,
+): boolean => {
+  const ticketYear = Number(year);
+  const eventYear = Number(currentYear);
+  if (!Number.isInteger(ticketYear) || !Number.isInteger(eventYear)) {
+    return false;
+  }
+
+  const currentYearModulo = eventYear % 2 ** Number(YEAR_BITS);
+  return ticketYear === currentYearModulo;
+};
+
 const checkTicketValidity = async (
   code: string,
 ): Promise<TicketValidityCheckResult> => {
@@ -313,6 +327,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
       setLoading(true);
       setErrorMessages([]);
+      setWarningMessages([]);
       const nonBlockingErrors: string[] = [];
 
       // ステップ1: 復号化のみを実行（署名検証はバックグラウンド）
@@ -346,6 +361,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           serial:
             typeof cached.serial === 'number' ? cached.serial : decoded.serial,
         };
+
+        if (!isCurrentTicketYear(decoded.year, config.year)) {
+          setWarningMessages(['今年度のチケットではありません。']);
+        }
+
         setTicket(resolvedCachedTicket);
         setTicketStatus(cached.status);
         setErrorMessages(nonBlockingErrors);
@@ -489,19 +509,13 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
       setTicket(snapshotTicket);
       setTicketStatus('unknown');
       setErrorMessages(nonBlockingErrors);
+      if (!isCurrentTicketYear(decoded.year, config.year)) {
+        setWarningMessages(['今年度のチケットではありません。']);
+      }
       setLoading(false);
 
-      // バックグラウンドで年度チェック、署名検証、有効性確認を実行
+      // バックグラウンドで署名検証、有効性確認を実行
       void (async () => {
-        const year = Number(decoded.year);
-        const currentYearModulo =
-          new Date().getFullYear() % 2 ** Number(YEAR_BITS);
-        const isTicketThisYear = year === currentYearModulo;
-
-        if (!isTicketThisYear) {
-          setWarningMessages(['今年度のチケットではありません。']);
-        }
-
         // 署名検証と有効性確認を並列実行
         const { verifyTicketSignature } =
           await import('../../features/tickets/ticketCodeDecode.ts');
@@ -1135,7 +1149,11 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>発行者</span>
               <span className={styles.detailValue}>
-                {ticket.affiliation === '1100' ? '-' : ticket.affiliation}
+                {ticket.affiliation === '1600' ? '当日券ゲスト' :
+                  Math.floor(Number(ticket.affiliation) / 10000) + '-' +
+                  Math.floor(Number(ticket.affiliation) % 10000 / 100) + ' ' +
+                  Number(ticket.affiliation) % 100
+                }
               </span>
             </div>
             <div className={styles.detailRow}>

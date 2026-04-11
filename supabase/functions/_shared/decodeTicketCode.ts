@@ -1,26 +1,70 @@
-import { decodeAffiliation } from "./convertAffiliation.ts";
+import { decodeAffiliation } from './convertAffiliation.ts';
 import {
   decodeBase64,
   feistelFunction,
   generateMAC10,
   importHmacKey,
-} from "./cryptoUtils.ts";
-import type { TicketData } from "./ticketDataType.ts";
+} from './cryptoUtils.ts';
+import {
+  AFFILIATION_DATA_MASK,
+  AFFILIATION_SHIFT,
+  FEISTEL_HALF_BITS,
+  FEISTEL_HALF_MASK,
+  MAC_BITS,
+  MAC_MASK,
+  PERFORMANCE_MASK,
+  PERFORMANCE_SHIFT,
+  RELATIONSHIP_MASK,
+  RELATIONSHIP_SHIFT,
+  SCHEDULE_MASK,
+  SCHEDULE_SHIFT,
+  SERIAL_MASK,
+  SERIAL_SHIFT,
+  TYPE_MASK,
+  TYPE_SHIFT,
+  YEAR_MASK,
+  YEAR_SHIFT,
+  type TicketData,
+  isDayTicketAffiliation,
+  SERIAL_BITS,
+} from './ticketDataType.ts';
 
 // ---------------------------------------------------------
 // チケットコードデコード関数
 // ---------------------------------------------------------
 
-function unpackData(packed: bigint): TicketData {
-  return {
-    serial: Number(packed & 0xfn),
-    year: Number((packed >> 4n) & 0x7n),
-    schedule: Number((packed >> 7n) & 0x3fn),
-    performance: Number((packed >> 13n) & 0x1fn),
-    type: Number((packed >> 18n) & 0xfn),
-    relationship: Number((packed >> 22n) & 0x7n),
-    affiliation: decodeAffiliation(Number((packed >> 25n) & 0x7ffn)),
+export function unpackTicket(packed: bigint): TicketData {
+  let serial = Number((packed >> SERIAL_SHIFT) & SERIAL_MASK);
+  const year = Number((packed >> YEAR_SHIFT) & YEAR_MASK);
+  const schedule = Number((packed >> SCHEDULE_SHIFT) & SCHEDULE_MASK);
+  const performance = Number((packed >> PERFORMANCE_SHIFT) & PERFORMANCE_MASK);
+  const type = Number((packed >> TYPE_SHIFT) & TYPE_MASK);
+  const relationship = Number(
+    (packed >> RELATIONSHIP_SHIFT) & RELATIONSHIP_MASK,
+  );
+  const affiliationBits = Number(
+    (packed >> AFFILIATION_SHIFT) & AFFILIATION_DATA_MASK,
+  );
+
+  let finalAffiliationBits = affiliationBits;
+  if (isDayTicketAffiliation(affiliationBits)) {
+    const serialHigh = affiliationBits & 0x3f;
+    serial = (serialHigh << Number(SERIAL_BITS)) | serial;
+    // affiliationを本来の当日券フラグ値(number=0)に戻してデコードする
+    finalAffiliationBits = affiliationBits & ~0x3f;
+  }
+
+  const data: TicketData = {
+    serial,
+    year,
+    schedule,
+    performance,
+    type,
+    relationship,
+    affiliation: decodeAffiliation(finalAffiliationBits, relationship),
   };
+
+  return data;
 }
 
 type DecodeOptions = {
@@ -31,7 +75,11 @@ type DecodeOptions = {
 
 function resolveKeys(options?: DecodeOptions) {
   const readRuntimeEnv = (key: string): string | undefined => {
-    const deno = (globalThis as { Deno?: { env?: { get: (k: string) => string | undefined } } }).Deno;
+    const deno = (
+      globalThis as {
+        Deno?: { env?: { get: (k: string) => string | undefined } };
+      }
+    ).Deno;
     if (deno?.env) {
       return deno.env.get(key);
     }
@@ -78,15 +126,15 @@ async function decryptFeistel46(
   cipher46: bigint,
   key: CryptoKey,
 ): Promise<bigint> {
-  let L = cipher46 >> 23n;
-  let R = cipher46 & 0x7fffffn;
+  let L = cipher46 >> FEISTEL_HALF_BITS;
+  let R = cipher46 & FEISTEL_HALF_MASK;
   for (let i = ENCRYPTION_ROUNDS - 1; i >= 0; i--) {
     const prevR = L;
-    const prevL = R ^ (await feistelFunction(L, i, key)); // await が必要
+    const prevL = R ^ (await feistelFunction(L, i, key));
     L = prevL;
     R = prevR;
   }
-  return (L << 23n) | R;
+  return (L << FEISTEL_HALF_BITS) | R;
 }
 
 const BASE58_BASE = 58n;
@@ -103,11 +151,24 @@ function decodeBase58(str: string, alphabet: string): bigint | null {
   return num;
 }
 
+/**
+ * MACの検証
+ */
+export async function validateMAC(
+  data36: bigint,
+  mac10: bigint,
+  key: CryptoKey,
+): Promise<boolean> {
+  const expectedMac10 = await generateMAC10(data36, key);
+  return mac10 === expectedMac10;
+}
+
 export async function decodeTicketCode(
   code: string,
   options?: DecodeOptions,
 ): Promise<TicketData | null> {
-  if (code.length < 1 || code.length > 8) {
+  if (code.length < 1 || code.length > 10) {
+    // Base58 46bitは約8文字だが余裕を持つ
     return null;
   }
 
@@ -126,16 +187,15 @@ export async function decodeTicketCode(
   const cipherKey = await importHmacKey(cipherKeyRaw);
 
   const payload46 = await decryptFeistel46(encrypted46, cipherKey);
-  const data36 = payload46 >> 10n;
-  const mac10 = payload46 & 0x3ffn;
+  const data36 = payload46 >> MAC_BITS;
+  const mac10 = payload46 & MAC_MASK;
 
-  const expectedMac10 = await generateMAC10(data36, macKey);
-  if (mac10 !== expectedMac10) {
+  if (!(await validateMAC(data36, mac10, macKey))) {
     return null;
   } // 署名エラー（偽造）
 
-  return unpackData(data36);
+  return unpackTicket(data36);
 }
 
 // helpers exported for testing
-export { unpackData, resolveKeys, decryptFeistel46, decodeBase58 };
+export { resolveKeys, decryptFeistel46, decodeBase58 };

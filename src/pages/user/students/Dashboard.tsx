@@ -215,13 +215,18 @@ const Dashboard = ({ userData }: DashboardProps) => {
       const affiliation = Number(
         (data as { affiliation?: number | null } | null)?.affiliation ?? -1,
       );
-      if (!Number.isInteger(affiliation) || affiliation < 1000) {
+      if (!Number.isInteger(affiliation) || affiliation < 10000) {
         return;
       }
 
-      const grade = Math.floor(affiliation / 1000);
-      const classNo = Math.floor((affiliation % 1000) / 100);
-      if (grade >= 1 && grade <= 3 && classNo >= 1 && classNo <= 7) {
+      const grade = Math.floor(affiliation / 10000);
+      const classNo = Math.floor((affiliation % 10000) / 100);
+      if (
+        grade >= 1 &&
+        grade <= config.grade_number &&
+        classNo >= 1 &&
+        classNo <= config.class_number
+      ) {
         setOwnClassName(`${grade}-${classNo}`);
       }
     };
@@ -717,7 +722,10 @@ const Dashboard = ({ userData }: DashboardProps) => {
       <h1 className={subPageStyles.pageTitle}>ダッシュボード</h1>
       <section>
         <h2 className={sharedStyles.normalH2}>
-          {userData.affiliation} {userData.name} 様
+          {Math.floor(userData.affiliation / 10000)}-
+          {Math.floor((userData.affiliation % 10000) / 100)}
+          {' ' + userData.affiliation % 100 + '番 '}
+          {userData.name} 様
         </h2>
         <a
           href='/students/issue'

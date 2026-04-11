@@ -79,6 +79,7 @@ import { IoMdSettings } from 'react-icons/io';
 import Switch from '../../components/ui/Switch';
 import { supabase } from '../../lib/supabase';
 import { IoWarning } from 'react-icons/io5';
+import { useEventConfig } from '../../hooks/useEventConfig';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -124,6 +125,7 @@ type PendingUnknownTicket = {
 type EntryMode = 'register' | 'scan';
 
 const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
+  const { config } = useEventConfig();
   const [scannedValue, setScannedValue] = useState<string>();
   const [decodedTicket, setDecodedTicket] =
     useState<TicketDecodedDisplaySeed | null>(null);
@@ -738,6 +740,17 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     }
   };
 
+  const checkIsTicketThisYear = (ticketYear: number) : boolean => {
+    const currentYear = config.year;
+    if (typeof currentYear !== 'number') {
+      throw new Error('Invalid event configuration: year is not a number');
+    }
+    if (typeof ticketYear !== 'number') {
+      return false;
+    }
+    return ticketYear === currentYear % 2 ** Number(YEAR_BITS);
+  };
+
   const processScannedValue = async (nextScannedValue: string) => {
     setAutoHideRequested(false);
     if (!nextScannedValue) {
@@ -766,7 +779,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
-      const { decoded, signatureIsValid, isTicketThisYear } =
+      const { decoded, signatureIsValid } =
         await decodeAndVerifyTicket(code, signature);
 
       if (!decoded) {
@@ -779,7 +792,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
-      if (!isTicketThisYear) {
+      if (!checkIsTicketThisYear(Number(decoded.year))) {
         await saveScanResult(nextScannedValue, 'wrongYear', 1);
         setDecodeErrorWithSound({
           title: '年度エラー',
@@ -814,7 +827,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       await saveScanResult(nextScannedValue, 'failed', 1);
       setDecodeErrorWithSound({
         title: '検証エラー',
-        message: 'チケットコードの検証時に何らかのエラーが発生しました。',
+        message: 'チケットコードの検証時に何らかのエラーが発生しました。' + e,
       });
     }
   };
@@ -992,10 +1005,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
-      if (
-        Number(decoded.year) !==
-        new Date().getFullYear() % 2 ** Number(YEAR_BITS)
-      ) {
+      if (!checkIsTicketThisYear(Number(decoded.year))) {
         await saveScanResult(pendingFullCode, 'wrongYear', 1);
         setDecodeErrorWithSound({
           title: '年度エラー',
@@ -1964,7 +1974,16 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                     間柄: {resolvedTicket?.relationshipName ?? '-'}
                   </span>
                   <span className={styles.secondaryItem}>
-                    発行者: {decodedTicket.affiliation}
+                    発行者:{' '}
+                    {decodedTicket.affiliation === '1600'
+                      ? '当日券ゲスト'
+                      : Math.floor(Number(decodedTicket.affiliation) / 10000) +
+                        '-' +
+                        Math.floor(
+                          (Number(decodedTicket.affiliation) % 10000) / 100,
+                        ) +
+                        ' ' +
+                        (Number(decodedTicket.affiliation) % 100) + '番'}
                   </span>
                 </div>
 

@@ -1,3 +1,10 @@
+import {
+  FEISTEL_HALF_BITS,
+  FEISTEL_HALF_MASK,
+  MAC_BITS,
+  MAC_MASK,
+} from './ticketDataType.ts';
+
 export const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
   bytes.buffer.slice(
     bytes.byteOffset,
@@ -62,7 +69,9 @@ export const generateMAC10 = async (
   const signature = await crypto.subtle.sign('HMAC', key, buffer);
   const hashView = new DataView(signature);
 
-  return BigInt((hashView.getUint16(0, false) >> 6) & 0x3ff);
+  // HMACの先頭16ビットから、上位方向に詰まったMAC_BITS分を抽出
+  const shift = 16 - Number(MAC_BITS);
+  return BigInt((hashView.getUint16(0, false) >> shift) & Number(MAC_MASK));
 };
 
 export const feistelFunction = async (
@@ -79,5 +88,9 @@ export const feistelFunction = async (
   const signature = await crypto.subtle.sign('HMAC', key, buffer);
   const hashView = new DataView(signature);
 
-  return BigInt((hashView.getUint32(0, false) >>> 9) & 0x7fffff);
+  // HMACの先頭32ビットから、上位方向に詰まった FEISTEL_HALF_BITS 分を抽出
+  const shift = 32 - Number(FEISTEL_HALF_BITS);
+  return BigInt(
+    (hashView.getUint32(0, false) >>> shift) & Number(FEISTEL_HALF_MASK),
+  );
 };

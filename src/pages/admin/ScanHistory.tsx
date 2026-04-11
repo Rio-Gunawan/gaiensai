@@ -217,8 +217,9 @@ const getDecodedTicketYear = (year: string | null | undefined) => {
   if (year === null || year === undefined) {
     return '-';
   }
-  const nowUtcYear = new Date().getUTCFullYear();
-  return (nowUtcYear % 2 ** Number(YEAR_BITS)) - Number(year) + nowUtcYear;
+  const nowYear = new Date().getFullYear();
+
+  return nowYear - (nowYear % 2 ** Number(YEAR_BITS)) + Number(year);
 };
 
 const SUMMARY_TOOLTIP_PROPS = {
@@ -1084,7 +1085,10 @@ const ScanHistory = () => {
                           <td>
                             {ticket.decoded?.resolved?.ticketTypeLabel ?? '-'}
                           </td>
-                          <td>{ticket.decoded?.affiliation ?? '-'}</td>
+                          <td>
+                            {ticket.decoded?.affiliation === '1600' ? '当日券ゲスト' :ticket.decoded
+                              ?.affiliation ?? '-'}
+                          </td>
                           <td>
                             {ticket.decoded?.resolved?.performanceName ?? '-'}
                           </td>

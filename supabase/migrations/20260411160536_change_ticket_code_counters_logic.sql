@@ -4,6 +4,8 @@ alter table "public"."ticket_code_counters" add constraint "ticket_code_counters
 
 alter table "public"."ticket_code_counters" validate constraint "ticket_code_counters_last_value_check";
 
+drop function if exists "public"."increment_ticket_code_counter"(p_prefix text, p_increment integer);
+
 CREATE OR REPLACE FUNCTION "public"."increment_ticket_code_counter"("p_prefix" "text", "p_increment" integer, "p_max_value" integer) RETURNS bigint
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'

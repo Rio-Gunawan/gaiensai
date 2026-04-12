@@ -28,6 +28,7 @@ type PerformancesTableProps = {
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
   remainingMode?: 'general' | 'total';
+  showToggleRemainingMode?: boolean;
   restrictedClassName?: string | null;
 };
 
@@ -36,6 +37,7 @@ const PerformancesTable = ({
   onAvailableCellClick,
   selectedCellKey,
   remainingMode = 'general',
+  showToggleRemainingMode = false,
   restrictedClassName = null,
 }: PerformancesTableProps) => {
   const autoSelectedCellKeyRef = useRef<string | null>(null);
@@ -52,6 +54,7 @@ const PerformancesTable = ({
   );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentRemainingMode, setCurrentRemainingMode] = useState<'general' | 'junior' | 'total'>(remainingMode);
 
   const { route } = useLocation();
 
@@ -190,8 +193,10 @@ const PerformancesTable = ({
           const remainingGeneral = Number(data?.[0]?.remaining_general ?? 0);
           const remainingJunior = Number(data?.[0]?.remaining_junior ?? 0);
           const remaining =
-            remainingMode === 'total'
+            currentRemainingMode === 'total'
               ? remainingGeneral + remainingJunior
+              : currentRemainingMode === 'junior'
+              ? remainingJunior
               : remainingGeneral;
           seatMap.set(
             `${performance.id}-${schedule.id}`,
@@ -215,7 +220,7 @@ const PerformancesTable = ({
     return () => {
       isMounted = false;
     };
-  }, [remainingMode, restrictedClassName]);
+  }, [currentRemainingMode, restrictedClassName]);
 
   const statusByKey = useMemo(() => {
     const map = new Map<string, 'circle' | 'triangle' | 'cross'>();
@@ -227,8 +232,10 @@ const PerformancesTable = ({
         const totalCapacity = Number(performance.total_capacity ?? 0);
         const juniorCapacity = Number(performance.junior_capacity ?? 0);
         const baseCapacity =
-          remainingMode === 'total'
+          currentRemainingMode === 'total'
             ? totalCapacity
+            : currentRemainingMode === 'junior'
+            ? juniorCapacity
             : Math.max(totalCapacity - juniorCapacity, 0);
         const lowStockThreshold = Math.max(1, Math.ceil(baseCapacity * 0.1));
 
@@ -247,7 +254,7 @@ const PerformancesTable = ({
     });
 
     return map;
-  }, [performances, schedules, remainingSeatMap, remainingMode]);
+  }, [performances, schedules, remainingSeatMap, currentRemainingMode]);
 
   const filteredPerformances = useMemo(
     () =>
@@ -434,6 +441,24 @@ const PerformancesTable = ({
               ))}
             </select>
           </label>
+          {showToggleRemainingMode && (
+            <label className={styles.filterLabel} htmlFor='remaining-mode-toggle'>
+              中学生の残席も表示する
+              <select
+                id='remaining-mode-toggle'
+                className={styles.filterSelect}
+                value={currentRemainingMode}
+                onChange={(event) =>
+                  setCurrentRemainingMode(
+                    event.currentTarget.value === 'total' ? 'total' : 'general',
+                  )
+                }
+              >
+                <option value='general'>一般のみ</option>
+                <option value='total'>一般＋ジュニア</option>
+              </select>
+            </label>
+          )}
         </div>
         <p className={styles.emptyState}>該当するデータがありません。</p>
       </div>
@@ -481,6 +506,26 @@ const PerformancesTable = ({
             ))}
           </select>
         </label>
+
+          {showToggleRemainingMode && (
+            <label className={styles.filterLabel} htmlFor='remaining-mode-toggle'>
+              残席表示対象
+              <select
+                id='remaining-mode-toggle'
+                className={styles.filterSelect}
+                value={currentRemainingMode}
+                onChange={(event) =>
+                  setCurrentRemainingMode(
+                    event.currentTarget.value as 'general' | 'junior' | 'total',
+                  )
+                }
+              >
+                <option value='general'>一般のみ</option>
+                <option value='junior'>中学生のみ</option>
+                <option value='total'>一般＋中学生</option>
+              </select>
+            </label>
+          )}
       </div>
       <div className={styles.legend}>
         <span className={`${styles.legendItem} ${styles.statusCircle}`}>

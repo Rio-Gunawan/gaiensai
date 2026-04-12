@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import styles from './Settings.module.css';
 import Switch from '../../components/ui/Switch';
 import { useTitle } from '../../hooks/useTitle';
+import PerformancesTable from '../../features/performances/PerformancesTable';
+import GymPerformancesTable from '../../features/performances/GymPerformancesTable';
 const ADMIN_CONTROL_PANEL_SESSION_TOKEN_KEY = 'admin_control_panel_session_v2';
 
 const getSessionToken = () => {
@@ -864,6 +866,15 @@ const Settings = () => {
         {settingsMessageScope === 'globalSection' && settingsSuccess && (
           <p className={styles.authSuccess}>{settingsSuccess}</p>
         )}
+      </NormalSection>
+      <NormalSection>
+        <h2>公演空き状況</h2>
+        <h3>クラス公演</h3>
+        <PerformancesTable
+          showToggleRemainingMode={true}
+        />
+        <h3>体育館公演</h3>
+        <GymPerformancesTable />
       </NormalSection>
       <NormalSection>
         <h2>チケット発券</h2>

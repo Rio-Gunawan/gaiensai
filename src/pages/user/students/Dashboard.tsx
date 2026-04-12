@@ -724,7 +724,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <h2 className={sharedStyles.normalH2}>
           {Math.floor(userData.affiliation / 10000)}-
           {Math.floor((userData.affiliation % 10000) / 100)}
-          {' ' + userData.affiliation % 100 + '番 '}
+          {' ' + (userData.affiliation % 100) + '番 '}
           {userData.name} 様
         </h2>
         <a
@@ -816,11 +816,13 @@ const Dashboard = ({ userData }: DashboardProps) => {
         <PerformancesTable
           enableIssueJump={true}
           restrictedClassName={restrictedClassName}
+          filterAccepting={true}
         />
         <h3>体育館公演</h3>
         <GymPerformancesTable
           enableIssueJump={true}
           restrictedGroupNames={restrictedGroupNames}
+          filterAccepting={true}
         />
       </NormalSection>
       <section>

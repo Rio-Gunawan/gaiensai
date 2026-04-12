@@ -555,6 +555,48 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
+    // 詳細な受付・有効設定のチェック
+    // 1. 間柄の受付状態チェック
+    const { data: relData, error: relError } = await adminClient
+      .from('relationships')
+      .select('is_accepting')
+      .eq('id', relationshipId)
+      .maybeSingle();
+
+    if (relError || (relData && !(relData as { is_accepting: boolean }).is_accepting)) {
+      throw new HttpError(403, '選択された間柄は現在チケットの受付を停止しています。');
+    }
+
+    // 2. 公演・公演回の受付状態チェック
+    if (issueMode === 'class') {
+      const { data: perfData, error: perfError } = await adminClient
+        .from('class_performances')
+        .select('is_accepting')
+        .eq('id', body.performanceId)
+        .maybeSingle();
+      if (perfError || (perfData && !(perfData as { is_accepting: boolean }).is_accepting)) {
+        throw new HttpError(403, '選択されたクラスは現在チケットの受付を停止しています。');
+      }
+
+      const { data: schData, error: schError } = await adminClient
+        .from('performances_schedule')
+        .select('is_active')
+        .eq('id', body.scheduleId)
+        .maybeSingle();
+      if (schError || (schData && !(schData as { is_active: boolean }).is_active)) {
+        throw new HttpError(403, '選択された公演回は現在無効化されています。');
+      }
+    } else if (issueMode === 'gym') {
+      const { data: perfData, error: perfError } = await adminClient
+        .from('gym_performances')
+        .select('is_accepting')
+        .eq('id', body.performanceId)
+        .maybeSingle();
+      if (perfError || (perfData && !(perfData as { is_accepting: boolean }).is_accepting)) {
+        throw new HttpError(403, '選択された部活・団体は現在チケットの受付を停止しています。');
+      }
+    }
+
     const ticketIssueControls = await readTicketIssueControls(
       adminClient as unknown as TicketIssueControlsReader,
     );

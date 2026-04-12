@@ -196,3 +196,64 @@
   border: 1px solid var(--login-input-border);
   background: transparent;
 }
+
+.tabList {
+  display: flex;
+  gap: 0.25rem;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--settings-border-color);
+  position: relative;
+  z-index: 2;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: -1px;
+}
+
+.tabButton {
+  border-radius: 10px 10px 0 0;
+  border: 1px solid var(--settings-border-color);
+  border-bottom: none;
+  background: color-mix(in srgb, var(--main-bg-color) 60%, transparent);
+  color: var(--sub-text-color);
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transform: translateY(1px);
+}
+
+.tabButton:hover {
+  background: color-mix(in srgb, var(--main-bg-color) 90%, transparent);
+  color: var(--main-text-color);
+}
+
+.tabButtonActive {
+  background: var(--normal-section-bg-color);
+  color: var(--heading-text-color);
+  border-color: var(--settings-border-color);
+  transform: translateY(1px);
+  z-index: 3;
+  box-shadow: 0 -4px 12px color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.tabContent {
+  background: var(--normal-section-bg-color);
+  border-radius: 0 0 12px 12px;
+  padding: 1.5rem;
+  border: 1px solid var(--settings-border-color);
+  border-top: none;
+}
+
+.toggleList {
+  display: flex;
+  flex-direction: column;
+}
+
+.toggleList h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}

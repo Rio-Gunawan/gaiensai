@@ -168,7 +168,12 @@ const NUMERIC_SETTING_META = {
 } as const;
 
 type NumericSettingKey = keyof typeof NUMERIC_SETTING_META;
-type SettingsMessageScope = 'modal' | 'globalSection' | 'ticketSection' | null;
+type SettingsMessageScope =
+  | 'modal'
+  | 'globalSection'
+  | 'ticketSection'
+  | 'detailSection'
+  | null;
 
 const Settings = () => {
   const [password, setPassword] = useState('');
@@ -216,9 +221,44 @@ const Settings = () => {
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
   const [settingsMessageScope, setSettingsMessageScope] =
     useState<SettingsMessageScope>(null);
+  const [classPerformances, setClassPerformances] = useState<
+    {
+      id: number;
+      class_name: string;
+      is_accepting: boolean;
+      total_capacity: number;
+      junior_capacity: number;
+    }[]
+  >([]);
+  const [gymPerformances, setGymPerformances] = useState<
+    {
+      id: number;
+      group_name: string;
+      round_name: string;
+      is_accepting: boolean;
+      capacity: number;
+    }[]
+  >([]);
+  const [schedules, setSchedules] = useState<
+    { id: number; round_name: string; is_active: boolean }[]
+  >([]);
+  const [relationships, setRelationships] = useState<
+    { id: number; name: string; is_accepting: boolean }[]
+  >([]);
   const [editingNumericKey, setEditingNumericKey] =
     useState<NumericSettingKey | null>(null);
   const [editingNumericValue, setEditingNumericValue] = useState('');
+  const [editingPerformanceInfo, setEditingPerformanceInfo] = useState<{
+    table: 'class_performances' | 'gym_performances';
+    id: number;
+    column: string;
+    label: string;
+    min: number;
+    max: number;
+  } | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<
+    'performances' | 'gym_performances' | 'schedules' | 'relationships'
+  >('performances');
   const [isModalSubmitting, setIsModalSubmitting] = useState(false);
 
   useTitle('コントロールパネル - 管理画面');
@@ -455,6 +495,42 @@ const Settings = () => {
         }
 
         if (isActive) {
+          // テーブルデータのフェッチ
+          const [{ data: cp }, { data: gp }, { data: sch }, { data: rel }] =
+            await Promise.all([
+              supabase
+                .from('class_performances')
+                .select(
+                  'id, class_name, is_accepting, total_capacity, junior_capacity',
+                )
+                .order('class_name'),
+              supabase
+                .from('gym_performances')
+                .select('id, group_name, round_name, is_accepting, capacity')
+                .order('id'),
+              supabase
+                .from('performances_schedule')
+                .select('id, round_name, is_active')
+                .order('id'),
+              supabase
+                .from('relationships')
+                .select('id, name, is_accepting')
+                .order('id'),
+            ]);
+
+          if (cp) {
+            setClassPerformances(cp);
+          }
+          if (gp) {
+            setGymPerformances(gp);
+          }
+          if (sch) {
+            setSchedules(sch);
+          }
+          if (rel) {
+            setRelationships(rel);
+          }
+
           const activeTicketTypeIds = nextSettings.activeTicketTypeIds
             .filter((id: unknown) => typeof id === 'number')
             .map((id: number) => Math.trunc(id));
@@ -582,6 +658,87 @@ const Settings = () => {
     }
   };
 
+  const handleToggleTableValue = async (
+    table:
+      | 'class_performances'
+      | 'gym_performances'
+      | 'performances_schedule'
+      | 'relationships',
+    id: number,
+    column: string,
+    nextValue: boolean | number,
+    messageScope: SettingsMessageScope = 'globalSection',
+  ): Promise<boolean> => {
+    if (isSettingsLoading || isSyncingSetting) {
+      return false;
+    }
+
+    const token = getSessionToken();
+    if (!token) {
+      setSettingsError('セッションがありません。再ログインしてください。');
+      return false;
+    }
+
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    setSettingsMessageScope(messageScope);
+    setIsSyncingSetting(true);
+
+    try {
+      const { error } = await supabase.functions.invoke('admin-auth', {
+        body: {
+          action: 'updateAcceptingStatus',
+          table,
+          recordId: id,
+          column,
+          value: nextValue,
+        },
+        headers: {
+          'x-admin-session-token': token,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // ローカルステートの更新
+      if (table === 'class_performances') {
+        setClassPerformances((prev) =>
+          prev.map((p) =>
+            p.id === id ? ({ ...p, [column]: nextValue } as typeof p) : p,
+          ),
+        );
+      } else if (table === 'gym_performances') {
+        setGymPerformances((prev) =>
+          prev.map((p) =>
+            p.id === id ? ({ ...p, [column]: nextValue } as typeof p) : p,
+          ),
+        );
+      } else if (table === 'performances_schedule') {
+        setSchedules((prev) =>
+          prev.map((s) =>
+            s.id === id ? { ...s, is_active: nextValue as boolean } : s,
+          ),
+        );
+      } else if (table === 'relationships') {
+        setRelationships((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, is_accepting: nextValue as boolean } : r,
+          ),
+        );
+      }
+      setSettingsSuccess('設定を更新しました。');
+      return true;
+    } catch (error) {
+      const message = await readErrorMessage(error);
+      setSettingsError(`設定の保存に失敗しました。${message}`);
+      return false;
+    } finally {
+      setIsSyncingSetting(false);
+    }
+  };
+
   const syncTicketTypeControls = async (
     nextControls: TicketTypeControls,
     successMessage = '券種別の受付設定を更新しました。',
@@ -656,8 +813,25 @@ const Settings = () => {
     setSettingsSuccess(null);
   };
 
+  const openIndividualNumericEditModal = (
+    table: 'class_performances' | 'gym_performances',
+    id: number,
+    column: string,
+    label: string,
+    min: number,
+    max: number,
+    currentValue: number,
+  ) => {
+    setEditingPerformanceInfo({ table, id, column, label, min, max });
+    setEditingNumericValue(String(currentValue));
+    setSettingsMessageScope('modal');
+    setSettingsError(null);
+    setSettingsSuccess(null);
+  };
+
   const closeNumericEditModal = () => {
     setEditingNumericKey(null);
+    setEditingPerformanceInfo(null);
     setEditingNumericValue('');
     setSettingsMessageScope(null);
     setSettingsError(null);
@@ -665,6 +839,56 @@ const Settings = () => {
   };
 
   const handleConfirmNumericEdit = async () => {
+    if (editingPerformanceInfo) {
+      const { table, id, column, label, min, max } = editingPerformanceInfo;
+      const parsed = Number(editingNumericValue);
+      if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+        setSettingsError(
+          `${label}は${min}〜${max}の範囲の整数で入力してください。`,
+        );
+        return;
+      }
+
+      // 個別クラス設定：中学生枠と合計定員の整合性チェック
+      if (table === 'class_performances') {
+        const targetPerf = classPerformances.find((p) => p.id === id);
+        if (targetPerf) {
+          if (
+            column === 'total_capacity' &&
+            parsed < targetPerf.junior_capacity
+          ) {
+            setSettingsError(
+              '合計定員は現在の中学生枠より少なく設定できません。',
+            );
+            return;
+          }
+          if (
+            column === 'junior_capacity' &&
+            parsed > targetPerf.total_capacity
+          ) {
+            setSettingsError(
+              '中学生枠は現在の合計定員より多く設定できません。',
+            );
+            return;
+          }
+        }
+      }
+
+      setIsModalSubmitting(true);
+      const success = await handleToggleTableValue(
+        table,
+        id,
+        column,
+        parsed,
+        'modal',
+      );
+      if (success) {
+        closeNumericEditModal();
+      }
+      setIsModalSubmitting(false);
+      return;
+    }
+
     if (!editingNumericKey) {
       return;
     }
@@ -674,6 +898,26 @@ const Settings = () => {
     if (!Number.isInteger(parsed) || parsed < meta.min || parsed > meta.max) {
       setSettingsError(
         `${meta.label}は${meta.min}〜${meta.max}の範囲の整数で入力してください。`,
+      );
+      return;
+    }
+
+    // 全体デフォルト設定：中学生枠と合計定員の整合性チェック
+    if (
+      editingNumericKey === 'defaultClassTotalCapacity' &&
+      parsed < settings.defaultClassJuniorCapacity
+    ) {
+      setSettingsError(
+        '合計定員のデフォルト値は現在の中学生枠のデフォルト値より少なく設定できません。',
+      );
+      return;
+    }
+    if (
+      editingNumericKey === 'defaultClassJuniorCapacity' &&
+      parsed > settings.defaultClassTotalCapacity
+    ) {
+      setSettingsError(
+        '中学生枠のデフォルト値は現在の合計定員のデフォルト値より多く設定できません。',
       );
       return;
     }
@@ -870,9 +1114,7 @@ const Settings = () => {
       <NormalSection>
         <h2>公演空き状況</h2>
         <h3>クラス公演</h3>
-        <PerformancesTable
-          showToggleRemainingMode={true}
-        />
+        <PerformancesTable showToggleRemainingMode={true} />
         <h3>体育館公演</h3>
         <GymPerformancesTable />
       </NormalSection>
@@ -1187,6 +1429,227 @@ const Settings = () => {
         )}
       </NormalSection>
       <NormalSection>
+        <h2>詳細な受付・有効設定</h2>
+        <div className={styles.tabList} role='tablist'>
+          <button
+            type='button'
+            role='tab'
+            className={`${styles.tabButton} ${activeDetailTab === 'performances' ? styles.tabButtonActive : ''}`}
+            aria-selected={activeDetailTab === 'performances'}
+            onClick={() => setActiveDetailTab('performances')}
+          >
+            クラス
+          </button>
+          <button
+            type='button'
+            role='tab'
+            className={`${styles.tabButton} ${activeDetailTab === 'gym_performances' ? styles.tabButtonActive : ''}`}
+            aria-selected={activeDetailTab === 'gym_performances'}
+            onClick={() => setActiveDetailTab('gym_performances')}
+          >
+            部活
+          </button>
+          <button
+            type='button'
+            role='tab'
+            className={`${styles.tabButton} ${activeDetailTab === 'schedules' ? styles.tabButtonActive : ''}`}
+            aria-selected={activeDetailTab === 'schedules'}
+            onClick={() => setActiveDetailTab('schedules')}
+          >
+            公演回
+          </button>
+          <button
+            type='button'
+            role='tab'
+            className={`${styles.tabButton} ${activeDetailTab === 'relationships' ? styles.tabButtonActive : ''}`}
+            aria-selected={activeDetailTab === 'relationships'}
+            onClick={() => setActiveDetailTab('relationships')}
+          >
+            間柄
+          </button>
+        </div>
+
+        <div className={styles.tabContent}>
+          {activeDetailTab === 'performances' && (
+            <div className={styles.toggleList}>
+              <h3>クラス公演の受付</h3>
+              {classPerformances.map((p) => (
+                <div key={`cp-${p.id}`} className={styles.field}>
+                  <span className={styles.settingLabel}>{p.class_name}</span>
+                  <div className={styles.settingControlGroup}>
+                    <span className={styles.settingHint}>
+                      定員: {p.total_capacity}名
+                    </span>
+                    <button
+                      type='button'
+                      className={styles.inlineEditButton}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        openIndividualNumericEditModal(
+                          'class_performances',
+                          p.id,
+                          'total_capacity',
+                          `${p.class_name}の合計定員`,
+                          1,
+                          1000,
+                          p.total_capacity,
+                        );
+                      }}
+                    >
+                      変更
+                    </button>
+                    <span className={styles.settingHint}>
+                      中学生: {p.junior_capacity}名
+                    </span>
+                    <button
+                      type='button'
+                      className={styles.inlineEditButton}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        openIndividualNumericEditModal(
+                          'class_performances',
+                          p.id,
+                          'junior_capacity',
+                          `${p.class_name}の中学生枠`,
+                          0,
+                          1000,
+                          p.junior_capacity,
+                        );
+                      }}
+                    >
+                      変更
+                    </button>
+                    <label>
+                      <Switch
+                        checked={p.is_accepting}
+                        onChange={(val) =>
+                          handleToggleTableValue(
+                            'class_performances',
+                            p.id,
+                            'is_accepting',
+                            val,
+                            'detailSection',
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeDetailTab === 'gym_performances' && (
+            <div className={styles.toggleList}>
+              <h3>部活(体育館公演)の受付</h3>
+              {gymPerformances.map((p) => (
+                <div key={`gp-${p.id}`} className={styles.field}>
+                  <span className={styles.settingLabel}>
+                    {p.group_name} {p.round_name}
+                  </span>
+                  <div className={styles.settingControlGroup}>
+                    <span className={styles.settingHint}>
+                      定員: {p.capacity}名
+                    </span>
+                    <button
+                      type='button'
+                      className={styles.inlineEditButton}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        openIndividualNumericEditModal(
+                          'gym_performances',
+                          p.id,
+                          'capacity',
+                          `${p.group_name} ${p.round_name}の定員`,
+                          1,
+                          2000,
+                          p.capacity,
+                        );
+                      }}
+                    >
+                      変更
+                    </button>
+                    <label>
+                      <Switch
+                        checked={p.is_accepting}
+                        onChange={(val) =>
+                          handleToggleTableValue(
+                            'gym_performances',
+                            p.id,
+                            'is_accepting',
+                            val,
+                            'detailSection',
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeDetailTab === 'schedules' && (
+            <div className={styles.toggleList}>
+              <h3>公演回の有効状態</h3>
+              {schedules.map((s) => (
+                <div key={`sch-${s.id}`} className={styles.field}>
+                  <span className={styles.settingLabel}>{s.round_name}</span>
+                  <label>
+                    <Switch
+                      checked={s.is_active}
+                      onChange={(val) =>
+                        handleToggleTableValue(
+                          'performances_schedule',
+                          s.id,
+                          'is_active',
+                          val,
+                          'detailSection',
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeDetailTab === 'relationships' && (
+            <div className={styles.toggleList}>
+              <h3>間柄の受付</h3>
+              {relationships.map((r) => (
+                <div key={`rel-${r.id}`} className={styles.field}>
+                  <span className={styles.settingLabel}>{r.name}</span>
+                  <label>
+                    <Switch
+                      checked={r.is_accepting}
+                      onChange={(val) =>
+                        handleToggleTableValue(
+                          'relationships',
+                          r.id,
+                          'is_accepting',
+                          val,
+                          'detailSection',
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {settingsMessageScope === 'detailSection' && isSyncingSetting && (
+          <p className={styles.statusMessage}>設定を更新中です...</p>
+        )}
+        {settingsMessageScope === 'detailSection' && settingsError && (
+          <p className={styles.authError}>{settingsError}</p>
+        )}
+        {settingsMessageScope === 'detailSection' && settingsSuccess && (
+          <p className={styles.authSuccess}>{settingsSuccess}</p>
+        )}
+      </NormalSection>
+      <NormalSection>
         <h2>削除ツール</h2>
         <p className={styles.noteText}>
           データの削除は慎重に行う必要があります。削除を行う前に、必ずデータのバックアップを取ってください。
@@ -1257,7 +1720,7 @@ const Settings = () => {
           </button>
         </form>
       </NormalSection>
-      {editingNumericKey && (
+      {(editingNumericKey || editingPerformanceInfo) && (
         <div
           className={styles.settingModalOverlay}
           role='presentation'
@@ -1271,13 +1734,24 @@ const Settings = () => {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id='settings-edit-title' className={styles.settingModalTitle}>
-              {NUMERIC_SETTING_META[editingNumericKey].label}を変更
+              {editingNumericKey
+                ? NUMERIC_SETTING_META[editingNumericKey].label
+                : editingPerformanceInfo?.label}
+              を変更
             </h3>
             <input
               className={styles.fieldControl}
               type='number'
-              min={NUMERIC_SETTING_META[editingNumericKey].min}
-              max={NUMERIC_SETTING_META[editingNumericKey].max}
+              min={
+                editingNumericKey
+                  ? NUMERIC_SETTING_META[editingNumericKey].min
+                  : editingPerformanceInfo?.min
+              }
+              max={
+                editingNumericKey
+                  ? NUMERIC_SETTING_META[editingNumericKey].max
+                  : editingPerformanceInfo?.max
+              }
               value={editingNumericValue}
               onInput={(event) =>
                 setEditingNumericValue((event.target as HTMLInputElement).value)

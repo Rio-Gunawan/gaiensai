@@ -28,6 +28,10 @@ type AdminAuthRequest = {
   defaultClassTotalCapacity?: unknown;
   defaultClassJuniorCapacity?: unknown;
   defaultGymCapacity?: unknown;
+  table?: unknown;
+  recordId?: unknown;
+  column?: unknown;
+  value?: unknown;
 };
 
 type TicketIssueMode =
@@ -67,6 +71,13 @@ type AdminAuthBody =
       defaultClassTotalCapacity: number;
       defaultClassJuniorCapacity: number;
       defaultGymCapacity: number;
+    }
+  | {
+      mode: 'updateAcceptingStatus';
+      table: string;
+      recordId: number;
+      column: string;
+      value: boolean | number;
     };
 
 type AdminConfigRow = {
@@ -278,6 +289,42 @@ const parseBody = (body: unknown): AdminAuthBody => {
     };
   }
 
+  if (action === 'updateAcceptingStatus') {
+    const { table, recordId, column, value } = body as AdminAuthRequest;
+    if (typeof table !== 'string') {
+      throw new HttpError(400, 'table は文字列で送信してください。');
+    }
+    if (typeof column !== 'string') {
+      throw new HttpError(400, 'column は文字列で送信してください。');
+    }
+    if (typeof value !== 'boolean' && typeof value !== 'number') {
+      throw new HttpError(400, 'value は真偽値または数値で送信してください。');
+    }
+
+    // バリデーション: 許可されたテーブルとカラムのみ
+    const allowedUpdates: Record<string, string[]> = {
+      class_performances: ['is_accepting', 'total_capacity', 'junior_capacity'],
+      gym_performances: ['is_accepting', 'capacity'],
+      performances_schedule: ['is_active'],
+      relationships: ['is_accepting'],
+    };
+
+    if (!allowedUpdates[table] || !allowedUpdates[table].includes(column)) {
+      throw new HttpError(
+        400,
+        '不正なテーブルまたはカラムの更新リクエストです。',
+      );
+    }
+
+    return {
+      mode: 'updateAcceptingStatus',
+      table,
+      recordId: normalizeInteger(recordId, 'recordId', 1, 1000000),
+      column,
+      value,
+    };
+  }
+
   if (action === 'getSettings') {
     return { mode: 'getSettings' };
   }
@@ -293,6 +340,23 @@ const parseBody = (body: unknown): AdminAuthBody => {
       defaultClassJuniorCapacity,
       defaultGymCapacity,
     } = body as AdminAuthRequest;
+
+    const total = normalizeInteger(
+      defaultClassTotalCapacity,
+      'defaultClassTotalCapacity',
+      1,
+      1000,
+    );
+    const junior = normalizeInteger(
+      defaultClassJuniorCapacity,
+      'defaultClassJuniorCapacity',
+      0,
+      1000,
+    );
+
+    if (junior > total) {
+      throw new HttpError(400, '中学生枠は合計定員以下で指定してください。');
+    }
 
     if (typeof juniorReleaseOpen !== 'boolean') {
       throw new HttpError(
@@ -319,18 +383,8 @@ const parseBody = (body: unknown): AdminAuthBody => {
       ),
       juniorReleaseOpen,
       ticketIssuingEnabled,
-      defaultClassTotalCapacity: normalizeInteger(
-        defaultClassTotalCapacity,
-        'defaultClassTotalCapacity',
-        1,
-        1000,
-      ),
-      defaultClassJuniorCapacity: normalizeInteger(
-        defaultClassJuniorCapacity,
-        'defaultClassJuniorCapacity',
-        0,
-        1000,
-      ),
+      defaultClassTotalCapacity: total,
+      defaultClassJuniorCapacity: junior,
       defaultGymCapacity: normalizeInteger(
         defaultGymCapacity,
         'defaultGymCapacity',
@@ -973,6 +1027,29 @@ Deno.serve(async (req) => {
           },
         },
       );
+    }
+
+    if (body.mode === 'updateAcceptingStatus') {
+      const session = await requireValidSession(adminClient, req);
+
+      const { error: updateError } = await adminClient
+        .from(body.table)
+        .update({ [body.column]: body.value })
+        .eq('id', body.recordId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ updated: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const config = await fetchAdminConfig(adminClient);

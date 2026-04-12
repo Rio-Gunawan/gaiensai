@@ -23,6 +23,7 @@ type GymPerformancesTableProps = {
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
   restrictedGroupNames?: string[] | null;
+  filterAccepting?: boolean;
 };
 
 const GymPerformancesTable = ({
@@ -30,6 +31,7 @@ const GymPerformancesTable = ({
   onAvailableCellClick,
   selectedCellKey,
   restrictedGroupNames = null,
+  filterAccepting = false,
 }: GymPerformancesTableProps) => {
   const [performances, setPerformances] = useState<GymPerformanceRow[]>([]);
   const [selectedGroupName, setSelectedGroupName] = useState<string | 'all'>(
@@ -52,11 +54,17 @@ const GymPerformancesTable = ({
       setLoading(true);
       setErrorMessage(null);
 
-      const { data: performanceData, error: performanceError } = await supabase
+      let query = supabase
         .from('gym_performances')
         .select('id, group_name, round_name, start_at, capacity')
         .order('start_at', { ascending: true })
         .order('id', { ascending: true });
+
+      if (filterAccepting) {
+        query = query.eq('is_accepting', true);
+      }
+
+      const { data: performanceData, error: performanceError } = await query;
 
       if (performanceError) {
         setErrorMessage('体育館公演の取得に失敗しました。');
@@ -115,7 +123,7 @@ const GymPerformancesTable = ({
     };
 
     void load();
-  }, [restrictedGroupNames]);
+  }, [restrictedGroupNames, filterAccepting]);
 
   const groupNames = useMemo(() => {
     const unique = new Set<string>();

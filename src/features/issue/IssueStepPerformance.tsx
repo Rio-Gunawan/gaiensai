@@ -34,6 +34,7 @@ const IssueStepPerformance = ({
           onAvailableCellClick={onSelectPerformance}
           restrictedGroupNames={restrictedGroupNames}
           selectedCellKey={selectedCellKey}
+          filterAccepting={true}
         />
       ) : (
         <PerformancesTable
@@ -41,6 +42,7 @@ const IssueStepPerformance = ({
           restrictedClassName={restrictedClassName}
           onAvailableCellClick={onSelectPerformance}
           selectedCellKey={selectedCellKey}
+          filterAccepting={true}
         />
       )}
       {selectedPerformance && (

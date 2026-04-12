@@ -19,6 +19,7 @@ import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 import Alert from '../../../components/ui/Alert';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { useTitle } from '../../../hooks/useTitle';
 
 const MAX_ISSUE_COUNT = 5;
@@ -639,8 +640,7 @@ const Issue = () => {
     }
 
     const isGymSelection =
-      targetPerformance.performanceId > 0 &&
-      targetPerformance.scheduleId === 0;
+      targetPerformance.performanceId > 0 && targetPerformance.scheduleId === 0;
 
     if (!isGymSelection) {
       return false;
@@ -881,6 +881,18 @@ const Issue = () => {
     setIsIssuing(false);
     route('/students/issue/result');
   };
+
+  const isInitialLoading = !issueControls || ticketTypes.length === 0;
+
+  if (isInitialLoading) {
+    return (
+      <div className={styles.issuePage}>
+        <BackButton href='/students/dashboard' />
+        <h1 className={styles.pageTitle}>チケット発券</h1>
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (isIssueReceptionStopped) {
     return (

@@ -20,6 +20,7 @@ import { formatDateText } from '../../../utils/formatDateText';
 import { useEventConfig } from '../../../hooks/useEventConfig';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 import Alert from '../../../components/ui/Alert';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { useTitle } from '../../../hooks/useTitle';
 
 const MAX_ISSUE_COUNT = 5;
@@ -457,6 +458,18 @@ const DayTicketIssue = () => {
   };
 
   const eventDateText = formatDateText(config.date);
+
+  const isInitialLoading = !issueControls || ticketTypes.length === 0;
+
+  if (isInitialLoading) {
+    return (
+      <div className={styles.issuePage}>
+        <BackButton href='/' />
+        <h1 className={styles.pageTitle}>当日券発券</h1>
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (isIssueReceptionStopped) {
     return (

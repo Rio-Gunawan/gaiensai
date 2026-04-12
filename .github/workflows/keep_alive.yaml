@@ -15,5 +15,4 @@ jobs:
           -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
           -H "Content-Type: application/json" \
-          -H "Prefer: resolution=merge-duplicates" \
           -d '{}'

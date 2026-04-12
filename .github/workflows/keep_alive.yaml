@@ -1,0 +1,17 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # 毎日 15:00 (UTC) に実行（日本時間 0:00）
+    - cron: '0 15 * * *'
+  workflow_dispatch: # 手動実行ボタン用
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send API Request
+        run: |
+          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"

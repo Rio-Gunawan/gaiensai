@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import styles from './Settings.module.css';
 import Switch from '../../components/ui/Switch';
 import { useTitle } from '../../hooks/useTitle';
+import { useEventConfig } from '../../hooks/useEventConfig';
 import PerformancesTable from '../../features/performances/PerformancesTable';
 import GymPerformancesTable from '../../features/performances/GymPerformancesTable';
 const ADMIN_CONTROL_PANEL_SESSION_TOKEN_KEY = 'admin_control_panel_session_v2';
@@ -176,6 +177,7 @@ type SettingsMessageScope =
   | null;
 
 const Settings = () => {
+  const { config } = useEventConfig();
   const [password, setPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -1042,6 +1044,15 @@ const Settings = () => {
           ロック
         </button>
       </div>
+      {authState === 'unlocked' && !isSettingsLoading && settings.eventYear !== config.year && (
+        <Alert type='error'>
+          <p>
+            Supabase側の設定年度 ({settings.eventYear}) と、
+            config.yamlの年度 ({config.year}) が一致していません。
+            不具合の原因となるため、忘れずにconfig.yamlの年度を更新してください。
+          </p>
+        </Alert>
+      )}
       <Alert type='warning'>
         <p>
           このページはシステム全体に影響を与えます。設定変更には十分ご注意ください。

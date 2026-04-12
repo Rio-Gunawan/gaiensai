@@ -5,12 +5,18 @@ import styles from './BackButton.module.css';
 type BackButtonProps = {
   href?: string;
   fallbackHref?: string;
+  onClick?: () => void;
 };
 
-const BackButton = ({ href, fallbackHref = '/' }: BackButtonProps) => {
+const BackButton = ({ href, fallbackHref = '/', onClick }: BackButtonProps) => {
   const { route } = useLocation();
 
   const handleBack = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+
     if (href) {
       route(href);
       return;

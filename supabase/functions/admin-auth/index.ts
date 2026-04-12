@@ -32,6 +32,8 @@ type AdminAuthRequest = {
   recordId?: unknown;
   column?: unknown;
   value?: unknown;
+  name?: unknown;
+  teachers?: unknown;
 };
 
 type TicketIssueMode =
@@ -56,6 +58,9 @@ type AdminAuthBody =
   | { mode: 'logoutSession' }
   | { mode: 'changePassword'; currentPassword: string; newPassword: string }
   | { mode: 'getSettings' }
+  | { mode: 'getTeachers' }
+  | { mode: 'updateTeacher'; teacherId: number; name: string }
+  | { mode: 'updateAllTeachers'; teachers: { id: number; name: string }[] }
   | {
       mode: 'updateTicketTypeSettings';
       activeTicketTypeIds: number[];
@@ -271,6 +276,10 @@ const parseBody = (body: unknown): AdminAuthBody => {
     return { mode: 'logoutSession' };
   }
 
+  if (action === 'getTeachers') {
+    return { mode: 'getTeachers' };
+  }
+
   if (action === 'changePassword') {
     const normalizedCurrentPassword = normalizePassword(
       currentPassword,
@@ -286,6 +295,29 @@ const parseBody = (body: unknown): AdminAuthBody => {
       mode: 'changePassword',
       currentPassword: normalizedCurrentPassword,
       newPassword: normalizedNewPassword,
+    };
+  }
+
+  if (action === 'updateTeacher') {
+    const { recordId, name } = body as AdminAuthRequest;
+    return {
+      mode: 'updateTeacher',
+      teacherId: normalizeInteger(recordId, 'recordId', 1, 1000000),
+      name: normalizePassword(name, 'name'),
+    };
+  }
+
+  if (action === 'updateAllTeachers') {
+    const { teachers } = body as AdminAuthRequest;
+    if (!Array.isArray(teachers)) {
+      throw new HttpError(400, 'teachers は配列で送信してください。');
+    }
+    return {
+      mode: 'updateAllTeachers',
+      teachers: (teachers as Record<string, unknown>[]).map((t) => ({
+        id: normalizeInteger(t.id, 'id', 1, 1000000),
+        name: normalizePassword(t.name, 'name'),
+      })),
     };
   }
 
@@ -854,6 +886,79 @@ Deno.serve(async (req) => {
           },
         },
       );
+    }
+
+    if (body.mode === 'getTeachers') {
+      const session = await requireValidSession(adminClient, req);
+      const { data, error } = await adminClient
+        .from('teachers')
+        .select('id, grade, class_id, name')
+        .order('grade', { ascending: true })
+        .order('class_id', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ teachers: data }), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    if (body.mode === 'updateTeacher') {
+      const session = await requireValidSession(adminClient, req);
+      const { error } = await adminClient
+        .from('teachers')
+        .update({ name: body.name })
+        .eq('id', body.teacherId);
+
+      if (error) {
+        throw error;
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ updated: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.mode === 'updateAllTeachers') {
+      const session = await requireValidSession(adminClient, req);
+
+      for (const t of body.teachers) {
+        const { error } = await adminClient
+          .from('teachers')
+          .update({ name: t.name })
+          .eq('id', t.id);
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ updated: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (body.mode === 'getSettings') {

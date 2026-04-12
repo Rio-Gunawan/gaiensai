@@ -19,11 +19,6 @@ type PerformanceSchedule = {
   round_name: string;
 };
 
-type RemainingSeatsRpcResult = {
-  remaining_general: number | string;
-  remaining_junior: number | string;
-};
-
 type PerformancesTableProps = {
   enableIssueJump?: boolean;
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
@@ -175,49 +170,70 @@ const PerformancesTable = ({
           performance.class_name === restrictedClassName,
       );
       const loadedSchedules = (scheduleData ?? []) as PerformanceSchedule[];
-      const seatMap = new Map<string, number>();
 
-      for (const schedule of loadedSchedules) {
-        const rpcCalls = loadedPerformances.map((performance) =>
-          supabase.rpc('get_remaining_seats', {
-            p_performance_id: performance.id,
-            p_schedule_id: schedule.id,
-          }),
-        );
+      // チケット種別のうち、中学生枠としてカウントするものを特定する
+      const { data: juniorTypes } = await supabase
+        .from('ticket_types')
+        .select('id')
+        .ilike('type', '%中学生%');
+      const juniorTypeIds = new Set(juniorTypes?.map((t) => t.id) || []);
 
-        const rpcResults = await Promise.all(rpcCalls);
+      // 全ての有効なクラス公演チケットを一度のクエリで取得 (N+1問題の解消)
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('class_tickets')
+        .select('class_id, round_id, tickets!inner(status, ticket_type)')
+        .eq('tickets.status', 'valid');
 
-        if (!isMounted) {
-          return;
-        }
-
-        for (let i = 0; i < loadedPerformances.length; i += 1) {
-          const performance = loadedPerformances[i];
-          const { data, error } = rpcResults[i] as {
-            data: RemainingSeatsRpcResult[] | null;
-            error: unknown;
-          };
-
-          if (error && isMounted) {
-            setErrorMessage('残席情報の取得に失敗しました。');
-            setLoading(false);
-            return;
-          }
-
-          const remainingGeneral = Number(data?.[0]?.remaining_general ?? 0);
-          const remainingJunior = Number(data?.[0]?.remaining_junior ?? 0);
-          const remaining =
-            currentRemainingMode === 'total'
-              ? remainingGeneral + remainingJunior
-              : currentRemainingMode === 'junior'
-                ? remainingJunior
-                : remainingGeneral;
-          seatMap.set(
-            `${performance.id}-${schedule.id}`,
-            Math.max(remaining, 0),
-          );
-        }
+      if (ticketError && isMounted) {
+        setErrorMessage('残席情報の取得に失敗しました。');
+        setLoading(false);
+        return;
       }
+
+      // 取得したチケットデータを集計
+      const counts = new Map<string, { total: number; junior: number }>();
+      (
+        (ticketData as unknown as Array<{
+          class_id: number;
+          round_id: number;
+          tickets: {
+            ticket_type_id: number;
+          };
+        }>) ?? []
+      ).forEach((row) => {
+        const key = `${row.class_id}-${row.round_id}`;
+        const current = counts.get(key) || { total: 0, junior: 0 };
+        current.total++;
+        if (juniorTypeIds.has(row.tickets.ticket_type_id)) {
+          current.junior++;
+        }
+        counts.set(key, current);
+      });
+
+      const seatMap = new Map<string, number>();
+      loadedSchedules.forEach((s) => {
+        loadedPerformances.forEach((p) => {
+          const key = `${p.id}-${s.id}`;
+          const stat = counts.get(key) || { total: 0, junior: 0 };
+
+          const totalCap = p.total_capacity ?? 0;
+          const juniorCap = p.junior_capacity ?? 0;
+          const generalCap = Math.max(totalCap - juniorCap, 0);
+
+          const juniorIssued = stat.junior;
+          const generalIssued = stat.total - stat.junior;
+
+          let remaining = 0;
+          if (currentRemainingMode === 'total') {
+            remaining = totalCap - stat.total;
+          } else if (currentRemainingMode === 'junior') {
+            remaining = juniorCap - juniorIssued;
+          } else {
+            remaining = generalCap - generalIssued;
+          }
+          seatMap.set(key, Math.max(remaining, 0));
+        });
+      });
 
       if (!isMounted) {
         return;

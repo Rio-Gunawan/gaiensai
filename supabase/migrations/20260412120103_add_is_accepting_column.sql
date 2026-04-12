@@ -46,9 +46,3 @@ with check ((id = 1));
   for insert
   to anon
 with check ((id = 1));
-
--- class_performances テーブルに受付可否フラグを追加
-ALTER TABLE class_performances ADD COLUMN is_accepting BOOLEAN DEFAULT TRUE;
-
--- gym_performances テーブルに受付可否フラグを追加
-ALTER TABLE gym_performances ADD COLUMN is_accepting BOOLEAN DEFAULT TRUE;

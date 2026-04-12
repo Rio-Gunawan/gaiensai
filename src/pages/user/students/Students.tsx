@@ -19,6 +19,7 @@ import {
 import styles from '../../../styles/sub-pages.module.css';
 import NotFound from '../../../shared/NotFound';
 import Login from './Login';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { useTitle } from '../../../hooks/useTitle';
 
 type AuthState = Session | undefined;
@@ -175,7 +176,7 @@ const Students = () => {
     return (
       <section>
         <h1 className={styles.pageTitle}>生徒用ページ</h1>
-        <h2>読み込み中...</h2>
+        <LoadingSpinner />
         <p>
           しばらく待ってもページが遷移しない場合は、
           <a href='/students/login'>ログインページ</a>または

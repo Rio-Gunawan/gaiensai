@@ -5,6 +5,7 @@ import { RiCircleLine, RiCloseLargeLine, RiTriangleLine } from 'react-icons/ri';
 import { useLocation } from 'preact-iso';
 
 import type { AvailableSeatSelection } from '../../types/types';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 type PerformanceRow = {
   id: number;
@@ -399,7 +400,7 @@ const PerformancesTable = ({
   };
 
   if (loading) {
-    return <p>読み込み中...</p>;
+    return <LoadingSpinner />;
   }
 
   if (errorMessage) {

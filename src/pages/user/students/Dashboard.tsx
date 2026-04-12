@@ -29,6 +29,7 @@ import GymPerformancesTable from '../../../features/performances/GymPerformances
 import { readCachedTicketCards, writeCachedTicketCards } from './offlineCache';
 import Alert from '../../../components/ui/Alert';
 import { formatDateText } from '../../../utils/formatDateText';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { useTicketStorage } from '../../../features/tickets/useTicketStorage';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
 import { useTitle } from '../../../hooks/useTitle';
@@ -760,7 +761,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
       <NormalSection>
         <h2>発券状況</h2>
         {ticketLoading ? (
-          <p>読み込み中...</p>
+          <LoadingSpinner />
         ) : ticketError ? (
           <p>{ticketError}</p>
         ) : ticketCards.length > 0 ? (

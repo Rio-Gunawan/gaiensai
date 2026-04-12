@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import styles from './PerformancesTable.module.css';
 import { useLocation } from 'preact-iso';
 import type { AvailableSeatSelection } from '../../types/types';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 type GymPerformanceRow = {
   id: number;
@@ -302,7 +303,7 @@ const GymPerformancesTable = ({
   };
 
   if (loading) {
-    return <p>読み込み中...</p>;
+    return <LoadingSpinner />;
   }
 
   if (errorMessage) {

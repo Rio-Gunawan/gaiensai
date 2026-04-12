@@ -32,6 +32,7 @@ import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType.ts
 import iconUrl from '../../assets/icon.webp';
 import { formatDateText } from '../../utils/formatDateText.ts';
 import { useTicketStorage } from '../../features/tickets/useTicketStorage.ts';
+import LoadingSpinner from '../../components/ui/LoadingSpinner.tsx';
 import { useTitle } from '../../hooks/useTitle.ts';
 
 type TicketDisplay = TicketDecodedDisplaySeed & {
@@ -91,7 +92,10 @@ type TicketSnapshot = {
 
 const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 const ticketTypeSnapshotById = new Map(
-  (ticketSnapshot.ticketTypes ?? []).map((ticketType) => [ticketType.id, ticketType]),
+  (ticketSnapshot.ticketTypes ?? []).map((ticketType) => [
+    ticketType.id,
+    ticketType,
+  ]),
 );
 
 const resolveTicketTypeLabel = (params: {
@@ -105,10 +109,7 @@ const resolveTicketTypeLabel = (params: {
   });
 };
 
-const isCurrentTicketYear = (
-  year: unknown,
-  currentYear: unknown,
-): boolean => {
+const isCurrentTicketYear = (year: unknown, currentYear: unknown): boolean => {
   const ticketYear = Number(year);
   const eventYear = Number(currentYear);
   if (!Number.isInteger(ticketYear) || !Number.isInteger(eventYear)) {
@@ -635,11 +636,14 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               ticketTypeRes.error ||
               relationshipRes.error ||
               classPerformanceRes.error ||
-              (isGymPerformance ? gymPerformanceRes.error : scheduleRes.error) ||
+              (isGymPerformance
+                ? gymPerformanceRes.error
+                : scheduleRes.error) ||
               configRes.error ||
               !ticketTypeRes.data ||
               !relationshipRes.data ||
-              (!isGymPerformance && (!classPerformanceRes.data || !scheduleRes.data)) ||
+              (!isGymPerformance &&
+                (!classPerformanceRes.data || !scheduleRes.data)) ||
               (isGymPerformance && !gymPerformanceRes.data)
             ) {
               return;
@@ -662,9 +666,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             const sourceStartAt = isGymPerformance
               ? gymPerformanceRes.data?.start_at
               : scheduleRes.data?.start_at;
-            const startAt = sourceStartAt
-              ? new Date(sourceStartAt)
-              : null;
+            const startAt = sourceStartAt ? new Date(sourceStartAt) : null;
             const showLengthMinutes = Number(configRes.data?.show_length ?? 0);
             const endAt =
               startAt && Number.isFinite(showLengthMinutes)
@@ -776,8 +778,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
   const ticketUrl = `https://${config.site_url}/t/${token}`;
   const canCancelTicket =
     !loading && !cancelLoading && ticketStatus === 'valid';
-  const isDayTicket =
-    ticket.ticketTypeId === 8 || ticket.ticketTypeId === 9;
+  const isDayTicket = ticket.ticketTypeId === 8 || ticket.ticketTypeId === 9;
   const qrColor =
     ticket.performanceId > 0 && ticket.scheduleId === 0
       ? '#d61322'
@@ -1068,7 +1069,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
           )}
         </Alert>
       )}
-      {loading && <p>読み込み中...</p>}
+      {loading && <LoadingSpinner />}
       <div className={styles.ticketContainer}>
         <span className={styles.serialBadge}>#{ticket.serial}</span>
         <h2 className={styles.ticketHeader}>
@@ -1149,11 +1150,13 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
             <div className={styles.detailRow}>
               <span className={styles.detailLabel}>発行者</span>
               <span className={styles.detailValue}>
-                {ticket.affiliation === '1600' ? '当日券ゲスト' :
-                  Math.floor(Number(ticket.affiliation) / 10000) + '-' +
-                  Math.floor(Number(ticket.affiliation) % 10000 / 100) + ' ' +
-                  Number(ticket.affiliation) % 100
-                }
+                {ticket.affiliation === '1600'
+                  ? '当日券ゲスト'
+                  : Math.floor(Number(ticket.affiliation) / 10000) +
+                    '-' +
+                    Math.floor((Number(ticket.affiliation) % 10000) / 100) +
+                    ' ' +
+                    (Number(ticket.affiliation) % 100)}
               </span>
             </div>
             <div className={styles.detailRow}>
@@ -1382,7 +1385,9 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               </select>
             </label>
 
-            {relationshipLoading && <p>間柄を読み込み中...</p>}
+            {relationshipLoading && (
+              <LoadingSpinner message='間柄を読み込み中...' />
+            )}
             {relationshipError && (
               <p className={styles.relationshipError}>{relationshipError}</p>
             )}

@@ -58,6 +58,7 @@ import baseStyles from '../../styles/sub-pages.module.css';
 import styles from './ScanHistory.module.css';
 import Alert from '../../components/ui/Alert';
 import BackButton from '../../components/ui/BackButton';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { YEAR_BITS } from '../../../supabase/functions/_shared/ticketDataType';
 import { useTitle } from '../../hooks/useTitle';
 
@@ -917,11 +918,13 @@ const ScanHistory = () => {
         {activeTab === 'records' && (
           <section className={styles.tabContent}>
             {rows.length === 0 && !error ? (
-              <p className={styles.emptyText}>
-                {isLoading
-                  ? '読み取り履歴を読み込み中...'
-                  : '読み取り履歴がまだありません。'}
-              </p>
+              isLoading ? (
+                <LoadingSpinner message='読み取り履歴を読み込み中...' />
+              ) : (
+                <p className={styles.emptyText}>
+                  読み取り履歴がまだありません。
+                </p>
+              )
             ) : (
               <>
                 <div className={styles.tableToolbar}>
@@ -1037,11 +1040,13 @@ const ScanHistory = () => {
         {activeTab === 'tickets' && (
           <section className={styles.tabContent}>
             {ticketRows.length === 0 && !error ? (
-              <p className={styles.emptyText}>
-                {isLoading
-                  ? 'チケット履歴を読み込み中...'
-                  : 'チケット履歴がまだありません。'}
-              </p>
+              isLoading ? (
+                <LoadingSpinner message='チケット履歴を読み込み中...' />
+              ) : (
+                <p className={styles.emptyText}>
+                  チケット履歴がまだありません。
+                </p>
+              )
             ) : (
               <>
                 <div className={styles.tableToolbar}>
@@ -1086,8 +1091,9 @@ const ScanHistory = () => {
                             {ticket.decoded?.resolved?.ticketTypeLabel ?? '-'}
                           </td>
                           <td>
-                            {ticket.decoded?.affiliation === '1600' ? '当日券ゲスト' :ticket.decoded
-                              ?.affiliation ?? '-'}
+                            {ticket.decoded?.affiliation === '1600'
+                              ? '当日券ゲスト'
+                              : (ticket.decoded?.affiliation ?? '-')}
                           </td>
                           <td>
                             {ticket.decoded?.resolved?.performanceName ?? '-'}
@@ -1120,11 +1126,11 @@ const ScanHistory = () => {
         {activeTab === 'operations' && (
           <section className={styles.tabContent}>
             {operationRows.length === 0 && !error ? (
-              <p className={styles.emptyText}>
-                {isLoading
-                  ? '操作ログを読み込み中...'
-                  : '操作ログがまだありません。'}
-              </p>
+              isLoading ? (
+                <LoadingSpinner message='操作ログを読み込み中...' />
+              ) : (
+                <p className={styles.emptyText}>操作ログがまだありません。</p>
+              )
             ) : (
               <>
                 <div className={styles.tableToolbar}>

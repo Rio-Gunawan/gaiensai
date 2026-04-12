@@ -8,6 +8,7 @@ import { useTitle } from '../../hooks/useTitle';
 import { useEventConfig } from '../../hooks/useEventConfig';
 import PerformancesTable from '../../features/performances/PerformancesTable';
 import GymPerformancesTable from '../../features/performances/GymPerformancesTable';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 const ADMIN_CONTROL_PANEL_SESSION_TOKEN_KEY = 'admin_control_panel_session_v2';
 
 const getSessionToken = () => {
@@ -979,9 +980,7 @@ const Settings = () => {
     return (
       <div>
         <h1 className={styles.pageTitle}>コントロールパネル</h1>
-        <section>
-          <p>認証状態を確認しています...</p>
-        </section>
+        <LoadingSpinner message='認証状態を確認しています...' />
       </div>
     );
   }
@@ -1044,15 +1043,17 @@ const Settings = () => {
           ロック
         </button>
       </div>
-      {authState === 'unlocked' && !isSettingsLoading && settings.eventYear !== config.year && (
-        <Alert type='error'>
-          <p>
-            Supabase側の設定年度 ({settings.eventYear}) と、
-            config.yamlの年度 ({config.year}) が一致していません。
-            不具合の原因となるため、忘れずにconfig.yamlの年度を更新してください。
-          </p>
-        </Alert>
-      )}
+      {authState === 'unlocked' &&
+        !isSettingsLoading &&
+        settings.eventYear !== config.year && (
+          <Alert type='error'>
+            <p>
+              Supabase側の設定年度 ({settings.eventYear}) と、 config.yamlの年度
+              ({config.year}) が一致していません。
+              不具合の原因となるため、忘れずにconfig.yamlの年度を更新してください。
+            </p>
+          </Alert>
+        )}
       <Alert type='warning'>
         <p>
           このページはシステム全体に影響を与えます。設定変更には十分ご注意ください。
@@ -1113,7 +1114,7 @@ const Settings = () => {
           </div>
         </div>
         {settingsMessageScope === 'globalSection' && isSettingsLoading && (
-          <p className={styles.statusMessage}>設定を読み込み中です...</p>
+          <LoadingSpinner message='設定を読み込み中です...' />
         )}
         {settingsMessageScope === 'globalSection' && settingsError && (
           <p className={styles.authError}>{settingsError}</p>
@@ -1430,7 +1431,7 @@ const Settings = () => {
           </div>
         </div>
         {settingsMessageScope === 'ticketSection' && isSettingsLoading && (
-          <p className={styles.statusMessage}>設定を読み込み中です...</p>
+          <LoadingSpinner message='設定を読み込み中です...' />
         )}
         {settingsMessageScope === 'ticketSection' && settingsError && (
           <p className={styles.authError}>{settingsError}</p>
@@ -1659,6 +1660,15 @@ const Settings = () => {
         {settingsMessageScope === 'detailSection' && settingsSuccess && (
           <p className={styles.authSuccess}>{settingsSuccess}</p>
         )}
+      </NormalSection>
+      <NormalSection>
+        <h2>担任の先生の名前</h2>
+        <p className={styles.noteText}>
+          ここで設定した名前は、生徒用アカウントの登録時に入力する担任の先生の名前と照合されます。正確に設定してください。
+        </p>
+        <a href='/admin/teachers' className={styles.linkButton}>
+          こちらで変更
+        </a>
       </NormalSection>
       <NormalSection>
         <h2>削除ツール</h2>

@@ -6,6 +6,7 @@ import { useTurnstile } from '../../../hooks/useTurnstile';
 import lineImageUrl from '../../../assets/line.webp';
 import styles from './Login.module.css';
 import subPageStyles from '../../../styles/sub-pages.module.css';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 
 import type { Session } from '../../../types/types';
 import { useTitle } from '../../../hooks/useTitle';
@@ -158,8 +159,7 @@ function Login() {
     return (
       <div>
         <h1 className={subPageStyles.pageTitle}>認証</h1>
-        <p>マジックリンクの確認中...</p>
-        <p>しばらくお待ちください。</p>
+        <LoadingSpinner message='マジックリンクの確認中...' />
       </div>
     );
   }
@@ -197,7 +197,7 @@ function Login() {
       <div>
         <h1 className={subPageStyles.pageTitle}>認証</h1>
         <p>認証に成功しました！</p>
-        <p>アカウントを読み込み中...</p>
+        <LoadingSpinner message='アカウントを読み込み中...' />
       </div>
     );
   }

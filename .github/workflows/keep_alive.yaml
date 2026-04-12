@@ -1,51 +1,19 @@
-name: Supabase Keep Alive
+name: keep-supabase-alive
 
 on:
   schedule:
-    # 毎日 15:00 (UTC) に実行（日本時間 0:00）
-    - cron: '0 15 * * *'
-  workflow_dispatch: # 手動実行ボタン用
+    - cron: "0 15 */3 * *"
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-
     steps:
-      - name: Ping Supabase (REST select)
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      - name: Ping Supabase (anon key)
         run: |
-          set -euo pipefail
-
-          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]; then
-            echo "Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY secrets."
-            exit 1
-          fi
-
-          ENDPOINT="${SUPABASE_URL}/rest/v1/healthcheck"
-
-          echo "Requesting: ${ENDPOINT}"
-
-          # curl with retry
-          http_code=$(curl -sS -o /tmp/resp.json \
-            -w "%{http_code}" \
-            --retry 3 --retry-delay 2 --retry-all-errors \
-            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            -d '{}'
-            "${ENDPOINT}")
-
-          echo "HTTP: ${http_code}"
-          cat /tmp/resp.json || true
-
-          if [ "${http_code}" -lt 200 ] || [ "${http_code}" -ge 300 ]; then
-            echo "Supabase heartbeat failed."
-            exit 1
-          fi
-
-          echo "Supabase heartbeat OK."
+          curl -X POST "https://YOUR_PROJECT.supabase.co/rest/v1/keep_alive" \
+          -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+          -H "Content-Type: application/json" \
+          -H "Prefer: resolution=merge-duplicates" \
+          -d '{"id":1}'

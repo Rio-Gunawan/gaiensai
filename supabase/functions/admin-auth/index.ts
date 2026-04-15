@@ -34,6 +34,8 @@ type AdminAuthRequest = {
   value?: unknown;
   name?: unknown;
   teachers?: unknown;
+  users?: unknown;
+  studentId?: unknown;
 };
 
 type TicketIssueMode =
@@ -61,6 +63,17 @@ type AdminAuthBody =
   | { mode: 'getTeachers' }
   | { mode: 'updateTeacher'; teacherId: number; name: string }
   | { mode: 'updateAllTeachers'; teachers: { id: number; name: string }[] }
+  | { mode: 'deleteAllStudentAccounts' }
+  | { mode: 'getStudentUsers' }
+  | {
+      mode: 'resetUserPassword';
+      studentId: string;
+      newPassword: string;
+    }
+  | {
+      mode: 'bulkCreateUsers';
+      users: { id: string; password: string }[];
+    }
   | {
       mode: 'updateTicketTypeSettings';
       activeTicketTypeIds: number[];
@@ -298,6 +311,26 @@ const parseBody = (body: unknown): AdminAuthBody => {
     };
   }
 
+  if (action === 'deleteAllStudentAccounts') {
+    return { mode: 'deleteAllStudentAccounts' };
+  }
+
+  if (action === 'getStudentUsers') {
+    return { mode: 'getStudentUsers' };
+  }
+
+  if (action === 'resetUserPassword') {
+    const { studentId, newPassword } = body as AdminAuthRequest;
+    if (!studentId) {
+      throw new HttpError(400, 'studentId を指定してください。');
+    }
+    return {
+      mode: 'resetUserPassword',
+      studentId: String(studentId),
+      newPassword: normalizePassword(newPassword, 'newPassword'),
+    };
+  }
+
   if (action === 'updateTeacher') {
     const { recordId, name } = body as AdminAuthRequest;
     return {
@@ -319,6 +352,20 @@ const parseBody = (body: unknown): AdminAuthBody => {
         name: normalizePassword(t.name, 'name'),
       })),
     };
+  }
+
+  if (action === 'bulkCreateUsers') {
+    const { users } = body as AdminAuthRequest;
+    if (!Array.isArray(users)) {
+      throw new HttpError(400, 'users は配列で送信してください。');
+    }
+    const validatedUsers: { id: string; password: string }[] = users.map(
+      (u: Record<string, unknown>) => ({
+        id: String(u.id ?? ''),
+        password: String(u.password ?? ''),
+      }),
+    );
+    return { mode: 'bulkCreateUsers', users: validatedUsers };
   }
 
   if (action === 'updateAcceptingStatus') {
@@ -948,6 +995,227 @@ Deno.serve(async (req) => {
         if (error) {
           throw error;
         }
+      }
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ updated: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.mode === 'deleteAllStudentAccounts') {
+      const session = await requireValidSession(adminClient, req);
+
+      // 生徒アカウントを最大1000件取得
+      const {
+        data: { users },
+        error: listError,
+      } = await adminClient.auth.admin.listUsers({
+        perPage: 1000,
+      });
+
+      if (listError) {
+        throw listError;
+      }
+
+      // @gaiensai.local のドメインを持つユーザーのみを抽出
+      const studentsToDelete = users.filter((u) =>
+        u.email?.endsWith('@gaiensai.local'),
+      );
+
+      // CPU時間制限(soft limit)を回避するため、1回のリクエストでの処理数を制限し、バッチサイズを最適化
+      // また、スプレッド構文による配列結合を避け、CPU負荷を軽減
+      const MAX_PROCESS_PER_REQUEST = 200;
+      const targets = studentsToDelete.slice(0, MAX_PROCESS_PER_REQUEST);
+      const BATCH_SIZE = 50;
+
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+        const batch = targets.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map((u) => adminClient.auth.admin.deleteUser(u.id)),
+        );
+
+        for (const res of results) {
+          if (res.error) {
+            errors.push(res.error.message);
+          } else {
+            deletedCount++;
+          }
+        }
+      }
+
+      // 生徒アカウントを最大1000件取得
+      const {
+        data: { users: remainingUsers },
+        error,
+      } = await adminClient.auth.admin.listUsers({
+        perPage: 1000,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // @gaiensai.local のドメインを持つユーザーのみを抽出
+      const studentsRemaining = remainingUsers.filter((u) =>
+        u.email?.endsWith('@gaiensai.local'),
+      );
+
+      const remaining = studentsRemaining.length;
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(
+        JSON.stringify({
+          deleted: true,
+          count: deletedCount,
+          remaining, // 残数があることをフロントに伝える
+          errors: errors.length > 0 ? errors : undefined,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (body.mode === 'bulkCreateUsers') {
+      const session = await requireValidSession(adminClient, req);
+
+      const results = { created: 0, skipped: 0, errors: [] as string[] };
+      const failedUsers: { id: string; password: string }[] = [];
+
+      // バッチ内を並列実行して高速化
+      const promises = body.users.map(
+        async (user: { id: string; password: string }) => {
+          const email = `${user.id}@gaiensai.local`;
+          const { error } = await adminClient.auth.admin.createUser({
+            email,
+            password: user.password,
+            email_confirm: true,
+            user_metadata: { student_id: user.id },
+          });
+
+          if (error) {
+            if (error.message.includes('already registered')) {
+              return { type: 'skipped' };
+            }
+            return {
+              type: 'error',
+              message: `${user.id}: ${error.message}`,
+              user,
+            };
+          }
+          return { type: 'created' };
+        },
+      );
+
+      const rawResults = await Promise.all(promises);
+      rawResults.forEach((res) => {
+        if (res.type === 'created') {
+          results.created++;
+        } else if (res.type === 'skipped') {
+          results.skipped++;
+        } else if (res.type === 'error') {
+          results.errors.push(res.message!);
+          failedUsers.push(res.user!);
+        }
+      });
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ ...results, failedUsers }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.mode === 'getStudentUsers') {
+      const session = await requireValidSession(adminClient, req);
+
+      // 生徒アカウントを最大1000件取得
+      const {
+        data: { users },
+        error,
+      } = await adminClient.auth.admin.listUsers({
+        perPage: 1000,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // @gaiensai.local のドメインを持つユーザーのみを抽出
+      const studentUsers = users
+        .filter((u) => u.email?.endsWith('@gaiensai.local'))
+        .map((u) => ({
+          studentId: u.user_metadata?.student_id || u.email?.split('@')[0],
+          email: u.email,
+          lastSignIn: u.last_sign_in_at,
+          createdAt: u.created_at,
+        }))
+        .sort((a, b) => a.studentId.localeCompare(b.studentId));
+
+      await adminClient
+        .from('admin_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', session.id);
+
+      return new Response(JSON.stringify({ users: studentUsers }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.mode === 'resetUserPassword') {
+      const session = await requireValidSession(adminClient, req);
+
+      const email = `${body.studentId}@gaiensai.local`;
+
+      // IDから対象ユーザーを検索 (Auth Admin APIを使用)
+      // デフォルトは50件なので、perPageを指定して検索対象を広げる
+      const {
+        data: { users },
+        error: listError,
+      } = await adminClient.auth.admin.listUsers({
+        perPage: 1000,
+      });
+
+      if (listError) {
+        throw listError;
+      }
+
+      const authUser = users.find((u) => u.email === email);
+
+      if (!authUser) {
+        throw new HttpError(
+          404,
+          '対象の生徒アカウントが見つかりませんでした。',
+        );
+      }
+
+      // パスワードを更新
+      const { error: updateError } =
+        await adminClient.auth.admin.updateUserById(authUser.id, {
+          password: body.newPassword,
+        });
+
+      if (updateError) {
+        throw updateError;
       }
 
       await adminClient

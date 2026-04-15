@@ -3,7 +3,6 @@ import { supabase } from '../../../lib/supabase';
 import { useLocation } from 'preact-iso';
 import { useTurnstile } from '../../../hooks/useTurnstile';
 
-import lineImageUrl from '../../../assets/line.webp';
 import styles from './Login.module.css';
 import subPageStyles from '../../../styles/sub-pages.module.css';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
@@ -14,6 +13,7 @@ import { useTitle } from '../../../hooks/useTitle';
 function Login() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [session, setSession] = useState<Session>(null);
 
   // Check URL params on initial render
@@ -91,67 +91,21 @@ function Login() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
+    const loginEmail = `${email}@gaiensai.local`;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmail,
+      password,
       options: {
-        emailRedirectTo: window.location.href,
         captchaToken,
       },
     });
+
     resetTurnstile();
     if (error) {
-      if (
-        error.message.includes(
-          'For security purposes, you can only request this after',
-        )
-      ) {
-        alert(
-          'セキュリティ保護のため、一時的にメール送信を制限しています。しばらく待ってからお試しください。',
-        );
-      } else {
-        alert(error.message);
-      }
-    } else {
-      alert(
-        'ログイン用メールを送信しました。メール内のURLをクリックしてログインしてください。',
-      );
+      alert(`ログインに失敗しました: ${error.message}`);
     }
     setLoading(false);
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.href,
-      },
-    });
-    if (error) {
-      alert(error.message);
-    }
-    setLoading(false);
-  };
-
-  const handleLineLogin = () => {
-    const state = crypto.randomUUID(); // CSRF対策
-    localStorage.removeItem('line_oauth_state');
-    localStorage.setItem('line_oauth_state', state); // stateをローカルストレージに保存(LINEでは新しいタブを開いてしまう可能性があるため)
-
-    const scope = 'profile openid email';
-    const responseType = 'code';
-
-    const params = new URLSearchParams({
-      response_type: responseType,
-      client_id: import.meta.env.VITE_PUBLIC_LINE_CHANNEL_ID!,
-      redirect_uri: import.meta.env.VITE_PUBLIC_LINE_REDIRECT_URI!,
-      scope: scope,
-      state: state,
-    });
-
-    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
-
-    window.location.href = lineAuthUrl;
   };
 
   // Show verification state
@@ -213,74 +167,36 @@ function Login() {
       <h1 className={subPageStyles.pageTitle}>ようこそ</h1>
       <div className={styles.loginContainer}>
         <h2>ログイン・登録</h2>
+        <p>
+          事前配布されたログインID・パスワードを使ってログインしてください。
+        </p>
         <form onSubmit={handleLogin} className={styles.loginForm}>
+          <label>ID</label>
           <input
-            type='email'
-            placeholder='Your email'
+            type='text'
+            placeholder='Your ID'
             value={email}
             required={true}
             className={styles.loginInput}
             onChange={(e) => setEmail(e.currentTarget.value)}
           />
           <br />
+          <label>パスワード</label>
+          <input
+            type='password'
+            placeholder='Your Password'
+            value={password}
+            required={true}
+            className={styles.loginInput}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+          />
           <button
             className={styles.loginButton}
             disabled={loading || !turnstileToken || !hasTurnstileSiteKey}
           >
-            {loading ? (
-              <span>読み込み中</span>
-            ) : (
-              <span>メールアドレスでログイン</span>
-            )}
+            {loading ? <span>読み込み中</span> : <span>ログイン</span>}
           </button>
         </form>
-        <button
-          className={`${styles.gsiMaterialButton} ${styles.loginButton}`}
-          style='width:300'
-          onClick={handleGoogleLogin}
-          disabled={loading}
-        >
-          <div className={styles.gsiMaterialButtonState}></div>
-          <div className={styles.gsiMaterialButtonContentWrapper}>
-            <div className={styles.gsiMaterialButtonIcon}>
-              <svg
-                version='1.1'
-                xmlns='http://www.w3.org/2000/svg'
-                viewBox='0 0 48 48'
-                style='display: block;'
-              >
-                <path
-                  fill='#EA4335'
-                  d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'
-                ></path>
-                <path
-                  fill='#4285F4'
-                  d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'
-                ></path>
-                <path
-                  fill='#FBBC05'
-                  d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'
-                ></path>
-                <path
-                  fill='#34A853'
-                  d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'
-                ></path>
-                <path fill='none' d='M0 0h48v48H0z'></path>
-              </svg>
-            </div>
-            <span className={styles.gsiMaterialButtonContents}>
-              Googleで続行
-            </span>
-            <span style='display: none;'>Googleで続行</span>
-          </div>
-        </button>
-        <button
-          onClick={handleLineLogin}
-          className={`${styles.loginButton} ${styles.lineButton}`}
-          disabled={loading}
-        >
-          <img src={lineImageUrl} alt='LINE' /> <span>LINEでログイン</span>
-        </button>
 
         <div className={styles.turnstileContainer}>
           <div id='login-email-turnstile' className='cf-turnstile'></div>
@@ -296,15 +212,6 @@ function Login() {
             ''
           )}
         </div>
-
-        <h3>メールアドレスの取得目的について</h3>
-        <p>
-          本サービスでは、なりすましによる不正チケット取得を防止するために、メールアドレスによる認証を行なっております。
-          また、チケットを取得した際やキャンセル待ちの通知を送信するために、メールアドレスを取得させていただきます。
-          以上の目的以外でメールアドレスを使用することはありません。
-          <br />
-          以上の取得の目的に同意の上、お進みください。ご理解とご協力をお願いします。
-        </p>
       </div>
     </>
   );

@@ -135,6 +135,7 @@ type SettingsMessageScope =
   | 'globalSection'
   | 'ticketSection'
   | 'detailSection'
+  | 'deletionTool'
   | null;
 
 const SettingsContent = () => {
@@ -218,6 +219,8 @@ const SettingsContent = () => {
   useTitle('コントロールパネル - 管理画面');
 
   const handlePasswordChange = async (event: Event) => {
+    setSettingsMessageScope(null); // Clear any previous messages
+
     event.preventDefault();
     setPasswordChangeError(null);
     setPasswordChangeSuccess(null);
@@ -268,6 +271,66 @@ const SettingsContent = () => {
       setPasswordChangeError(`パスワード変更に失敗しました。${message}`);
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const [showDeleteAllAccountsModal, setShowDeleteAllAccountsModal] =
+    useState(false);
+  const [isDeletingAllAccounts, setIsDeletingAllAccounts] = useState(false);
+
+  const handleDeleteAllAccounts = async () => {
+    setSettingsMessageScope('deletionTool');
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    setIsDeletingAllAccounts(true);
+    setShowDeleteAllAccountsModal(false);
+    let totalDeletedSoFar = 0;
+
+    try {
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error('セッションがありません。再ログインしてください。');
+      }
+
+      while (true) {
+        const { data, error } = await supabase.functions.invoke('admin-auth', {
+          body: { action: 'deleteAllStudentAccounts' },
+          headers: {
+            'x-admin-session-token': token,
+          },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data?.deleted) {
+          throw new Error('削除に失敗しました。');
+        }
+
+        totalDeletedSoFar += data.count;
+
+        if (data.remaining > 0) {
+          setSettingsSuccess(
+            `現在 ${totalDeletedSoFar} 件を削除しました。5秒後に次のバッチを開始します...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        } else {
+          break;
+        }
+      }
+
+      setSettingsSuccess(
+        `合計 ${totalDeletedSoFar} 件の全ての生徒アカウントを削除しました。`,
+      );
+    } catch (error) {
+      const message = await readErrorMessage(error);
+      setSettingsError(`全ての生徒アカウントの削除に失敗しました。${message}`);
+    } finally {
+      setIsDeletingAllAccounts(false);
+      // 削除後、生徒アカウント管理ページの一覧を更新する必要があるが、
+      // ここでは直接的な更新は行わず、ユーザーに手動更新を促すか、
+      // ページ遷移を推奨する。
     }
   };
 
@@ -692,17 +755,8 @@ const SettingsContent = () => {
         }
       }
 
+      closeNumericEditModal();
       setIsModalSubmitting(true);
-      const success = await handleToggleTableValue(
-        table,
-        id,
-        column,
-        parsed,
-        'modal',
-      );
-      if (success) {
-        closeNumericEditModal();
-      }
       setIsModalSubmitting(false);
       return;
     }
@@ -740,20 +794,8 @@ const SettingsContent = () => {
       return;
     }
 
+    closeNumericEditModal();
     setIsModalSubmitting(true);
-    const nextSettings: ControlPanelSettings = {
-      ...settings,
-      [editingNumericKey]: parsed,
-    };
-
-    const updated = await syncSettings(
-      nextSettings,
-      `${meta.label}を更新しました。`,
-      'modal',
-    );
-    if (updated) {
-      closeNumericEditModal();
-    }
     setIsModalSubmitting(false);
   };
 
@@ -871,6 +913,17 @@ const SettingsContent = () => {
           <p className={styles.authSuccess}>{settingsSuccess}</p>
         )}
       </NormalSection>
+
+      <NormalSection>
+        <h2>生徒アカウント管理</h2>
+        <p className={styles.noteText}>
+          学年・クラス・出席番号の全組み合わせに対するログインアカウントを一括生成し、Authへ登録します。
+        </p>
+        <a href='/admin/student-accounts' className={styles.linkButton}>
+          こちらで変更
+        </a>
+      </NormalSection>
+
       <NormalSection>
         <h2>公演空き状況</h2>
         <h3>クラス公演</h3>
@@ -1423,6 +1476,22 @@ const SettingsContent = () => {
         <p className={styles.noteText}>
           データの削除は慎重に行う必要があります。削除を行う前に、必ずデータのバックアップを取ってください。
         </p>
+        <div className={styles.saveButtonContainer}>
+          <button
+            type='button'
+            className={`${styles.authButton} ${styles.settingModalConfirmDanger}`}
+            onClick={() => setShowDeleteAllAccountsModal(true)}
+            disabled={isDeletingAllAccounts}
+          >
+            全ての生徒アカウントを削除
+          </button>
+        </div>
+        {settingsMessageScope === 'deletionTool' && settingsError && (
+          <p className={styles.authError}>{settingsError}</p>
+        )}
+        {settingsMessageScope === 'deletionTool' && settingsSuccess && (
+          <p className={styles.authSuccess}>{settingsSuccess}</p>
+        )}
       </NormalSection>
       <NormalSection>
         <h2>パスワード変更</h2>
@@ -1551,6 +1620,57 @@ const SettingsContent = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showDeleteAllAccountsModal && (
+        <div
+          className={styles.settingModalOverlay}
+          role='presentation'
+          onClick={() => setShowDeleteAllAccountsModal(false)}
+        >
+          <div
+            className={styles.settingModal}
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='delete-all-accounts-title'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              id='delete-all-accounts-title'
+              className={styles.settingModalTitle}
+            >
+              全ての生徒アカウントを削除しますか？
+            </h3>
+            <p>
+              この操作は取り消せません。全ての生徒アカウントがシステムから削除されます。
+              本当に実行しますか？
+            </p>
+            <div className={styles.settingModalActions}>
+              <button
+                type='button'
+                className={styles.settingModalCancel}
+                onClick={() => setShowDeleteAllAccountsModal(false)}
+                disabled={isDeletingAllAccounts}
+              >
+                キャンセル
+              </button>
+              <button
+                type='button'
+                className={`${styles.settingModalConfirm} ${styles.settingModalConfirmDanger}`}
+                onClick={handleDeleteAllAccounts}
+                disabled={isDeletingAllAccounts}
+              >
+                {isDeletingAllAccounts ? '削除中...' : '削除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeletingAllAccounts && (
+        <div className={styles.settingModalOverlay}>
+          <LoadingSpinner message='全ての生徒アカウントを削除中です...' />
         </div>
       )}
     </div>

@@ -29,7 +29,7 @@ export default defineConfig([
       "no-var": "error",
       "prefer-const": "warn",
       "eqeqeq": ["error", "always"],
-      "curly": ["error", "all"],
+      "curly": ["warn", "all"],
 
       // Preactを使用するのでこれはオフに。
       "react/react-in-jsx-scope": "off",

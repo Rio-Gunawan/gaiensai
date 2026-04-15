@@ -152,6 +152,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   };
 
   const handleDeleteAccount = async () => {
+    setIsDeleteModalOpen(false);
     // SQLで作成した 'delete_user' 関数を呼び出す
     const { error } = await supabase.rpc('delete_user');
     setIsDeleteModalOpen(false);

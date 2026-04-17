@@ -105,7 +105,7 @@
         "npm:typescript@~5.9.3",
         "npm:uqr@~0.1.2",
         "npm:vite-plugin-pwa@^1.2.0",
-        "npm:vite@^8.0.8",
+        "npm:vite@^7.3.2",
         "npm:vitest@^4.0.18"
       ]
     }

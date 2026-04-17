@@ -726,7 +726,6 @@ const Dashboard = ({ userData }: DashboardProps) => {
           {Math.floor(userData.affiliation / 10000)}-
           {Math.floor((userData.affiliation % 10000) / 100)}
           {' ' + (userData.affiliation % 100) + '番 '}
-          {userData.name} 様
         </h2>
         <a
           href='/students/issue'

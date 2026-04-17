@@ -19,7 +19,6 @@ export type Session = {
 
 export type UserData = {
   email: string;
-  name: string;
   affiliation: number;
 } | null;
 

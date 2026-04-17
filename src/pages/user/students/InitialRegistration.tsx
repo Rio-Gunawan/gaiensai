@@ -2,8 +2,6 @@ import { useEffect, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
-import Modal from '../../../components/ui/Modal';
-import { useEventConfig } from '../../../hooks/useEventConfig';
 import { useTurnstile } from '../../../hooks/useTurnstile';
 import { useTitle } from '../../../hooks/useTitle';
 
@@ -12,16 +10,11 @@ type InitialRegistrationProps = {
 };
 
 const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
-  const { config } = useEventConfig();
-  const [name, setName] = useState('');
-  const [grade, setGrade] = useState('');
-  const [studentClass, setStudentClass] = useState('');
-  const [number, setNumber] = useState('');
-  const [teacherName, setTeacherName] = useState('');
   const [availableClubs, setAvailableClubs] = useState<string[]>([]);
   const [selectedClubs, setSelectedClubs] = useState<string[]>([]);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useTitle('初回登録 - 生徒用ページ');
@@ -53,47 +46,22 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     event.preventDefault();
     setErrorMessage(null);
 
-    const parsedGrade = Number(grade);
-    const parsedClass = Number(studentClass);
-    const parsedNumber = Number(number);
-
-    if (
-      !Number.isInteger(parsedGrade) ||
-      parsedGrade < 1 ||
-      parsedGrade > config.grade_number
-    ) {
-      setErrorMessage(
-        `学年は 1〜${config.grade_number} の整数で入力してください。`,
-      );
+    if (password !== confirmPassword) {
+      setErrorMessage('パスワードが一致しません。');
       return;
     }
 
-    if (
-      !Number.isInteger(parsedClass) ||
-      parsedClass < 1 ||
-      parsedClass > config.class_number
-    ) {
-      setErrorMessage(
-        `クラスは 1〜${config.class_number} の整数で入力してください。`,
-      );
+    const {
+      data: { user },
+      error: getUserError,
+    } = await supabase.auth.getUser();
+
+    if (getUserError || !user) {
+      setErrorMessage('ユーザー情報の取得に失敗しました。');
       return;
     }
 
-    if (
-      !Number.isInteger(parsedNumber) ||
-      parsedNumber < 1 ||
-      parsedNumber > config.max_attendance_number
-    ) {
-      setErrorMessage(
-        `番号は 1〜${config.max_attendance_number} の整数で入力してください。`,
-      );
-      return;
-    }
-
-    if (!teacherName.trim()) {
-      setErrorMessage('担任の先生の名前を入力してください。');
-      return;
-    }
+    const userAffiliation = Number(user.email?.split('@')[0] ?? 0);
 
     const captchaToken = getTurnstileToken();
     if (!captchaToken) {
@@ -103,14 +71,31 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
 
     setLoading(true);
 
+    // パスワードの更新
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: password,
+    });
+
+    if (passwordError) {
+      if (
+        passwordError.message.includes(
+          'New password should be different from the old password.',
+        )
+      ) {
+        setErrorMessage('パスワードは古いものと異なる必要があります。');
+        return;
+      }
+      setErrorMessage(
+        `パスワードの変更に失敗しました: ${passwordError.message}`,
+      );
+      setLoading(false);
+      return;
+    }
+
     // サーバーサイド関数 (RPC) を呼び出して登録
     // 担任名の照合とユーザー登録をトランザクション内で安全に実行します
     const { error } = await supabase.rpc('register_student', {
-      student_name: name.trim(),
-      grade_no: parsedGrade,
-      class_no: parsedClass,
-      student_no: parsedNumber,
-      teacher_name_input: teacherName,
+      affiliation: userAffiliation,
       clubs: selectedClubs.length > 0 ? selectedClubs : null,
     });
 
@@ -118,16 +103,6 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     resetTurnstile();
 
     if (error) {
-      // RPC内で発生したエラーメッセージを表示
-      if (
-        error.message.includes('担任') ||
-        error.message.includes('一致しません')
-      ) {
-        setErrorMessage(
-          '担任の先生の名前が一致しません。学年・クラス・担任名をご確認ください。',
-        );
-        return;
-      }
 
       if (error.code === '23505') {
         setErrorMessage(
@@ -151,89 +126,17 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     route('/students/dashboard');
   };
 
-  const handleDeleteAccount = async () => {
-    setIsDeleteModalOpen(false);
-    // SQLで作成した 'delete_user' 関数を呼び出す
-    const { error } = await supabase.rpc('delete_user');
-    setIsDeleteModalOpen(false);
-
-    if (error) {
-      alert('エラーが発生しました。');
-    } else {
-      // 削除成功後、ログアウト処理を行いトップページなどへ遷移
-      await supabase.auth.signOut();
-      alert('アカウントを削除しました。');
-      window.location.href = '/';
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
     <section className={styles.registrationContainer}>
       <h1>初回登録</h1>
       <p className={styles.description}>
-        初回は、氏名と所属情報の入力が必要です。
+        初回は、部活情報とパスワードの変更をお願いします。
       </p>
       <form className={styles.form} onSubmit={handleSubmit}>
-        <label className={styles.label} htmlFor='name'>
-          氏名
-          <input
-            id='name'
-            className={styles.input}
-            type='text'
-            value={name}
-            placeholder='例: 青山太郎'
-            required={true}
-            autoComplete='name'
-            maxLength={50}
-            onChange={(e) => setName(e.currentTarget.value)}
-          />
-        </label>
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>学年・クラス・番号</legend>
-          <label className={styles.label} htmlFor='grade'>
-            <input
-              id='grade'
-              className={styles.input}
-              type='number'
-              min='1'
-              max={String(config.grade_number)}
-              required={true}
-              autoComplete='off'
-              value={grade}
-              onChange={(e) => setGrade(e.currentTarget.value)}
-            />
-            年
-          </label>
-          <label className={styles.label} htmlFor='student-class'>
-            <input
-              id='student-class'
-              className={styles.input}
-              type='number'
-              min='1'
-              max={String(config.class_number)}
-              required={true}
-              autoComplete='off'
-              value={studentClass}
-              onChange={(e) => setStudentClass(e.currentTarget.value)}
-            />
-            組
-          </label>
-          <label className={styles.label} htmlFor='number'>
-            <input
-              id='number'
-              className={styles.input}
-              type='number'
-              min='1'
-              max={String(config.max_attendance_number)}
-              required={true}
-              autoComplete='off'
-              value={number}
-              onChange={(e) => setNumber(e.currentTarget.value)}
-            />
-            番
-          </label>
-        </fieldset>
-
         <div className={styles.clubSelection}>
           <p className={styles.label}>
             部活(所属しているものをすべて選択してください)
@@ -260,23 +163,29 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
           </div>
         </div>
 
-        <p className={styles.info}>
-          青高生であることの確認のため、担任の先生の名前の入力をお願いします。
-        </p>
-        <label className={styles.label} htmlFor='teacher-name'>
-          担任の先生の名前(フルネーム・漢字)
+        <div className={styles.passwordSelection}>
+          <p className={styles.label}>新しいパスワード (8文字以上)</p>
           <input
-            id='teacher-name'
-            className={styles.input}
-            type='text'
-            value={teacherName}
-            placeholder='例: 青山花子'
-            required={true}
-            autoComplete='off'
-            maxLength={50}
-            onChange={(e) => setTeacherName(e.currentTarget.value)}
+            type='password'
+            className={styles.passwordInput}
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            required
+            minLength={8}
+            autoComplete='new-password'
           />
-        </label>
+          <p className={styles.label}>新しいパスワード (確認)</p>
+          <input
+            type='password'
+            className={styles.passwordInput}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+            required
+            minLength={8}
+            autoComplete='new-password'
+          />
+        </div>
+
         {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
         <div className={styles.turnstileContainer}>
           <div
@@ -302,25 +211,12 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
         >
           {loading ? '登録中...' : '登録する'}
         </button>
-        <button
-          type='button'
-          onClick={() => setIsDeleteModalOpen(true)}
-          className={styles.deleteButton}
-        >
-          アカウントを削除
-        </button>
       </form>
-
-      {isDeleteModalOpen ? (
-        <Modal
-          setIsOpen={setIsDeleteModalOpen}
-          handleAction={handleDeleteAccount}
-          headingText='アカウントを本当に削除しますか?'
-          buttonText='削除'
-        >
-          <p>この操作は取り消せません。</p>
-        </Modal>
-      ) : null}
+      <section>
+        <button onClick={handleLogout} className={styles.logoutBtn}>
+          ログアウト
+        </button>
+      </section>
     </section>
   );
 };

@@ -112,3 +112,16 @@
 .turnstileOk {
   color: var(--accent-color);
 }
+
+.passwordSelection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.passwordInput {
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px;
+  padding: 0.7rem;
+}

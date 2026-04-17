@@ -166,7 +166,7 @@ function Login() {
     <>
       <h1 className={subPageStyles.pageTitle}>ようこそ</h1>
       <div className={styles.loginContainer}>
-        <h2>ログイン・登録</h2>
+        <h2>ログイン</h2>
         <p>
           事前配布されたログインID・パスワードを使ってログインしてください。
         </p>
@@ -190,6 +190,21 @@ function Login() {
             className={styles.loginInput}
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
+
+          <div className={styles.turnstileContainer}>
+            <div id='login-email-turnstile' className='cf-turnstile'></div>
+            {!hasTurnstileSiteKey ? (
+              <p className={styles.turnstileNote}>
+                Turnstile site key が未設定です。
+              </p>
+            ) : !turnstileToken ? (
+              <p className={styles.turnstileNote}>
+                Turnstile 認証を完了してください。
+              </p>
+            ) : (
+              ''
+            )}
+          </div>
           <button
             className={styles.loginButton}
             disabled={loading || !turnstileToken || !hasTurnstileSiteKey}
@@ -197,21 +212,6 @@ function Login() {
             {loading ? <span>読み込み中</span> : <span>ログイン</span>}
           </button>
         </form>
-
-        <div className={styles.turnstileContainer}>
-          <div id='login-email-turnstile' className='cf-turnstile'></div>
-          {!hasTurnstileSiteKey ? (
-            <p className={styles.turnstileNote}>
-              Turnstile site key が未設定です。
-            </p>
-          ) : !turnstileToken ? (
-            <p className={styles.turnstileNote}>
-              メール送信前に Turnstile 認証を完了してください。
-            </p>
-          ) : (
-            ''
-          )}
-        </div>
       </div>
     </>
   );

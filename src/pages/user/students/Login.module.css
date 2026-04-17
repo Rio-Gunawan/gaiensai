@@ -25,6 +25,11 @@
   width: 100%;
 }
 
+.loginForm label {
+  line-height: 1.2rem;
+  font-weight: bold;
+}
+
 .loginButton {
   margin: 5px auto;
   width: 100%;

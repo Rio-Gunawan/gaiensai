@@ -74,9 +74,10 @@
   color: var(--error-text-color);
 }
 
-.deleteButton {
+.logoutBtn {
+  display: block;
   padding: 0;
-  margin: 0.5rem 0;
+  margin: 0.5rem auto;
   background: none;
   color: var(--error-text-color);
   font-weight: bold;
@@ -84,7 +85,7 @@
   transition: none;
 }
 
-.deleteButton:hover {
+.logoutBtn:hover {
   background: none;
   border: none;
   outline: none;

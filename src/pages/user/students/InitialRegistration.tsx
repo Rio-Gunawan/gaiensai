@@ -2,7 +2,6 @@ import { useEffect, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { supabase } from '../../../lib/supabase';
 import styles from './InitialRegistration.module.css';
-import { useTurnstile } from '../../../hooks/useTurnstile';
 import { useTitle } from '../../../hooks/useTitle';
 
 type InitialRegistrationProps = {
@@ -20,12 +19,6 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   useTitle('初回登録 - 生徒用ページ');
 
   const { route } = useLocation();
-  const {
-    token: turnstileToken,
-    hasSiteKey: hasTurnstileSiteKey,
-    getToken: getTurnstileToken,
-    reset: resetTurnstile,
-  } = useTurnstile({ containerId: 'initial-registration-turnstile' });
 
   useEffect(() => {
     const fetchClubs = async () => {
@@ -63,12 +56,6 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
 
     const userAffiliation = Number(user.email?.split('@')[0] ?? 0);
 
-    const captchaToken = getTurnstileToken();
-    if (!captchaToken) {
-      setErrorMessage('Turnstile認証を完了してから登録してください。');
-      return;
-    }
-
     setLoading(true);
 
     // パスワードの更新
@@ -100,7 +87,6 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     });
 
     setLoading(false);
-    resetTurnstile();
 
     if (error) {
 
@@ -192,22 +178,11 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
             id='initial-registration-turnstile'
             className='cf-turnstile'
           ></div>
-          {!hasTurnstileSiteKey ? (
-            <p className={styles.turnstileNote}>
-              Turnstile site key が未設定です。
-            </p>
-          ) : !turnstileToken ? (
-            <p className={styles.turnstileNote}>
-              登録前に Turnstile 認証を完了してください。
-            </p>
-          ) : (
-            ''
-          )}
         </div>
         <button
           className={styles.submitButton}
           type='submit'
-          disabled={loading || !turnstileToken || !hasTurnstileSiteKey}
+          disabled={loading}
         >
           {loading ? '登録中...' : '登録する'}
         </button>

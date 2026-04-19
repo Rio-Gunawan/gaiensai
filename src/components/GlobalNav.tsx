@@ -41,7 +41,9 @@ const GlobalNav = () => {
           <a href='#'>FAQ</a>
         </li>
         <li>
-          <a href='#'>お問い合わせ</a>
+          <a href='https://docs.google.com/forms/d/e/1FAIpQLSeMds1IgEh7OBHcO5bYnSrUAWEp2fWdJ_yEBMyhywQrK2JgTw/viewform?usp=header'>
+            お問い合わせ
+          </a>
         </li>
       </ul>
     </nav>

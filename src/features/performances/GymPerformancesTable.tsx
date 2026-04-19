@@ -94,7 +94,7 @@ const GymPerformancesTable = ({
 
       const { data: issuedTickets, error: ticketError } = await supabase
         .from('gym_tickets')
-        .select('performance_id, tickets!inner(status)')
+        .select('performance_id, tickets!inner(status, person_count)')
         .in('performance_id', performanceIds)
         .eq('tickets.status', 'valid');
 
@@ -107,11 +107,15 @@ const GymPerformancesTable = ({
       const issuedCountByPerformanceId = new Map<number, number>();
 
       (
-        (issuedTickets as unknown as Array<{ performance_id: number }>) ?? []
+        (issuedTickets as unknown as Array<{
+          performance_id: number;
+          tickets: { person_count: number };
+        }>) ?? []
       ).forEach((row) => {
+        const pCount = row.tickets?.person_count ?? 1;
         issuedCountByPerformanceId.set(
           row.performance_id,
-          (issuedCountByPerformanceId.get(row.performance_id) ?? 0) + 1,
+          (issuedCountByPerformanceId.get(row.performance_id) ?? 0) + pCount,
         );
       });
 

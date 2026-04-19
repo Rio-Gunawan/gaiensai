@@ -913,13 +913,28 @@ export const handleIssueTicketsRequest = async (
     const existing = Number(existingCount ?? 0);
     const effectiveExisting = Math.max(0, existing - replaceTicketOffset);
 
+    const juniorUsageType = isJuniorUser
+      ? Number(userRow?.junior_usage_type ?? -1)
+      : -1;
+
+    // usageType 0 (共通): 1レコード(1コード)で2人分
+    // usageType 1 (別々): 2レコード(2コード)で1人分ずつ
+    // usageType 1 (別々): 2レコード発行するが、差し替え時は1枚ずつ行うため 1 に固定
+    const numCodes =
+      !isDayTicket && isJuniorUser && juniorUsageType === 1 && !body.cancelCode
+        ? body.issueCount * 2
+        : body.issueCount;
+    const personCountPerTicket =
+      !isDayTicket && isJuniorUser && juniorUsageType === 0 ? 2 : 1;
+    const totalPersonCount = numCodes * personCountPerTicket;
+
     if (
       !isDayTicket &&
-      effectiveExisting + body.issueCount > maxTicketsPerUser
+      effectiveExisting + totalPersonCount > maxTicketsPerUser
     ) {
       throw new HttpError(
         409,
-        `チケット発行上限を超えています（既に ${existing} 枚）。1ユーザあたり最大 ${maxTicketsPerUser} 枚です。
+        `チケット発行上限を超えています（既に ${existing} 人分）。1ユーザあたり最大 ${maxTicketsPerUser} 人分までです。
         さらに必要な場合は、まだ発行可能枚数に余裕がある他の生徒に、招待券を分けてもらえないかと相談してください。`,
       );
     }
@@ -930,12 +945,25 @@ export const handleIssueTicketsRequest = async (
     const concatenated = `${padNumber(affiliation, 5)}${padNumber(body.ticketTypeId, 1)}${padNumber(relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYearForPrefix, 2)}`;
     const basePrefix = generateManualCode(BigInt(concatenated));
 
-    const effectiveIssueCount =
-      !isDayTicket &&
-      isJuniorUser &&
-      Number(userRow?.junior_usage_type ?? -1) === 0
-        ? body.issueCount * 2
-        : body.issueCount;
+    // チケットコードに埋め込むフラグの決定ロジック
+    const getEncodingRelationshipId = (index: number): number => {
+      if (!isJuniorUser || isDayTicket) {
+        return relationshipId;
+      }
+      // junior_usage_type マッピング (0:両方共通->2, 1:別々->0or1, 2:本人のみ->0, 3:保護者のみ->1)
+      switch (juniorUsageType) {
+        case 0:
+          return 2; // both
+        case 1:
+          return index % 2 === 0 ? 0 : 1; // 1枚目: middle-school, 2枚目: guardian
+        case 2:
+          return 0; // middle-school
+        case 3:
+          return 1; // guardian
+        default:
+          return relationshipId;
+      }
+    };
 
     const maxSerialLimit =
       affiliation === DAY_TICKET_ANONYMOUS_AFFILIATION && isDayTicket
@@ -947,7 +975,7 @@ export const handleIssueTicketsRequest = async (
       'increment_ticket_code_counter',
       {
         p_prefix: basePrefix,
-        p_increment: effectiveIssueCount,
+        p_increment: numCodes,
         p_max_value: maxSerialLimit,
       },
     );
@@ -980,7 +1008,7 @@ export const handleIssueTicketsRequest = async (
       issuedTickets = await issueWithRollback({
         adminClient: adminClient as unknown as RpcClient,
         userId: issueUserId,
-        issueCount: effectiveIssueCount,
+        issueCount: numCodes,
         issueMode: issueMode === 'gym' ? 'gym' : 'class',
         ticketTypeId: body.ticketTypeId,
         relationshipId,
@@ -990,18 +1018,21 @@ export const handleIssueTicketsRequest = async (
         issuedYear,
         basePrefix,
         endSerial,
+        personCount: personCountPerTicket,
+        encodingRelationshipId: getEncodingRelationshipId,
         generateCode: generateTicketCode,
         signTicketCode: signCode,
       });
     } else {
-      const startSerial = endSerial - effectiveIssueCount + 1;
+      const startSerial = endSerial - numCodes + 1;
       let shouldRollbackCounter = true;
 
       try {
-        const serial = startSerial; // issueCount is validated to be 1
+        const serial = startSerial;
+        const encRel = getEncodingRelationshipId(0);
         const ticketData = {
           affiliation,
-          relationship: relationshipId,
+          relationship: encRel,
           type: body.ticketTypeId,
           performance: body.performanceId,
           schedule: body.scheduleId,
@@ -1024,9 +1055,10 @@ export const handleIssueTicketsRequest = async (
           p_performance_id: body.performanceId,
           p_schedule_id: body.scheduleId,
           p_new_relationship_id: relationshipId,
-          p_issue_count: effectiveIssueCount,
+          p_issue_count: 1,
           p_codes: [code],
           p_signatures: [signature],
+          p_person_count: personCountPerTicket,
         });
 
         if (error) {
@@ -1041,7 +1073,7 @@ export const handleIssueTicketsRequest = async (
           const { data: rollbackApplied, error: rollbackError } =
             await adminClient.rpc('rollback_ticket_code_counter', {
               p_prefix: basePrefix,
-              p_decrement: effectiveIssueCount,
+              p_decrement: numCodes,
               p_expected_last_value: endSerial,
             });
 

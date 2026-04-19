@@ -22,6 +22,8 @@ export type IssueWithRollbackInput = {
   issuedYear: number;
   basePrefix: string;
   endSerial: number;
+  personCount?: number;
+  encodingRelationshipId?: number | ((index: number) => number);
   generateCode: (ticketData: TicketData) => Promise<string>;
   signTicketCode: (code: string) => Promise<string>;
 };
@@ -39,9 +41,13 @@ export const issueWithRollback = async ({
   issuedYear,
   basePrefix,
   endSerial,
+  personCount = 1,
+  encodingRelationshipId,
   generateCode,
   signTicketCode,
-}: IssueWithRollbackInput): Promise<Array<{ code: string; signature: string }>> => {
+}: IssueWithRollbackInput): Promise<
+  Array<{ code: string; signature: string }>
+> => {
   const startSerial = endSerial - issueCount + 1;
   let shouldRollbackCounter = true;
 
@@ -49,9 +55,13 @@ export const issueWithRollback = async ({
     const codes = await Promise.all(
       Array.from({ length: issueCount }, (_, i) => {
         const serial = startSerial + i;
+        const encRel =
+          typeof encodingRelationshipId === 'function'
+            ? encodingRelationshipId(i)
+            : (encodingRelationshipId ?? relationshipId);
         const ticketData: TicketData = {
           affiliation,
-          relationship: relationshipId,
+          relationship: encRel,
           type: ticketTypeId,
           performance: performanceId,
           schedule: scheduleId,
@@ -62,7 +72,9 @@ export const issueWithRollback = async ({
       }),
     );
 
-    const signatures = await Promise.all(codes.map((code) => signTicketCode(code)));
+    const signatures = await Promise.all(
+      codes.map((code) => signTicketCode(code)),
+    );
 
     const issueRpcName =
       issueMode === 'gym'
@@ -80,10 +92,23 @@ export const issueWithRollback = async ({
         p_issue_count: issueCount,
         p_codes: codes,
         p_signatures: signatures,
+        p_person_count: personCount,
       },
     );
 
     if (issueError) {
+      console.log('発券に失敗しました', {
+        issueRpcName,
+        p_user_id: userId,
+        p_ticket_type_id: ticketTypeId,
+        p_relationship_id: relationshipId,
+        p_performance_id: performanceId,
+        p_schedule_id: scheduleId,
+        p_issue_count: issueCount,
+        p_codes: codes,
+        p_signatures: signatures,
+        p_person_count: personCount,
+      });
       throw new HttpError(409, issueError.message);
     }
 

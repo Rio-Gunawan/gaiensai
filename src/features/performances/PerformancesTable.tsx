@@ -187,7 +187,9 @@ const PerformancesTable = ({
       // 全ての有効なクラス公演チケットを一度のクエリで取得 (N+1問題の解消)
       const { data: ticketData, error: ticketError } = await supabase
         .from('class_tickets')
-        .select('class_id, round_id, tickets!inner(status, ticket_type)')
+        .select(
+          'class_id, round_id, tickets!inner(status, ticket_type, person_count)',
+        )
         .eq('tickets.status', 'valid');
 
       if (ticketError && isMounted) {
@@ -204,14 +206,16 @@ const PerformancesTable = ({
           round_id: number;
           tickets: {
             ticket_type: number;
+            person_count: number;
           };
         }>) ?? []
       ).forEach((row) => {
         const key = `${row.class_id}-${row.round_id}`;
         const current = counts.get(key) || { total: 0, junior: 0 };
-        current.total++;
+        const pCount = row.tickets.person_count ?? 1;
+        current.total += pCount;
         if (juniorTypeIds.has(row.tickets.ticket_type)) {
-          current.junior++;
+          current.junior += pCount;
         }
         counts.set(key, current);
       });

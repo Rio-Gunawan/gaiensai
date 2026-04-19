@@ -5,6 +5,8 @@ import { supabase } from '../../../lib/supabase';
 import type { Session, UserData } from '../../../types/types';
 
 import JuniorMyPage from './JuniorMyPage';
+import Issue from './Issue';
+import IssueResult from './IssueResult';
 
 import JuniorLayout from '../../../layout/JuniorLayout';
 import {
@@ -52,7 +54,7 @@ const Junior = () => {
   const loadUserProfile = async (userId: string) => {
     const { data, error }: { data: UserData; error: unknown } = await supabase
       .from('users')
-      .select('email, affiliation')
+      .select('email, affiliation, junior_usage_type')
       .eq('id', userId)
       .maybeSingle();
 
@@ -238,6 +240,8 @@ const Junior = () => {
   return (
     <JuniorLayout>
       <Router>
+        <Route path='/issue/result' component={IssueResult} />
+        <Route path='/issue' component={Issue} />
         <Route
           path='/mypage'
           component={() => <JuniorMyPage userData={registeredUserData} />}

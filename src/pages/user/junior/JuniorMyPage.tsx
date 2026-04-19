@@ -1,6 +1,37 @@
+import { useEffect, useState } from 'preact/hooks';
+import { IoMdAdd } from 'react-icons/io';
+import performancesSnapshot from '../../../generated/performances-static.json';
+import {
+  decodeTicketCodeWithEnv,
+  toTicketDecodedDisplaySeed,
+} from '../../../features/tickets/ticketCodeDecode';
 import type { UserData } from '../../../types/types';
+import type { TicketCardItem } from '../../../features/tickets/IssuedTicketCardList';
 import { useTitle } from '../../../hooks/useTitle';
 import subPageStyles from '../../../styles/sub-pages.module.css';
+import sharedStyles from '../../../styles/shared.module.css';
+import dashboardStyles from '../students/Dashboard.module.css';
+import TicketListContent from '../../../features/tickets/TicketListContent';
+import type { TicketListSortMode } from '../../../features/tickets/IssuedTicketCardList';
+import NormalSection from '../../../components/ui/NormalSection';
+import PerformancesTable from '../../../features/performances/PerformancesTable';
+import GymPerformancesTable from '../../../features/performances/GymPerformancesTable';
+import LoadingSpinner from '../../../components/ui/LoadingSpinner';
+import { supabase } from '../../../lib/supabase';
+import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
+
+type TicketSnapshot = {
+  performances?: Array<{
+    id: number;
+    class_name: string;
+    title?: string | null;
+  }>;
+  schedules?: Array<{ id: number; round_name: string }>;
+  ticketTypes?: Array<{ id: number; name: string; type?: string | null }>;
+  relationships?: Array<{ id: number; name: string }>;
+};
+
+const ticketSnapshot = performancesSnapshot as TicketSnapshot;
 
 type JuniorMyPageProps = {
   userData: Exclude<UserData, null>;
@@ -8,17 +39,369 @@ type JuniorMyPageProps = {
 
 const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
   useTitle('マイページ - 中学生用ページ');
+  const [ticketCards, setTicketCards] = useState<
+    (TicketCardItem & { relationshipId: number })[]
+  >([]);
+  const [ticketLoading, setTicketLoading] = useState(true);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
+  const [hasAnyActiveInviteTicketType, setHasAnyActiveInviteTicketType] =
+    useState(true);
+  const [myTicketSortMode, setMyTicketSortMode] =
+    useState<TicketListSortMode>('recent');
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const localPart = userData.email.replace('@gaiensai.local', '');
   const loginId = localPart.match(/^(.*)-\d{8}$/)?.[1] ?? localPart;
+  const usageType = userData.junior_usage_type;
+  const isIssueReceptionStopped =
+    !isTicketIssuingEnabled || !hasAnyActiveInviteTicketType;
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadIssuingState = async () => {
+      const { data } = await supabase
+        .from('configs')
+        .select('is_active')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (typeof data?.is_active === 'boolean') {
+        setIsTicketIssuingEnabled(data.is_active);
+      }
+    };
+
+    void loadIssuingState();
+  }, []);
+
+  useEffect(() => {
+    const loadInviteTicketTypeState = async () => {
+      const { data, error } = await supabase
+        .from('ticket_issue_controls')
+        .select(
+          'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode',
+        )
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (error) {
+        return;
+      }
+
+      const hasActive =
+        data &&
+        (data.class_invite_mode !== 'off' ||
+          data.rehearsal_invite_mode !== 'off' ||
+          data.gym_invite_mode !== 'off' ||
+          data.entry_only_mode !== 'off');
+
+      setHasAnyActiveInviteTicketType(!!hasActive);
+    };
+
+    void loadInviteTicketTypeState();
+  }, []);
+
+  useEffect(() => {
+    const loadTickets = async () => {
+      setTicketLoading(true);
+      setTicketError(null);
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+
+      if (sessionError || !user) {
+        setTicketError('ログイン情報の取得に失敗しました。');
+        setTicketLoading(false);
+        return;
+      }
+
+      const { data: ticketsData, error: ticketsError } = await supabase
+        .from('tickets')
+        .select('code, signature, relationship')
+        .eq('user_id', user.id)
+        .eq('status', 'valid')
+        .order('created_at', { ascending: false });
+
+      if (ticketsError) {
+        setTicketError('チケット情報の取得に失敗しました。');
+        setTicketLoading(false);
+        return;
+      }
+
+      setIsOnline(true);
+      const tickets = (ticketsData ?? []) as Array<{
+        code: string;
+        signature: string;
+        relationship: number;
+      }>;
+
+      if (tickets.length === 0) {
+        setTicketCards([]);
+        setTicketLoading(false);
+        return;
+      }
+
+      const decodedTickets = await Promise.all(
+        tickets.map(async (ticket) => {
+          const decodedRaw = await decodeTicketCodeWithEnv(ticket.code);
+          return {
+            ticket,
+            decoded: toTicketDecodedDisplaySeed(decodedRaw),
+          };
+        }),
+      );
+
+      const classPerformanceIds = [
+        ...new Set(
+          decodedTickets
+            .filter(
+              (item) =>
+                (item.decoded?.performanceId ?? 0) > 0 &&
+                (item.decoded?.scheduleId ?? 0) > 0,
+            )
+            .map((item) => item.decoded?.performanceId ?? 0)
+            .filter((id) => id > 0),
+        ),
+      ];
+      const gymPerformanceIds = [
+        ...new Set(
+          decodedTickets
+            .filter(
+              (item) =>
+                (item.decoded?.performanceId ?? 0) > 0 &&
+                (item.decoded?.scheduleId ?? 0) === 0,
+            )
+            .map((item) => item.decoded?.performanceId ?? 0)
+            .filter((id) => id > 0),
+        ),
+      ];
+
+      const [{ data: classPerformanceData }, { data: gymPerformanceData }] =
+        await Promise.all([
+          classPerformanceIds.length > 0
+            ? supabase
+                .from('class_performances')
+                .select('id, class_name, title')
+                .in('id', classPerformanceIds)
+            : { data: [] },
+          gymPerformanceIds.length > 0
+            ? supabase
+                .from('gym_performances')
+                .select('id, group_name, round_name')
+                .in('id', gymPerformanceIds)
+            : { data: [] },
+        ]);
+
+      const classPerformanceMap = new Map(
+        (
+          (classPerformanceData ?? []) as Array<{
+            id: number;
+            class_name: string;
+            title: string | null;
+          }>
+        ).map((performance) => [performance.id, performance]),
+      );
+      const gymPerformanceMap = new Map(
+        (
+          (gymPerformanceData ?? []) as Array<{
+            id: number;
+            group_name: string;
+            round_name: string;
+          }>
+        ).map((performance) => [performance.id, performance]),
+      );
+      const scheduleMap = new Map(
+        (
+          (ticketSnapshot.schedules ?? []) as Array<{
+            id: number;
+            round_name: string;
+          }>
+        ).map((schedule) => [schedule.id, schedule]),
+      );
+      const ticketTypeMap = new Map(
+        (
+          (ticketSnapshot.ticketTypes ?? []) as Array<{
+            id: number;
+            name: string;
+            type?: string | null;
+          }>
+        ).map((ticketType) => [
+          ticketType.id,
+          formatTicketTypeLabel({
+            type: ticketType.type,
+            name: ticketType.name,
+            fallback: `券種${ticketType.id}`,
+          }),
+        ]),
+      );
+      const relationshipMap = new Map(
+        (
+          (ticketSnapshot.relationships ?? []) as Array<{
+            id: number;
+            name: string;
+          }>
+        ).map((relationship) => [relationship.id, relationship.name]),
+      );
+      const snapshotPerformanceMap = new Map(
+        (
+          (ticketSnapshot.performances ?? []) as Array<{
+            id: number;
+            class_name: string;
+            title?: string | null;
+          }>
+        ).map((performance) => [performance.id, performance]),
+      );
+
+      const cards = decodedTickets.map(({ ticket, decoded }) => {
+        const relationshipId = decoded?.relationshipId ?? ticket.relationship;
+        const isGymPerformance =
+          (decoded?.performanceId ?? 0) > 0 && (decoded?.scheduleId ?? 0) === 0;
+        const classPerformance = decoded
+          ? (classPerformanceMap.get(decoded.performanceId) ??
+            snapshotPerformanceMap.get(decoded.performanceId))
+          : undefined;
+        const gymPerformance = decoded
+          ? gymPerformanceMap.get(decoded.performanceId)
+          : undefined;
+        const schedule =
+          !isGymPerformance && decoded
+            ? scheduleMap.get(decoded.scheduleId)
+            : undefined;
+        const isAdmissionOnly =
+          decoded?.performanceId === 0 && decoded?.scheduleId === 0;
+
+        return {
+          code: ticket.code,
+          signature: ticket.signature,
+          serial: decoded?.serial,
+          performanceName: isAdmissionOnly
+            ? '入場専用券'
+            : isGymPerformance
+              ? (gymPerformance?.group_name ?? '-')
+              : (classPerformance?.class_name ?? '-'),
+          performanceTitle: isGymPerformance
+            ? null
+            : (classPerformance?.title ?? null),
+          scheduleName: isAdmissionOnly
+            ? ''
+            : isGymPerformance
+              ? (gymPerformance?.round_name ?? '-')
+              : (schedule?.round_name ?? '-'),
+          ticketTypeLabel: decoded
+            ? (ticketTypeMap.get(decoded.ticketTypeId) ??
+              `券種${decoded.ticketTypeId}`)
+            : '-',
+          relationshipName: decoded
+            ? (relationshipMap.get(decoded.relationshipId) ??
+              `間柄${decoded.relationshipId}`)
+            : '-',
+          status: 'valid' as const,
+          relationshipId,
+        };
+      });
+
+      setTicketCards(cards);
+      setTicketLoading(false);
+    };
+
+    void loadTickets();
+  }, []);
 
   return (
-    <section>
-      <h1 className={subPageStyles.pageTitle}>中学生用マイページ</h1>
-      <p>ログインしました。</p>
-      <p>ログインID: {loginId}</p>
-      <p>所属番号: {userData.affiliation}</p>
-    </section>
+    <>
+      <section>
+        <h1 className={subPageStyles.pageTitle}>中学生用マイページ</h1>
+        <h2 className={sharedStyles.normalH2}>
+          ID: {loginId}{' '}
+          {usageType === 0
+            ? '中学生と保護者(共通のチケット使用)'
+            : usageType === 1
+              ? '中学生と保護者(別々のチケット使用)'
+              : usageType === 2
+                ? '中学生のみ'
+                : usageType === 3
+                  ? '保護者のみ'
+                  : '不明'}
+        </h2>
+        <a
+          href='/junior/issue'
+          className={`${dashboardStyles.buttonLink} ${!isOnline || isIssueReceptionStopped ? dashboardStyles.buttonLinkDisabled : ''}`}
+          aria-disabled={!isOnline || isIssueReceptionStopped}
+          tabIndex={!isOnline || isIssueReceptionStopped ? -1 : 0}
+          onClick={(event) => {
+            if (!isOnline || isIssueReceptionStopped) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <IoMdAdd />
+          新規チケット発行
+        </a>
+        {!isOnline && (
+          <p className={dashboardStyles.issueOfflineNote}>
+            オフライン中は新規チケットを発行できません。
+          </p>
+        )}
+        {isIssueReceptionStopped && (
+          <p className={dashboardStyles.issueOfflineNote}>
+            現在チケット発券は受付停止中です。
+          </p>
+        )}
+      </section>
+      <NormalSection>
+        <h2>自分が使うチケット</h2>
+        <TicketListContent
+          loading={ticketLoading}
+          error={ticketError}
+          tickets={ticketCards}
+          showSortControl
+          sortMode={myTicketSortMode}
+          onSortModeChange={setMyTicketSortMode}
+          emptyMessage='自分が使うチケットはまだありません。'
+        />
+      </NormalSection>
+      <NormalSection>
+        <h2>公演空き状況</h2>
+        {ticketLoading ? <LoadingSpinner /> : null}
+        <h3>クラス公演</h3>
+        <PerformancesTable
+          enableIssueJump={true}
+          issuePath='/junior/issue'
+          remainingMode='junior'
+          filterAccepting={true}
+        />
+        <h3>体育館公演</h3>
+        <GymPerformancesTable
+          enableIssueJump={true}
+          issuePath='/junior/issue'
+          filterAccepting={true}
+        />
+      </NormalSection>
+      <section>
+        <button onClick={handleLogout} className={dashboardStyles.logoutBtn}>
+          ログアウト
+        </button>
+      </section>
+    </>
   );
 };
 

@@ -20,6 +20,7 @@ export type Session = {
 export type UserData = {
   email: string;
   affiliation: number;
+  junior_usage_type?: number;
 } | null;
 
 export type EventConfig = {

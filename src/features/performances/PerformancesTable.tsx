@@ -21,9 +21,10 @@ type PerformanceSchedule = {
 
 type PerformancesTableProps = {
   enableIssueJump?: boolean;
+  issuePath?: string;
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
-  remainingMode?: 'general' | 'total';
+  remainingMode?: 'general' | 'total' | 'junior';
   showToggleRemainingMode?: boolean;
   restrictedClassName?: string | null;
   filterAccepting?: boolean;
@@ -31,6 +32,7 @@ type PerformancesTableProps = {
 
 const PerformancesTable = ({
   enableIssueJump = false,
+  issuePath = '/students/issue',
   onAvailableCellClick,
   selectedCellKey,
   remainingMode = 'general',
@@ -59,6 +61,10 @@ const PerformancesTable = ({
   const { route } = useLocation();
 
   const tableWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCurrentRemainingMode(remainingMode);
+  }, [remainingMode]);
 
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
@@ -175,7 +181,7 @@ const PerformancesTable = ({
       const { data: juniorTypes } = await supabase
         .from('ticket_types')
         .select('id')
-        .ilike('type', '%中学生%');
+        .eq('type', '中学生券');
       const juniorTypeIds = new Set(juniorTypes?.map((t) => t.id) || []);
 
       // 全ての有効なクラス公演チケットを一度のクエリで取得 (N+1問題の解消)
@@ -197,14 +203,14 @@ const PerformancesTable = ({
           class_id: number;
           round_id: number;
           tickets: {
-            ticket_type_id: number;
+            ticket_type: number;
           };
         }>) ?? []
       ).forEach((row) => {
         const key = `${row.class_id}-${row.round_id}`;
         const current = counts.get(key) || { total: 0, junior: 0 };
         current.total++;
-        if (juniorTypeIds.has(row.tickets.ticket_type_id)) {
+        if (juniorTypeIds.has(row.tickets.ticket_type)) {
           current.junior++;
         }
         counts.set(key, current);
@@ -412,7 +418,7 @@ const PerformancesTable = ({
       scheduleId: String(selection.scheduleId),
     });
 
-    route(`/students/issue?${searchParams.toString()}`);
+    route(`${issuePath}?${searchParams.toString()}`);
   };
 
   if (loading) {

@@ -364,6 +364,9 @@ export const handleIssueTicketsRequest = async (
     const rehearsalInviteId = findIdByName('クラス公演(リハーサル)', '招待券');
     const gymInviteId = findIdByName('体育館公演', '招待券');
     const entryOnlyId = findIdByName('入場専用券', '招待券');
+    const juniorClassId = findIdByName('クラス公演', '中学生券');
+    const juniorGymId = findIdByName('体育館公演', '中学生券');
+    const juniorEntryOnlyId = findIdByName('入場専用券', '中学生券');
     const sameDayClassId = findIdByName('クラス公演', '当日券');
     const sameDayGymId = findIdByName('体育館公演', '当日券');
 
@@ -421,6 +424,7 @@ export const handleIssueTicketsRequest = async (
       affiliation: number | null;
       role: string | null;
       clubs: string[] | null;
+      junior_usage_type: number | null;
     } | null = null;
 
     if (shouldResolveUser) {
@@ -440,7 +444,7 @@ export const handleIssueTicketsRequest = async (
         user = { id: authUser.id };
         const { data: resolvedUserRow, error: userRowError } = await adminClient
           .from('users')
-          .select('affiliation, role, clubs')
+          .select('affiliation, role, clubs, junior_usage_type')
           .eq('id', authUser.id)
           .maybeSingle();
 
@@ -455,6 +459,7 @@ export const handleIssueTicketsRequest = async (
           affiliation: number | null;
           role: string | null;
           clubs: string[] | null;
+          junior_usage_type: number | null;
         } | null;
       }
     }
@@ -466,11 +471,15 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
-    if (!isDayTicket && (!userRow || userRow.role !== 'student')) {
-      throw new HttpError(403, '生徒以外はチケットを発行できません。');
+    if (
+      !isDayTicket &&
+      (!userRow || (userRow.role !== 'student' && userRow.role !== 'junior'))
+    ) {
+      throw new HttpError(403, '発券可能な利用者ではありません。');
     }
 
     const isAuthenticatedStudent = Boolean(user && userRow);
+    const isJuniorUser = Boolean(userRow && userRow.role === 'junior');
     const affiliation = isAuthenticatedStudent
       ? Number(userRow?.affiliation ?? -1)
       : isDayTicket
@@ -478,11 +487,18 @@ export const handleIssueTicketsRequest = async (
         : ANONYMOUS_AFFILIATION;
 
     if (isAuthenticatedStudent) {
-      if (
-        !Number.isInteger(affiliation) ||
-        affiliation < 10000 ||
-        affiliation > 39999
-      ) {
+      if (!Number.isInteger(affiliation)) {
+        throw new HttpError(400, 'ユーザーデータの所属情報が不正です。');
+      }
+
+      if (isJuniorUser) {
+        if (affiliation < 100000) {
+          throw new HttpError(
+            400,
+            '中学生アカウントの所属番号が不正です。外苑祭総務にお問い合わせください。',
+          );
+        }
+      } else if (affiliation < 10000 || affiliation > 39999) {
         throw new HttpError(
           400,
           'ユーザーデータの学年クラス番号が不正です。外苑祭総務にお問い合わせください。',
@@ -490,6 +506,15 @@ export const handleIssueTicketsRequest = async (
       }
     } else if (!isDayTicket) {
       throw new HttpError(401, 'ログイン情報の確認に失敗しました。');
+    }
+
+    if (!isDayTicket && isJuniorUser) {
+      if (body.relationshipId !== SELF_RELATIONSHIP_ID) {
+        throw new HttpError(400, '中学生アカウントは本人分のみ発券できます。');
+      }
+      if (body.issueCount !== 1) {
+        throw new HttpError(400, '中学生アカウントの発券枚数は1枚固定です。');
+      }
     }
 
     const issueMode = validatePerformanceAndSchedule(
@@ -526,7 +551,9 @@ export const handleIssueTicketsRequest = async (
     // incrementing the counter when the user would exceed their limit.
     const { data: configRow, error: configError } = await adminClient
       .from('configs')
-      .select('max_tickets_per_user, is_active, event_year')
+      .select(
+        'max_tickets_per_user, max_tickets_per_junior_user, is_active, event_year',
+      )
       .order('id', { ascending: true })
       .maybeSingle();
 
@@ -540,6 +567,7 @@ export const handleIssueTicketsRequest = async (
     if (
       !configRow ||
       configRow.max_tickets_per_user === null ||
+      configRow.max_tickets_per_junior_user === null ||
       configRow.event_year === null
     ) {
       throw new HttpError(
@@ -563,8 +591,14 @@ export const handleIssueTicketsRequest = async (
       .eq('id', relationshipId)
       .maybeSingle();
 
-    if (relError || (relData && !(relData as { is_accepting: boolean }).is_accepting)) {
-      throw new HttpError(403, '選択された間柄は現在チケットの受付を停止しています。');
+    if (
+      relError ||
+      (relData && !(relData as { is_accepting: boolean }).is_accepting)
+    ) {
+      throw new HttpError(
+        403,
+        '選択された間柄は現在チケットの受付を停止しています。',
+      );
     }
 
     // 2. 公演・公演回の受付状態チェック
@@ -574,8 +608,14 @@ export const handleIssueTicketsRequest = async (
         .select('is_accepting')
         .eq('id', body.performanceId)
         .maybeSingle();
-      if (perfError || (perfData && !(perfData as { is_accepting: boolean }).is_accepting)) {
-        throw new HttpError(403, '選択されたクラスは現在チケットの受付を停止しています。');
+      if (
+        perfError ||
+        (perfData && !(perfData as { is_accepting: boolean }).is_accepting)
+      ) {
+        throw new HttpError(
+          403,
+          '選択されたクラスは現在チケットの受付を停止しています。',
+        );
       }
 
       const { data: schData, error: schError } = await adminClient
@@ -583,7 +623,10 @@ export const handleIssueTicketsRequest = async (
         .select('is_active')
         .eq('id', body.scheduleId)
         .maybeSingle();
-      if (schError || (schData && !(schData as { is_active: boolean }).is_active)) {
+      if (
+        schError ||
+        (schData && !(schData as { is_active: boolean }).is_active)
+      ) {
         throw new HttpError(403, '選択された公演回は現在無効化されています。');
       }
     } else if (issueMode === 'gym') {
@@ -592,8 +635,14 @@ export const handleIssueTicketsRequest = async (
         .select('is_accepting')
         .eq('id', body.performanceId)
         .maybeSingle();
-      if (perfError || (perfData && !(perfData as { is_accepting: boolean }).is_accepting)) {
-        throw new HttpError(403, '選択された部活・団体は現在チケットの受付を停止しています。');
+      if (
+        perfError ||
+        (perfData && !(perfData as { is_accepting: boolean }).is_accepting)
+      ) {
+        throw new HttpError(
+          403,
+          '選択された部活・団体は現在チケットの受付を停止しています。',
+        );
       }
     }
 
@@ -601,7 +650,10 @@ export const handleIssueTicketsRequest = async (
       adminClient as unknown as TicketIssueControlsReader,
     );
 
-    if (classInviteId !== undefined && body.ticketTypeId === classInviteId) {
+    if (
+      (classInviteId !== undefined && body.ticketTypeId === classInviteId) ||
+      body.ticketTypeId === juniorClassId
+    ) {
       if (ticketIssueControls.classInvite === 'off') {
         throw new HttpError(409, 'クラス公演招待券の受付は停止中です。');
       }
@@ -657,7 +709,10 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (gymInviteId !== undefined && body.ticketTypeId === gymInviteId) {
+    } else if (
+      (gymInviteId !== undefined && body.ticketTypeId === gymInviteId) ||
+      body.ticketTypeId === juniorGymId
+    ) {
       if (ticketIssueControls.gymInvite === 'off') {
         throw new HttpError(409, '体育館公演招待券の受付は停止中です。');
       }
@@ -673,7 +728,10 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (entryOnlyId !== undefined && body.ticketTypeId === entryOnlyId) {
+    } else if (
+      (entryOnlyId !== undefined && body.ticketTypeId === entryOnlyId) ||
+      body.ticketTypeId === juniorEntryOnlyId
+    ) {
       if (ticketIssueControls.entryOnly === 'off') {
         throw new HttpError(409, '入場専用券の受付は停止中です。');
       }
@@ -726,7 +784,9 @@ export const handleIssueTicketsRequest = async (
       }
     }
 
-    const maxTicketsPerUser = Number(configRow.max_tickets_per_user);
+    const maxTicketsPerUser = isJuniorUser
+      ? Number(configRow.max_tickets_per_junior_user)
+      : Number(configRow.max_tickets_per_user);
     const configuredYear = Number(configRow.event_year);
     if (!Number.isInteger(configuredYear) || configuredYear < 0) {
       throw new HttpError(
@@ -870,6 +930,13 @@ export const handleIssueTicketsRequest = async (
     const concatenated = `${padNumber(affiliation, 5)}${padNumber(body.ticketTypeId, 1)}${padNumber(relationshipId, 1)}${padNumber(body.performanceId, 2)}${padNumber(body.scheduleId, 2)}${padNumber(issuedYearForPrefix, 2)}`;
     const basePrefix = generateManualCode(BigInt(concatenated));
 
+    const effectiveIssueCount =
+      !isDayTicket &&
+      isJuniorUser &&
+      Number(userRow?.junior_usage_type ?? -1) === 0
+        ? body.issueCount * 2
+        : body.issueCount;
+
     const maxSerialLimit =
       affiliation === DAY_TICKET_ANONYMOUS_AFFILIATION && isDayTicket
         ? 2 ** (Number(AFFILIATION_NUMBER_BITS) + Number(SERIAL_BITS))
@@ -880,7 +947,7 @@ export const handleIssueTicketsRequest = async (
       'increment_ticket_code_counter',
       {
         p_prefix: basePrefix,
-        p_increment: body.issueCount,
+        p_increment: effectiveIssueCount,
         p_max_value: maxSerialLimit,
       },
     );
@@ -913,7 +980,7 @@ export const handleIssueTicketsRequest = async (
       issuedTickets = await issueWithRollback({
         adminClient: adminClient as unknown as RpcClient,
         userId: issueUserId,
-        issueCount: body.issueCount,
+        issueCount: effectiveIssueCount,
         issueMode: issueMode === 'gym' ? 'gym' : 'class',
         ticketTypeId: body.ticketTypeId,
         relationshipId,
@@ -927,7 +994,7 @@ export const handleIssueTicketsRequest = async (
         signTicketCode: signCode,
       });
     } else {
-      const startSerial = endSerial - body.issueCount + 1;
+      const startSerial = endSerial - effectiveIssueCount + 1;
       let shouldRollbackCounter = true;
 
       try {
@@ -957,7 +1024,7 @@ export const handleIssueTicketsRequest = async (
           p_performance_id: body.performanceId,
           p_schedule_id: body.scheduleId,
           p_new_relationship_id: relationshipId,
-          p_issue_count: body.issueCount,
+          p_issue_count: effectiveIssueCount,
           p_codes: [code],
           p_signatures: [signature],
         });
@@ -974,7 +1041,7 @@ export const handleIssueTicketsRequest = async (
           const { data: rollbackApplied, error: rollbackError } =
             await adminClient.rpc('rollback_ticket_code_counter', {
               p_prefix: basePrefix,
-              p_decrement: body.issueCount,
+              p_decrement: effectiveIssueCount,
               p_expected_last_value: endSerial,
             });
 

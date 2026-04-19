@@ -8,7 +8,7 @@ type IssueStepPerformanceProps = {
   isGymPerformanceTicket: boolean;
   selectedPerformance: SelectedPerformance;
   selectedCellKey?: string;
-  classRemainingMode?: 'general' | 'total';
+  classRemainingMode?: 'general' | 'total' | 'junior';
   restrictedClassName?: string | null;
   restrictedGroupNames?: string[] | null;
   onSelectPerformance: (selection: SelectedPerformance) => void;

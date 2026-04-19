@@ -21,6 +21,7 @@ const toCellKey = (roundName: string, groupName: string) =>
 
 type GymPerformancesTableProps = {
   enableIssueJump?: boolean;
+  issuePath?: string;
   onAvailableCellClick?: (selection: AvailableSeatSelection | null) => void;
   selectedCellKey?: string;
   restrictedGroupNames?: string[] | null;
@@ -29,6 +30,7 @@ type GymPerformancesTableProps = {
 
 const GymPerformancesTable = ({
   enableIssueJump = false,
+  issuePath = '/students/issue',
   onAvailableCellClick,
   selectedCellKey,
   restrictedGroupNames = null,
@@ -302,7 +304,7 @@ const GymPerformancesTable = ({
       performanceId: String(selection.performanceId),
     });
 
-    route(`/students/issue?${searchParams.toString()}`);
+    route(`${issuePath}?${searchParams.toString()}`);
   };
 
   if (loading) {

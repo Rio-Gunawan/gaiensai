@@ -19,6 +19,7 @@ type ControlPanelSettings = {
   eventYear: number;
   showLength: number;
   maxTicketsPerUser: number;
+  maxTicketsPerJuniorUser: number;
   juniorReleaseOpen: boolean;
   ticketIssuingEnabled: boolean;
   activeTicketTypeIds: number[];
@@ -40,7 +41,10 @@ type TicketTypeControlKey =
   | 'gymInvite'
   | 'entryOnly'
   | 'sameDayClass'
-  | 'sameDayGym';
+  | 'sameDayGym'
+  | 'juniorClass'
+  | 'juniorGym'
+  | 'juniorEntryOnly';
 
 type TicketTypeControls = Record<TicketTypeControlKey, TicketTypeControlValue>;
 
@@ -51,6 +55,9 @@ const TICKET_TYPE_IDS = {
   entryOnly: 4,
   sameDayClass: 8,
   sameDayGym: 9,
+  juniorClass: 5,
+  juniorGym: 6,
+  juniorEntryOnly: 7,
 } as const;
 
 const DEFAULT_TICKET_TYPE_CONTROLS: TicketTypeControls = {
@@ -60,6 +67,9 @@ const DEFAULT_TICKET_TYPE_CONTROLS: TicketTypeControls = {
   entryOnly: 'open',
   sameDayClass: 'open',
   sameDayGym: 'open',
+  juniorClass: 'open',
+  juniorGym: 'open',
+  juniorEntryOnly: 'open',
 };
 
 const buildActiveTicketTypeIds = (controls: TicketTypeControls): number[] => {
@@ -82,6 +92,15 @@ const buildActiveTicketTypeIds = (controls: TicketTypeControls): number[] => {
   if (controls.sameDayGym !== 'off') {
     activeIds.add(TICKET_TYPE_IDS.sameDayGym);
   }
+  if (controls.juniorClass !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.juniorClass);
+  }
+  if (controls.juniorGym !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.juniorGym);
+  }
+  if (controls.juniorEntryOnly !== 'off') {
+    activeIds.add(TICKET_TYPE_IDS.juniorEntryOnly);
+  }
   return Array.from(activeIds);
 };
 
@@ -100,6 +119,11 @@ const mapActiveIdsToTicketTypeControls = (
       ? 'open'
       : 'off',
     sameDayGym: activeIdSet.has(TICKET_TYPE_IDS.sameDayGym) ? 'open' : 'off',
+    juniorClass: activeIdSet.has(TICKET_TYPE_IDS.juniorClass) ? 'open' : 'off',
+    juniorGym: activeIdSet.has(TICKET_TYPE_IDS.juniorGym) ? 'open' : 'off',
+    juniorEntryOnly: activeIdSet.has(TICKET_TYPE_IDS.juniorEntryOnly)
+      ? 'open'
+      : 'off',
   };
 };
 
@@ -116,6 +140,11 @@ const NUMERIC_SETTING_META = {
   eventYear: { label: '年度', min: 2020, max: 2100 },
   showLength: { label: '1公演の長さ（分）', min: 1, max: 300 },
   maxTicketsPerUser: { label: '1人あたりのチケット購入上限', min: 1, max: 100 },
+  maxTicketsPerJuniorUser: {
+    label: '中学生のチケット購入上限',
+    min: 1,
+    max: 100,
+  },
   defaultClassTotalCapacity: {
     label: 'クラス公演の定員(合計)',
     min: 1,
@@ -155,6 +184,7 @@ const SettingsContent = () => {
     eventYear: 2025,
     showLength: 60,
     maxTicketsPerUser: 20,
+    maxTicketsPerJuniorUser: 2,
     juniorReleaseOpen: false,
     ticketIssuingEnabled: true,
     activeTicketTypeIds: [
@@ -445,6 +475,15 @@ const SettingsContent = () => {
             ) &&
             isTicketTypeControlValue(
               (controlsFromApi as Record<string, unknown>).sameDayGym,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).juniorClass,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).juniorGym,
+            ) &&
+            isTicketTypeControlValue(
+              (controlsFromApi as Record<string, unknown>).juniorEntryOnly,
             )
               ? {
                   classInvite: (
@@ -465,6 +504,15 @@ const SettingsContent = () => {
                   sameDayGym: (
                     controlsFromApi as Record<string, TicketTypeControlValue>
                   ).sameDayGym,
+                  juniorClass: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).juniorClass,
+                  juniorGym: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).juniorGym,
+                  juniorEntryOnly: (
+                    controlsFromApi as Record<string, TicketTypeControlValue>
+                  ).juniorEntryOnly,
                 }
               : mapActiveIdsToTicketTypeControls(activeTicketTypeIds);
           setSettings({
@@ -517,6 +565,7 @@ const SettingsContent = () => {
           eventYear: nextSettings.eventYear,
           showLength: nextSettings.showLength,
           maxTicketsPerUser: nextSettings.maxTicketsPerUser,
+          maxTicketsPerJuniorUser: nextSettings.maxTicketsPerJuniorUser,
           juniorReleaseOpen: nextSettings.juniorReleaseOpen,
           ticketIssuingEnabled: nextSettings.ticketIssuingEnabled,
           defaultClassTotalCapacity: nextSettings.defaultClassTotalCapacity,
@@ -665,6 +714,9 @@ const SettingsContent = () => {
             entryOnly: nextControls.entryOnly,
             sameDayClass: nextControls.sameDayClass,
             sameDayGym: nextControls.sameDayGym,
+            juniorClass: nextControls.juniorClass,
+            juniorGym: nextControls.juniorGym,
+            juniorEntryOnly: nextControls.juniorEntryOnly,
           },
         },
         headers: {
@@ -830,6 +882,9 @@ const SettingsContent = () => {
       entryOnly: '招待券(入場専用券)受付',
       sameDayClass: '当日券(クラス公演)受付',
       sameDayGym: '当日券(体育館公演)受付',
+      juniorClass: '中学生券(クラス公演)受付',
+      juniorGym: '中学生券(体育館公演)受付',
+      juniorEntryOnly: '中学生券(入場専用券)受付',
     };
 
     void syncTicketTypeControls(
@@ -955,37 +1010,39 @@ const SettingsContent = () => {
         <div className={styles.formGrid}>
           <div>
             <h3>券種別の受付設定</h3>
-            <label className={styles.field} htmlFor='ticket-issuing-enabled'>
-              <span className={styles.settingLabel}>チケット発券全体</span>
-              <Switch
-                id='ticket-issuing-enabled'
-                onChange={(checked: boolean) => {
-                  if (isSettingsLoading || isSyncingSetting) {
-                    return;
-                  }
+            <div className={styles.field}>
+              <label className={styles.settingLabel}>チケット発券全体</label>
+              <label>
+                <Switch
+                  id='ticket-issuing-enabled'
+                  onChange={(checked: boolean) => {
+                    if (isSettingsLoading || isSyncingSetting) {
+                      return;
+                    }
 
-                  setSettings((prev) => {
-                    const next = { ...prev, ticketIssuingEnabled: checked };
-                    void syncSettings(
-                      next,
-                      checked
-                        ? 'チケット発券を有効化しました。'
-                        : 'チケット発券を停止しました。',
-                      'ticketSection',
-                    ).then((updated) => {
-                      if (!updated) {
-                        setSettings((current) => ({
-                          ...current,
-                          ticketIssuingEnabled: prev.ticketIssuingEnabled,
-                        }));
-                      }
+                    setSettings((prev) => {
+                      const next = { ...prev, ticketIssuingEnabled: checked };
+                      void syncSettings(
+                        next,
+                        checked
+                          ? 'チケット発券を有効化しました。'
+                          : 'チケット発券を停止しました。',
+                        'ticketSection',
+                      ).then((updated) => {
+                        if (!updated) {
+                          setSettings((current) => ({
+                            ...current,
+                            ticketIssuingEnabled: prev.ticketIssuingEnabled,
+                          }));
+                        }
+                      });
+                      return next;
                     });
-                    return next;
-                  });
-                }}
-                checked={settings.ticketIssuingEnabled}
-              />
-            </label>
+                  }}
+                  checked={settings.ticketIssuingEnabled}
+                />
+              </label>
+            </div>
             <div className={styles.field}>
               <label
                 className={styles.settingLabel}
@@ -1061,21 +1118,72 @@ const SettingsContent = () => {
                 <option value='off'>無効</option>
               </select>
             </div>
-            <label className={styles.field} htmlFor='ticket-entry-only'>
+            <div className={styles.field}>
               <span className={styles.settingLabel}>
                 招待券(入場専用券)受付
               </span>
-              <Switch
-                id='ticket-entry-only'
-                checked={ticketTypeControls.entryOnly === 'open'}
-                onChange={(checked) =>
-                  handleTicketTypeControlChange(
-                    'entryOnly',
-                    checked ? 'open' : 'off',
-                  )
-                }
-              ></Switch>
-            </label>
+              <label>
+                <Switch
+                  id='ticket-entry-only'
+                  checked={ticketTypeControls.entryOnly === 'open'}
+                  onChange={(checked) =>
+                    handleTicketTypeControlChange(
+                      'entryOnly',
+                      checked ? 'open' : 'off',
+                    )
+                  }
+                ></Switch>
+              </label>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.settingLabel}>
+                中学生券(クラス公演)受付
+              </label>
+              <label>
+                <Switch
+                  checked={ticketTypeControls.juniorClass === 'open'}
+                  onChange={(checked) =>
+                    handleTicketTypeControlChange(
+                      'juniorClass',
+                      checked ? 'open' : 'off',
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.settingLabel}>
+                中学生券(体育館公演)受付
+              </label>
+              <label>
+                <Switch
+                  checked={ticketTypeControls.juniorGym === 'open'}
+                  onChange={(checked) =>
+                    handleTicketTypeControlChange(
+                      'juniorGym',
+                      checked ? 'open' : 'off',
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.settingLabel}>
+                中学生券(入場専用)受付
+              </label>
+              <label>
+                <Switch
+                  checked={ticketTypeControls.juniorEntryOnly === 'open'}
+                  onChange={(checked) =>
+                    handleTicketTypeControlChange(
+                      'juniorEntryOnly',
+                      checked ? 'open' : 'off',
+                    )
+                  }
+                />
+              </label>
+            </div>
             <div className={styles.field}>
               <label
                 className={styles.settingLabel}
@@ -1217,37 +1325,65 @@ const SettingsContent = () => {
                 </button>
               </div>
             </div>
-            <label className={styles.field} htmlFor='ticket-junior-release'>
-              <span className={styles.settingLabel}>中学生枠の一般解放</span>
-              <Switch
-                id='ticket-junior-release'
-                onChange={(checked: boolean) => {
-                  if (isSettingsLoading || isSyncingSetting) {
-                    return;
+            <div className={styles.field}>
+              <label
+                className={styles.settingLabel}
+                htmlFor='ticket-junior-max-per-user'
+              >
+                中学生のチケット発行上限
+              </label>
+              <div className={styles.settingControlGroup}>
+                <span
+                  id='ticket-junior-max-per-user'
+                  className={styles.fieldValue}
+                >
+                  {settings.maxTicketsPerJuniorUser}
+                </span>
+                <button
+                  type='button'
+                  className={styles.inlineEditButton}
+                  onClick={() =>
+                    openNumericEditModal('maxTicketsPerJuniorUser')
                   }
+                  disabled={isSettingsLoading || isSyncingSetting}
+                >
+                  変更する
+                </button>
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.settingLabel}>中学生枠の一般解放</label>
+              <label>
+                <Switch
+                  id='ticket-junior-release'
+                  onChange={(checked: boolean) => {
+                    if (isSettingsLoading || isSyncingSetting) {
+                      return;
+                    }
 
-                  setSettings((prev) => {
-                    const next = { ...prev, juniorReleaseOpen: checked };
-                    // 非同期通信をバックグラウンドで実行
-                    void syncSettings(
-                      next,
-                      '中学生枠の一般解放設定を更新しました。',
-                      'ticketSection',
-                    ).then((updated) => {
-                      // 失敗した場合は以前の値を参照して戻す
-                      if (!updated) {
-                        setSettings((current) => ({
-                          ...current,
-                          juniorReleaseOpen: prev.juniorReleaseOpen,
-                        }));
-                      }
+                    setSettings((prev) => {
+                      const next = { ...prev, juniorReleaseOpen: checked };
+                      // 非同期通信をバックグラウンドで実行
+                      void syncSettings(
+                        next,
+                        '中学生枠の一般解放設定を更新しました。',
+                        'ticketSection',
+                      ).then((updated) => {
+                        // 失敗した場合は以前の値を参照して戻す
+                        if (!updated) {
+                          setSettings((current) => ({
+                            ...current,
+                            juniorReleaseOpen: prev.juniorReleaseOpen,
+                          }));
+                        }
+                      });
+                      return next;
                     });
-                    return next;
-                  });
-                }}
-                checked={settings.juniorReleaseOpen}
-              />
-            </label>
+                  }}
+                  checked={settings.juniorReleaseOpen}
+                />
+              </label>
+            </div>
           </div>
         </div>
         {settingsMessageScope === 'ticketSection' && isSettingsLoading && (

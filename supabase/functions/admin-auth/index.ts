@@ -21,6 +21,7 @@ type AdminAuthRequest = {
   eventYear?: unknown;
   showLength?: unknown;
   maxTicketsPerUser?: unknown;
+  maxTicketsPerJuniorUser?: unknown;
   juniorReleaseOpen?: unknown;
   ticketIssuingEnabled?: unknown;
   activeTicketTypeIds?: unknown;
@@ -53,6 +54,9 @@ type TicketIssueModes = {
   entryOnly: TicketIssueMode;
   sameDayClass: TicketIssueMode;
   sameDayGym: TicketIssueMode;
+  juniorClass: TicketIssueMode;
+  juniorGym: TicketIssueMode;
+  juniorEntryOnly: TicketIssueMode;
 };
 
 type AdminAuthBody =
@@ -86,6 +90,7 @@ type AdminAuthBody =
       eventYear: number;
       showLength: number;
       maxTicketsPerUser: number;
+      maxTicketsPerJuniorUser: number;
       juniorReleaseOpen: boolean;
       ticketIssuingEnabled: boolean;
       defaultClassTotalCapacity: number;
@@ -110,6 +115,7 @@ type AdminSettingsRow = {
   event_year: number;
   show_length: number;
   max_tickets_per_user: number;
+  max_tickets_per_junior_user: number;
   junior_release_open: boolean;
   is_active: boolean;
 };
@@ -132,12 +138,15 @@ type TicketIssueControlsRow = {
   entry_only_mode: TicketIssueMode;
   same_day_class_mode: TicketIssueMode;
   same_day_gym_mode: TicketIssueMode;
+  junior_class_mode: TicketIssueMode;
+  junior_gym_mode: TicketIssueMode;
+  junior_entry_only_mode: TicketIssueMode;
 };
 
 const ADMIN_SESSION_TOKEN_HEADER = 'x-admin-session-token';
 const MAX_SESSION_TOKEN_LENGTH = 512;
 const MAX_IP_ADDRESS_LENGTH = 128;
-const MANAGED_TICKET_TYPE_IDS = [1, 2, 3, 4, 8, 9] as const;
+const MANAGED_TICKET_TYPE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 const TICKET_ISSUE_MODE_VALUES = [
   'open',
   'only-own',
@@ -152,6 +161,9 @@ const DEFAULT_TICKET_ISSUE_MODES: TicketIssueModes = {
   entryOnly: 'open',
   sameDayClass: 'open',
   sameDayGym: 'open',
+  juniorClass: 'open',
+  juniorGym: 'open',
+  juniorEntryOnly: 'open',
 };
 
 const toHex = (bytes: Uint8Array): string =>
@@ -260,7 +272,10 @@ const normalizeTicketIssueModes = (value: unknown): TicketIssueModes => {
     !isTicketIssueMode(raw.gymInvite) ||
     !isTicketIssueMode(raw.entryOnly) ||
     !isTicketIssueMode(raw.sameDayClass) ||
-    !isTicketIssueMode(raw.sameDayGym)
+    !isTicketIssueMode(raw.sameDayGym) ||
+    !isTicketIssueMode(raw.juniorClass) ||
+    !isTicketIssueMode(raw.juniorGym) ||
+    !isTicketIssueMode(raw.juniorEntryOnly)
   ) {
     throw new HttpError(400, 'ticketIssueModes の値が不正です。');
   }
@@ -272,6 +287,9 @@ const normalizeTicketIssueModes = (value: unknown): TicketIssueModes => {
     entryOnly: raw.entryOnly,
     sameDayClass: raw.sameDayClass,
     sameDayGym: raw.sameDayGym,
+    juniorClass: raw.juniorClass,
+    juniorGym: raw.juniorGym,
+    juniorEntryOnly: raw.juniorEntryOnly,
   };
 };
 
@@ -426,6 +444,7 @@ const parseBody = (body: unknown): AdminAuthBody => {
       eventYear,
       showLength,
       maxTicketsPerUser,
+      maxTicketsPerJuniorUser,
       juniorReleaseOpen,
       ticketIssuingEnabled,
       defaultClassTotalCapacity,
@@ -470,6 +489,12 @@ const parseBody = (body: unknown): AdminAuthBody => {
       maxTicketsPerUser: normalizeInteger(
         maxTicketsPerUser,
         'maxTicketsPerUser',
+        1,
+        100,
+      ),
+      maxTicketsPerJuniorUser: normalizeInteger(
+        maxTicketsPerJuniorUser,
+        'maxTicketsPerJuniorUser',
         1,
         100,
       ),
@@ -593,7 +618,7 @@ const fetchAdminSettings = async (adminClient: SupabaseClient) => {
   const { data, error } = await adminClient
     .from('configs')
     .select(
-      'id, event_year, show_length, max_tickets_per_user, junior_release_open, is_active',
+      'id, event_year, show_length, max_tickets_per_user, max_tickets_per_junior_user, junior_release_open, is_active',
     )
     .limit(1);
 
@@ -615,7 +640,7 @@ const fetchTicketIssueControls = async (
   const { data, error } = await adminClient
     .from('ticket_issue_controls')
     .select(
-      'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode, same_day_class_mode, same_day_gym_mode',
+      'class_invite_mode, rehearsal_invite_mode, gym_invite_mode, entry_only_mode, same_day_class_mode, same_day_gym_mode, junior_class_mode, junior_gym_mode, junior_entry_only_mode',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -636,6 +661,9 @@ const fetchTicketIssueControls = async (
     entryOnly: row.entry_only_mode,
     sameDayClass: row.same_day_class_mode,
     sameDayGym: row.same_day_gym_mode,
+    juniorClass: row.junior_class_mode,
+    juniorGym: row.junior_gym_mode,
+    juniorEntryOnly: row.junior_entry_only_mode,
   };
 };
 
@@ -1104,7 +1132,9 @@ Deno.serve(async (req) => {
             .delete()
             .in('id', deletedAuthIds);
           if (deleteUsersByIdError) {
-            errors.push(`public.users(id) delete failed: ${deleteUsersByIdError.message}`);
+            errors.push(
+              `public.users(id) delete failed: ${deleteUsersByIdError.message}`,
+            );
           }
         }
 
@@ -1214,10 +1244,13 @@ Deno.serve(async (req) => {
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', session.id);
 
-      return new Response(JSON.stringify({ ...results, failedUsers, skippedUsers }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ ...results, failedUsers, skippedUsers }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     if (body.mode === 'getStudentUsers') {
@@ -1330,6 +1363,15 @@ Deno.serve(async (req) => {
       if (ticketIssueModes.sameDayGym !== 'off') {
         activeTicketTypeIds.push(9);
       }
+      if (ticketIssueModes.juniorClass !== 'off') {
+        activeTicketTypeIds.push(5);
+      }
+      if (ticketIssueModes.juniorGym !== 'off') {
+        activeTicketTypeIds.push(6);
+      }
+      if (ticketIssueModes.juniorEntryOnly !== 'off') {
+        activeTicketTypeIds.push(7);
+      }
 
       await adminClient
         .from('admin_sessions')
@@ -1342,6 +1384,7 @@ Deno.serve(async (req) => {
             eventYear: settings.event_year,
             showLength: settings.show_length,
             maxTicketsPerUser: settings.max_tickets_per_user,
+            maxTicketsPerJuniorUser: settings.max_tickets_per_junior_user,
             juniorReleaseOpen: settings.junior_release_open,
             ticketIssuingEnabled: settings.is_active,
             defaultClassTotalCapacity: maxCapacities.maxClassTotal ?? 0,
@@ -1371,6 +1414,7 @@ Deno.serve(async (req) => {
           event_year: body.eventYear,
           show_length: body.showLength,
           max_tickets_per_user: body.maxTicketsPerUser,
+          max_tickets_per_junior_user: body.maxTicketsPerJuniorUser,
           junior_release_open: body.juniorReleaseOpen,
           is_active: body.ticketIssuingEnabled,
         })
@@ -1417,6 +1461,7 @@ Deno.serve(async (req) => {
             eventYear: body.eventYear,
             showLength: body.showLength,
             maxTicketsPerUser: body.maxTicketsPerUser,
+            maxTicketsPerJuniorUser: body.maxTicketsPerJuniorUser,
             juniorReleaseOpen: body.juniorReleaseOpen,
             ticketIssuingEnabled: body.ticketIssuingEnabled,
             defaultClassTotalCapacity: body.defaultClassTotalCapacity,
@@ -1448,6 +1493,9 @@ Deno.serve(async (req) => {
             entry_only_mode: body.ticketIssueModes.entryOnly,
             same_day_class_mode: body.ticketIssueModes.sameDayClass,
             same_day_gym_mode: body.ticketIssueModes.sameDayGym,
+            junior_class_mode: body.ticketIssueModes.juniorClass,
+            junior_gym_mode: body.ticketIssueModes.juniorGym,
+            junior_entry_only_mode: body.ticketIssueModes.juniorEntryOnly,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' },

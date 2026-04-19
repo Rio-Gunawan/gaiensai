@@ -8,6 +8,7 @@ import TicketHistory from './pages/user/TicketHistory';
 export const MainLayout = lazy(() => import('./layout/MainLayout'));
 export const AdminLayout = lazy(() => import('./layout/AdminLayout'));
 export const ScanLayout = lazy(() => import('./layout/ScanLayout'));
+export const JuniorLayout = lazy(() => import('./layout/JuniorLayout'));
 
 export const Home = lazy(() => import('./pages/user/Home'));
 export const Performances = lazy(() => import('./pages/user/Performances'));
@@ -21,6 +22,7 @@ export const ScanHistory = lazy(() => import('./pages/admin/ScanHistory'));
 export const Settings = lazy(() => import('./pages/admin/Settings'));
 export const Teachers = lazy(() => import('./pages/admin/Teachers'));
 export const StudentAccounts = lazy(() => import('./pages/admin/StudentAccounts'));
+export const Junior = lazy(() => import('./pages/user/junior/Junior'));
 
 
 // re-export the eagerly-loaded routes so callers can treat them uniformly

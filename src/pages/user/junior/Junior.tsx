@@ -4,16 +4,12 @@ import { supabase } from '../../../lib/supabase';
 
 import type { Session, UserData } from '../../../types/types';
 
-import Dashboard from './Dashboard';
-import InitialRegistration from './InitialRegistration';
-import Issue from './Issue';
-import IssueResult from './IssueResult';
+import JuniorMyPage from './JuniorMyPage';
 
-import StudentLayout from '../../../layout/StudentLayout';
-
+import JuniorLayout from '../../../layout/JuniorLayout';
 import {
-  readCachedStudentProfile,
-  writeCachedStudentProfile,
+  readCachedJuniorProfile,
+  writeCachedJuniorProfile,
 } from './offlineCache';
 
 import styles from '../../../styles/sub-pages.module.css';
@@ -25,13 +21,13 @@ import { useTitle } from '../../../hooks/useTitle';
 type AuthState = Session | undefined;
 const JUNIOR_AFFILIATION_THRESHOLD = 100000;
 
-const Students = () => {
+const Junior = () => {
   const { path, route } = useLocation();
   const [session, setSession] = useState<AuthState>(undefined);
   const [userData, setUserData] = useState<UserData | undefined>(undefined);
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  useTitle('生徒用ページ');
+  useTitle('中学生用ページ');
 
   const formatErrorMessage = (error: unknown) => {
     if (error instanceof Error) {
@@ -43,7 +39,7 @@ const Students = () => {
   const loadUserProfile = async (userId: string) => {
     const { data, error }: { data: UserData; error: unknown } = await supabase
       .from('users')
-      .select('email, affiliation, clubs')
+      .select('email, affiliation')
       .eq('id', userId)
       .maybeSingle();
 
@@ -57,14 +53,14 @@ const Students = () => {
 
       if (!nextSession) {
         setUserData(null);
-        route('/students/login');
+        route('/junior/login');
         return;
       }
 
       const { data, error } = await loadUserProfile(nextSession.user.id);
 
       if (error) {
-        const cachedProfile = readCachedStudentProfile(nextSession.user.id);
+        const cachedProfile = readCachedJuniorProfile(nextSession.user.id);
         if (cachedProfile) {
           setUserData(cachedProfile);
           return;
@@ -76,7 +72,7 @@ const Students = () => {
 
       setUserData(data);
       if (data) {
-        writeCachedStudentProfile(nextSession.user.id, data);
+        writeCachedJuniorProfile(nextSession.user.id, data);
       }
     };
 
@@ -93,29 +89,6 @@ const Students = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // register_student直後にusersの行が即時にselectで見えないタイミングがあるため
-  const handleRegistered = async (): Promise<boolean> => {
-    if (!session) {
-      return false;
-    }
-
-    for (let i = 0; i < 3; i++) {
-      const { data, error } = await loadUserProfile(session.user.id);
-
-      if (!error && data) {
-        setUserData(data);
-        writeCachedStudentProfile(session.user.id, data);
-        return true;
-      }
-
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 200);
-      });
-    }
-
-    return false;
-  };
-
   useEffect(() => {
     if (session === undefined || userData === undefined) {
       return;
@@ -129,26 +102,15 @@ const Students = () => {
       return;
     }
 
-    if (userData && userData.affiliation >= JUNIOR_AFFILIATION_THRESHOLD) {
-      route('/junior');
+    if (userData && userData.affiliation < JUNIOR_AFFILIATION_THRESHOLD) {
+      route('/students');
       return;
     }
 
-    if (!userData && path !== '/students/initial-registration') {
-      route('/students/initial-registration');
-      return;
+    if (userData && (path === '/junior' || path === '/junior/login' || path === '/junior/')) {
+      route('/junior/mypage');
     }
-
-    if (
-      userData &&
-      (path === '/students' ||
-        path === '/students/login' ||
-        path === '/students/initial-registration' ||
-        path === '/students/')
-    ) {
-      route('/students/dashboard');
-    }
-  }, [location, profileError, session, userData]);
+  }, [path, profileError, route, session, userData]);
 
   const retryLoadProfile = async () => {
     if (!session) {
@@ -159,7 +121,7 @@ const Students = () => {
     const { data, error } = await loadUserProfile(session.user.id);
 
     if (error) {
-      const cachedProfile = readCachedStudentProfile(session.user.id);
+      const cachedProfile = readCachedJuniorProfile(session.user.id);
       if (cachedProfile) {
         setUserData(cachedProfile);
         return;
@@ -171,7 +133,7 @@ const Students = () => {
 
     setUserData(data);
     if (data) {
-      writeCachedStudentProfile(session.user.id, data);
+      writeCachedJuniorProfile(session.user.id, data);
     }
   };
 
@@ -181,12 +143,12 @@ const Students = () => {
   ) {
     return (
       <section>
-        <h1 className={styles.pageTitle}>生徒用ページ</h1>
+        <h1 className={styles.pageTitle}>中学生用ページ</h1>
         <LoadingSpinner />
         <p>
           しばらく待ってもページが遷移しない場合は、
-          <a href='/students/login'>ログインページ</a>または
-          <a href='/students/dashboard'>ダッシュボード</a>
+          <a href='/junior/login'>ログインページ</a>または
+          <a href='/junior/mypage'>マイページ</a>
           のいずれかに直接アクセスしてみてください。
         </p>
         <p>不明点がありましたら、お気軽に外苑祭総務へお問い合わせください。</p>
@@ -196,16 +158,16 @@ const Students = () => {
 
   if (!session) {
     return (
-      <StudentLayout>
+      <JuniorLayout>
         <Login />
-      </StudentLayout>
+      </JuniorLayout>
     );
   }
 
   if (profileError && userData === undefined) {
     return (
       <section>
-        <h1 className={styles.pageTitle}>生徒用ページ</h1>
+        <h1 className={styles.pageTitle}>中学生用ページ</h1>
         <h2>プロフィールを読み込めませんでした</h2>
         <p>オフライン状態、または通信エラーの可能性があります。</p>
         <p>通信状態を確認して、再読み込みをお試しください。</p>
@@ -219,31 +181,33 @@ const Students = () => {
 
   if (!userData) {
     return (
-      <StudentLayout>
-        <InitialRegistration onRegistered={handleRegistered} />
-      </StudentLayout>
+      <JuniorLayout>
+        <section>
+          <h1 className={styles.pageTitle}>中学生用ページ</h1>
+          <h2>利用者情報が見つかりませんでした</h2>
+          <p>アカウント情報の確認が必要です。外苑祭総務へご連絡ください。</p>
+        </section>
+      </JuniorLayout>
     );
   }
 
   const registeredUserData = userData;
 
   return (
-    <StudentLayout>
+    <JuniorLayout>
       <Router>
-        <Route path='/issue/result' component={IssueResult} />
-        <Route path='/issue' component={Issue} />
         <Route
-          path='/dashboard'
-          component={() => <Dashboard userData={registeredUserData} />}
+          path='/mypage'
+          component={() => <JuniorMyPage userData={registeredUserData} />}
         />
         <Route
           path='/'
-          component={() => <Dashboard userData={registeredUserData} />}
+          component={() => <JuniorMyPage userData={registeredUserData} />}
         />
         <Route default component={NotFound} />
       </Router>
-    </StudentLayout>
+    </JuniorLayout>
   );
 };
 
-export default Students;
+export default Junior;

@@ -1,7 +1,7 @@
 import UserLogin from '../shared/UserLogin';
 
 const Login = () => {
-  return <UserLogin basePath='/students' pageTitle='生徒用ページ' />;
+  return <UserLogin basePath='/junior' pageTitle='中学生用ページ' />;
 };
 
 export default Login;

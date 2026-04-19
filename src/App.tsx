@@ -8,7 +8,14 @@ import {
 
 import { ScrollToTop } from './utils/ScrollToTop';
 import { useEffect } from 'preact/hooks';
-import { preload, ScanHistory, Settings, StudentAccounts, Teachers } from './routes';
+import {
+  Junior,
+  preload,
+  ScanHistory,
+  Settings,
+  StudentAccounts,
+  Teachers,
+} from './routes';
 import LineCallback from './features/auth/Line';
 import NotFound from './shared/NotFound';
 
@@ -88,6 +95,8 @@ const InnerApp = () => {
       preload(Home);
     } else if (path.startsWith('/students')) {
       preload(Students);
+    } else if (path.startsWith('/junior')) {
+      preload(Junior);
     } else if (path.startsWith('/day-tickets')) {
       preload(DayTicketIssue, DayTicketIssueResult);
     } else if (path.startsWith('/performances')) {
@@ -107,6 +116,8 @@ const InnerApp = () => {
       <Route path='/admin/scan' component={AdminScanLayout} />
       <Route path='/admin/*' component={AdminPageLayout} />
       <Route path='/admin' component={AdminPageLayout} />
+      <Route path='/junior/*' component={Junior} />
+      <Route path='/junior' component={Junior} />
       <Route path='/*' component={userPageLayout} />
       <Route default component={NotFound} />
     </Router>

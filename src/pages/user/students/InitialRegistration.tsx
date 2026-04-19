@@ -11,6 +11,10 @@ type InitialRegistrationProps = {
 const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const [availableClubs, setAvailableClubs] = useState<string[]>([]);
   const [selectedClubs, setSelectedClubs] = useState<string[]>([]);
+  const [isStudentAccount, setIsStudentAccount] = useState<boolean | null>(
+    null,
+  );
+  const [juniorUsageType, setJuniorUsageType] = useState<number>(0);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,6 +25,28 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
   const { route } = useLocation();
 
   useEffect(() => {
+    const detectAccountType = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const localPart = user?.email?.split('@')[0] ?? '';
+      const affiliation = Number(localPart);
+      const nextIsStudentAccount =
+        Number.isInteger(affiliation) &&
+        affiliation >= 10000 &&
+        affiliation <= 40000;
+      setIsStudentAccount(nextIsStudentAccount);
+    };
+
+    void detectAccountType();
+  }, []);
+
+  useEffect(() => {
+    if (!isStudentAccount) {
+      return;
+    }
+
     const fetchClubs = async () => {
       const { data, error } = await supabase
         .from('gym_performances')
@@ -33,7 +59,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       }
     };
     void fetchClubs();
-  }, []);
+  }, [isStudentAccount]);
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
@@ -54,42 +80,51 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       return;
     }
 
-    const userAffiliation = Number(user.email?.split('@')[0] ?? 0);
+    const localPart = user.email?.split('@')[0] ?? '';
+    const userAffiliation = Number(localPart);
+    const isStudentAccount =
+      Number.isInteger(userAffiliation) &&
+      userAffiliation >= 10000 &&
+      userAffiliation <= 40000;
 
     setLoading(true);
 
-    // パスワードの更新
-    const { error: passwordError } = await supabase.auth.updateUser({
-      password: password,
-    });
+    if (isStudentAccount) {
+      // パスワードの更新
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: password,
+      });
 
-    if (passwordError) {
-      if (
-        passwordError.message.includes(
-          'New password should be different from the old password.',
-        )
-      ) {
-        setErrorMessage('パスワードは古いものと異なる必要があります。');
+      if (passwordError) {
+        if (
+          passwordError.message.includes(
+            'New password should be different from the old password.',
+          )
+        ) {
+          setErrorMessage('パスワードは古いものと異なる必要があります。');
+          setLoading(false);
+          return;
+        }
+        setErrorMessage(
+          `パスワードの変更に失敗しました: ${passwordError.message}`,
+        );
+        setLoading(false);
         return;
       }
-      setErrorMessage(
-        `パスワードの変更に失敗しました: ${passwordError.message}`,
-      );
-      setLoading(false);
-      return;
     }
-
-    // サーバーサイド関数 (RPC) を呼び出して登録
-    // 担任名の照合とユーザー登録をトランザクション内で安全に実行します
-    const { error } = await supabase.rpc('register_student', {
-      affiliation: userAffiliation,
-      clubs: selectedClubs.length > 0 ? selectedClubs : null,
-    });
+    // サーバーサイド関数 (RPC) で users テーブルに登録
+    const { error } = isStudentAccount
+      ? await supabase.rpc('register_student', {
+          affiliation: userAffiliation,
+          clubs: selectedClubs.length > 0 ? selectedClubs : null,
+        })
+      : await supabase.rpc('register_junior', {
+          junior_usage_type: juniorUsageType,
+        });
 
     setLoading(false);
 
     if (error) {
-
       if (error.code === '23505') {
         setErrorMessage(
           '同じ学年・クラス・番号のユーザーが既に登録されています。入力内容が正しい場合は、お手数ですが、外苑祭総務へお問い合わせください。',
@@ -109,7 +144,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
       return;
     }
 
-    route('/students/dashboard');
+    route(isStudentAccount ? '/students/dashboard' : '/junior/mypage');
   };
 
   const handleLogout = async () => {
@@ -120,57 +155,109 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
     <section className={styles.registrationContainer}>
       <h1>初回登録</h1>
       <p className={styles.description}>
-        初回は、部活情報とパスワードの変更をお願いします。
+        初回は登録情報の設定とパスワード変更をお願いします。
       </p>
       <form className={styles.form} onSubmit={handleSubmit}>
-        <div className={styles.clubSelection}>
-          <p className={styles.label}>
-            部活(所属しているものをすべて選択してください)
-          </p>
-          <div className={styles.checkboxGroup}>
-            {availableClubs.map((club) => (
-              <label key={club} className={styles.checkboxLabel}>
-                <input
-                  type='checkbox'
-                  className={styles.checkbox}
-                  checked={selectedClubs.includes(club)}
-                  onChange={(e) => {
-                    const isChecked = e.currentTarget.checked;
-                    setSelectedClubs((prev) =>
-                      isChecked
-                        ? [...prev, club]
-                        : prev.filter((c) => c !== club),
-                    );
-                  }}
-                />
-                {club}
-              </label>
-            ))}
-          </div>
-        </div>
+        {isStudentAccount === null ? (
+          <p className={styles.label}>アカウント情報を確認しています...</p>
+        ) : isStudentAccount ? (
+          <>
+            <div className={styles.clubSelection}>
+              <p className={styles.label}>
+                部活(所属しているものをすべて選択してください)
+              </p>
+              <div className={styles.checkboxGroup}>
+                {availableClubs.map((club) => (
+                  <label key={club} className={styles.checkboxLabel}>
+                    <input
+                      type='checkbox'
+                      className={styles.checkbox}
+                      checked={selectedClubs.includes(club)}
+                      onChange={(e) => {
+                        const isChecked = e.currentTarget.checked;
+                        setSelectedClubs((prev) =>
+                          isChecked
+                            ? [...prev, club]
+                            : prev.filter((c) => c !== club),
+                        );
+                      }}
+                    />
+                    {club}
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        <div className={styles.passwordSelection}>
-          <p className={styles.label}>新しいパスワード (8文字以上)</p>
-          <input
-            type='password'
-            className={styles.passwordInput}
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-            required
-            minLength={8}
-            autoComplete='new-password'
-          />
-          <p className={styles.label}>新しいパスワード (確認)</p>
-          <input
-            type='password'
-            className={styles.passwordInput}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.currentTarget.value)}
-            required
-            minLength={8}
-            autoComplete='new-password'
-          />
-        </div>
+            <div className={styles.passwordSelection}>
+              <p className={styles.label}>新しいパスワード (8文字以上)</p>
+              <input
+                type='password'
+                className={styles.passwordInput}
+                value={password}
+                onChange={(e) => setPassword(e.currentTarget.value)}
+                required
+                minLength={8}
+                autoComplete='new-password'
+              />
+              <p className={styles.label}>新しいパスワード (確認)</p>
+              <input
+                type='password'
+                className={styles.passwordInput}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                required
+                minLength={8}
+                autoComplete='new-password'
+              />
+            </div>
+          </>
+        ) : (
+          <div>
+            <p className={styles.label}>利用形態</p>
+            <div className={styles.checkboxGroup}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type='radio'
+                  name='junior-usage-type'
+                  className={styles.checkbox}
+                  checked={juniorUsageType === 0}
+                  onChange={() => setJuniorUsageType(0)}
+                />
+                中学生と保護者(共通のチケット使用)
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type='radio'
+                  name='junior-usage-type'
+                  className={styles.checkbox}
+                  checked={juniorUsageType === 1}
+                  onChange={() => setJuniorUsageType(1)}
+                />
+                中学生と保護者(別々のチケット使用)
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type='radio'
+                  name='junior-usage-type'
+                  className={styles.checkbox}
+                  checked={juniorUsageType === 2}
+                  onChange={() => setJuniorUsageType(2)}
+                />
+                中学生のみ
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type='radio'
+                  name='junior-usage-type'
+                  className={styles.checkbox}
+                  checked={juniorUsageType === 3}
+                  onChange={() => setJuniorUsageType(3)}
+                />
+                保護者のみ
+              </label>
+            </div>
+          </div>
+        )}
 
         {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
         <div className={styles.turnstileContainer}>
@@ -182,7 +269,7 @@ const InitialRegistration = ({ onRegistered }: InitialRegistrationProps) => {
         <button
           className={styles.submitButton}
           type='submit'
-          disabled={loading}
+          disabled={loading || isStudentAccount === null}
         >
           {loading ? '登録中...' : '登録する'}
         </button>

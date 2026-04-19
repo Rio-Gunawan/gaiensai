@@ -169,6 +169,12 @@ const toFailedCsv = (failedUsers: CsvAccount[]) => {
 const JuniorAccountContent = () => {
   useTitle('中学生アカウント管理 - 管理画面');
 
+  const [manualId, setManualId] = useState('');
+  const [manualBirthdayRaw, setManualBirthdayRaw] = useState('');
+  const [manualResultMessage, setManualResultMessage] = useState<{
+    text: string;
+    type: 'success' | 'error';
+  } | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [csvAccounts, setCsvAccounts] = useState<CsvAccount[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -234,6 +240,102 @@ const JuniorAccountContent = () => {
   useEffect(() => {
     void fetchExistingJuniorAccounts();
   }, []);
+
+  const handleManualRegister = async () => {
+    setManualResultMessage(null);
+
+    const id = manualId.trim();
+    const birthday = normalizeBirthday(manualBirthdayRaw);
+
+    if (!id) {
+      setManualResultMessage({ text: 'IDを入力してください。', type: 'error' });
+      return;
+    }
+
+    if (id.includes('@')) {
+      setManualResultMessage({
+        text: 'IDに @ は使えません（ローカル部のみ入力してください）。',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (!birthday || !isBirthday(birthday)) {
+      setManualResultMessage({
+        text: '誕生日は8桁(YYYYMMDD)の整数にするか、区切り文字で入力してください。',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `中学生アカウントを登録しますか？\nID: ${id}\n誕生日: ${birthday}`,
+      )
+    ) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setProgress({ current: 0, total: 1 });
+
+    try {
+      const token = getSessionToken();
+      const compositeId = toCompositeId(id, birthday);
+      const users: AuthCreateUser[] = [{ id: compositeId, password: birthday }];
+
+      const { data, error } = await supabase.functions.invoke<BulkCreateResponse>(
+        'admin-auth',
+        {
+          body: { action: 'bulkCreateUsers', users },
+          headers: { 'x-admin-session-token': token ?? '' },
+        },
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      setProgress({ current: 1, total: 1 });
+
+      const didCreate = (data?.created ?? 0) > 0;
+      const didSkip = (data?.skipped ?? 0) > 0;
+      const failed = data?.failedUsers ?? [];
+      const errors = data?.errors ?? [];
+      const skippedUsers = data?.skippedUsers ?? [];
+
+      if (failed.length > 0 || errors.length > 0) {
+        setManualResultMessage({ text: '登録に失敗しました。', type: 'error' });
+        return;
+      }
+
+      if (didSkip || skippedUsers.length > 0) {
+        setManualResultMessage({
+          text: '既に登録済みのため、既存扱い（skipped）になりました。',
+          type: 'success',
+        });
+      } else if (didCreate) {
+        setManualResultMessage({ text: '登録しました。', type: 'success' });
+        setManualId('');
+        setManualBirthdayRaw('');
+      } else {
+        setManualResultMessage({
+          text: '登録結果を確認できませんでした。時間をおいて再度お試しください。',
+          type: 'error',
+        });
+      }
+
+      void fetchExistingJuniorAccounts();
+    } catch (err) {
+      const errorMsg = await readErrorMessage(err);
+      setManualResultMessage({
+        text: `登録に失敗しました: ${errorMsg}`,
+        type: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleFileChange = async (event: Event) => {
     const input = event.currentTarget as HTMLInputElement;
@@ -415,6 +517,70 @@ const JuniorAccountContent = () => {
 
   return (
     <div className={styles.container}>
+      <NormalSection>
+        <h2>手動登録</h2>
+        <p className={styles.noteText}>
+          IDと誕生日を入力して、1件だけAuthへ登録します。`public.users`
+          には行を追加しません。
+        </p>
+        <div className={styles.formGrid}>
+          <div className={styles.field}>
+            <label className={styles.settingLabel} htmlFor='junior-manual-id'>
+              ID
+            </label>
+            <input
+              id='junior-manual-id'
+              type='text'
+              className={`${styles.fieldControl} ${styles.juniorRegisterInput}`}
+              value={manualId}
+              onInput={(e) => setManualId((e.target as HTMLInputElement).value)}
+              placeholder='例: abc123'
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className={styles.field}>
+            <label
+              className={styles.settingLabel}
+              htmlFor='junior-manual-birthday'
+            >
+              誕生日
+            </label>
+            <input
+              id='junior-manual-birthday'
+              type='text'
+              className={`${styles.fieldControl} ${styles.juniorRegisterInput}`}
+              value={manualBirthdayRaw}
+              onInput={(e) =>
+                setManualBirthdayRaw((e.target as HTMLInputElement).value)
+              }
+              placeholder='YYYYMMDD または YYYY/MM/DD'
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+        <div className={styles.saveButtonContainer}>
+          <button
+            type='button'
+            className={`${styles.authButton} ${styles.saveButtonPrimary}`}
+            onClick={() => void handleManualRegister()}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? '登録中...' : '登録'}
+          </button>
+        </div>
+        {manualResultMessage ? (
+          <p
+            className={
+              manualResultMessage.type === 'success'
+                ? styles.authSuccess
+                : styles.authError
+            }
+          >
+            {manualResultMessage.text}
+          </p>
+        ) : null}
+      </NormalSection>
+
       <NormalSection>
         <h2>CSV一括登録</h2>
         <p className={styles.noteText}>

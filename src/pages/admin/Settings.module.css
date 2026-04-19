@@ -540,3 +540,7 @@
   margin-left: 1em;
   background-color: var(--darker-accent-color);
 }
+
+.juniorRegisterInput {
+  width: 20em;
+}

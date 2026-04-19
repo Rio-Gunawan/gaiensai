@@ -17,9 +17,22 @@ import NotFound from '../../../shared/NotFound';
 import Login from './Login';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { useTitle } from '../../../hooks/useTitle';
+import InitialRegistration from './InitialRegistration';
 
 type AuthState = Session | undefined;
 const JUNIOR_AFFILIATION_THRESHOLD = 100000;
+const STUDENT_ID_MIN = 10000;
+const STUDENT_ID_MAX = 40000;
+
+const isStudentAccountByEmail = (email?: string | null): boolean => {
+  const localPart = email?.split('@')[0] ?? '';
+  const idAsNumber = Number(localPart);
+  return (
+    Number.isInteger(idAsNumber) &&
+    idAsNumber >= STUDENT_ID_MIN &&
+    idAsNumber <= STUDENT_ID_MAX
+  );
+};
 
 const Junior = () => {
   const { path, route } = useLocation();
@@ -44,6 +57,29 @@ const Junior = () => {
       .maybeSingle();
 
     return { data, error };
+  };
+
+  // register_junior直後にusersの行が即時にselectで見えないタイミングがあるため
+  const handleRegistered = async (): Promise<boolean> => {
+    if (!session) {
+      return false;
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const { data, error } = await loadUserProfile(session.user.id);
+
+      if (!error && data) {
+        setUserData(data);
+        writeCachedJuniorProfile(session.user.id, data);
+        return true;
+      }
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 200);
+      });
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -102,12 +138,22 @@ const Junior = () => {
       return;
     }
 
+    const isStudentAccount = isStudentAccountByEmail(session.user.email);
+
     if (userData && userData.affiliation < JUNIOR_AFFILIATION_THRESHOLD) {
       route('/students');
       return;
     }
 
-    if (userData && (path === '/junior' || path === '/junior/login' || path === '/junior/')) {
+    if (!userData && isStudentAccount) {
+      route('/students');
+      return;
+    }
+
+    if (
+      userData &&
+      (path === '/junior' || path === '/junior/login' || path === '/junior/')
+    ) {
       route('/junior/mypage');
     }
   }, [path, profileError, route, session, userData]);
@@ -182,11 +228,7 @@ const Junior = () => {
   if (!userData) {
     return (
       <JuniorLayout>
-        <section>
-          <h1 className={styles.pageTitle}>中学生用ページ</h1>
-          <h2>利用者情報が見つかりませんでした</h2>
-          <p>アカウント情報の確認が必要です。外苑祭総務へご連絡ください。</p>
-        </section>
+        <InitialRegistration onRegistered={handleRegistered} />
       </JuniorLayout>
     );
   }

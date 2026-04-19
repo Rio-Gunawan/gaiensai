@@ -24,6 +24,18 @@ import { useTitle } from '../../../hooks/useTitle';
 
 type AuthState = Session | undefined;
 const JUNIOR_AFFILIATION_THRESHOLD = 100000;
+const STUDENT_ID_MIN = 10000;
+const STUDENT_ID_MAX = 40000;
+
+const isStudentAccountByEmail = (email?: string | null): boolean => {
+  const localPart = email?.split('@')[0] ?? '';
+  const idAsNumber = Number(localPart);
+  return (
+    Number.isInteger(idAsNumber) &&
+    idAsNumber >= STUDENT_ID_MIN &&
+    idAsNumber <= STUDENT_ID_MAX
+  );
+};
 
 const Students = () => {
   const { path, route } = useLocation();
@@ -129,7 +141,14 @@ const Students = () => {
       return;
     }
 
+    const isStudentAccount = isStudentAccountByEmail(session.user.email);
+
     if (userData && userData.affiliation >= JUNIOR_AFFILIATION_THRESHOLD) {
+      route('/junior');
+      return;
+    }
+
+    if (!userData && !isStudentAccount) {
       route('/junior');
       return;
     }

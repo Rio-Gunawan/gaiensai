@@ -36,6 +36,7 @@ type AdminAuthRequest = {
   teachers?: unknown;
   users?: unknown;
   studentId?: unknown;
+  accountType?: unknown;
 };
 
 type TicketIssueMode =
@@ -64,6 +65,7 @@ type AdminAuthBody =
   | { mode: 'updateTeacher'; teacherId: number; name: string }
   | { mode: 'updateAllTeachers'; teachers: { id: number; name: string }[] }
   | { mode: 'deleteAllStudentAccounts' }
+  | { mode: 'deleteAccountsByType'; accountType: 'student' | 'junior' }
   | { mode: 'getStudentUsers' }
   | {
       mode: 'resetUserPassword';
@@ -313,6 +315,17 @@ const parseBody = (body: unknown): AdminAuthBody => {
 
   if (action === 'deleteAllStudentAccounts') {
     return { mode: 'deleteAllStudentAccounts' };
+  }
+
+  if (action === 'deleteAccountsByType') {
+    const { accountType } = body as AdminAuthRequest;
+    if (accountType !== 'student' && accountType !== 'junior') {
+      throw new HttpError(
+        400,
+        'accountType は student または junior を指定してください。',
+      );
+    }
+    return { mode: 'deleteAccountsByType', accountType };
   }
 
   if (action === 'getStudentUsers') {
@@ -1008,8 +1021,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (body.mode === 'deleteAllStudentAccounts') {
+    if (
+      body.mode === 'deleteAllStudentAccounts' ||
+      body.mode === 'deleteAccountsByType'
+    ) {
       const session = await requireValidSession(adminClient, req);
+
+      const resolveAccountType = (
+        email?: string | null,
+      ): 'student' | 'junior' | null => {
+        if (!email || !email.endsWith('@gaiensai.local')) {
+          return null;
+        }
+
+        const localPart = email.split('@')[0] ?? '';
+        const asNumber = Number(localPart);
+        if (
+          Number.isInteger(asNumber) &&
+          asNumber >= 10000 &&
+          asNumber <= 40000
+        ) {
+          return 'student';
+        }
+        return 'junior';
+      };
+
+      const targetType: 'student' | 'junior' =
+        body.mode === 'deleteAccountsByType' ? body.accountType : 'student';
 
       // 生徒アカウントを最大1000件取得
       const {
@@ -1023,19 +1061,21 @@ Deno.serve(async (req) => {
         throw listError;
       }
 
-      // @gaiensai.local のドメインを持つユーザーのみを抽出
-      const studentsToDelete = users.filter((u) =>
-        u.email?.endsWith('@gaiensai.local'),
+      // accountType に応じた対象ユーザーのみ抽出
+      const usersToDelete = users.filter(
+        (u) => resolveAccountType(u.email) === targetType,
       );
 
       // CPU時間制限(soft limit)を回避するため、1回のリクエストでの処理数を制限し、バッチサイズを最適化
       // また、スプレッド構文による配列結合を避け、CPU負荷を軽減
       const MAX_PROCESS_PER_REQUEST = 200;
-      const targets = studentsToDelete.slice(0, MAX_PROCESS_PER_REQUEST);
+      const targets = usersToDelete.slice(0, MAX_PROCESS_PER_REQUEST);
       const BATCH_SIZE = 50;
 
       let deletedCount = 0;
       const errors: string[] = [];
+      const deletedAuthIds: string[] = [];
+      const deletedEmails: string[] = [];
 
       for (let i = 0; i < targets.length; i += BATCH_SIZE) {
         const batch = targets.slice(i, i + BATCH_SIZE);
@@ -1043,11 +1083,40 @@ Deno.serve(async (req) => {
           batch.map((u) => adminClient.auth.admin.deleteUser(u.id)),
         );
 
-        for (const res of results) {
+        for (const [index, res] of results.entries()) {
           if (res.error) {
             errors.push(res.error.message);
           } else {
             deletedCount++;
+            const deletedUser = batch[index];
+            deletedAuthIds.push(deletedUser.id);
+            if (deletedUser.email) {
+              deletedEmails.push(deletedUser.email);
+            }
+          }
+        }
+      }
+
+      if (deletedAuthIds.length > 0 || deletedEmails.length > 0) {
+        if (deletedAuthIds.length > 0) {
+          const { error: deleteUsersByIdError } = await adminClient
+            .from('users')
+            .delete()
+            .in('id', deletedAuthIds);
+          if (deleteUsersByIdError) {
+            errors.push(`public.users(id) delete failed: ${deleteUsersByIdError.message}`);
+          }
+        }
+
+        if (deletedEmails.length > 0) {
+          const { error: deleteUsersByEmailError } = await adminClient
+            .from('users')
+            .delete()
+            .in('email', deletedEmails);
+          if (deleteUsersByEmailError) {
+            errors.push(
+              `public.users(email) delete failed: ${deleteUsersByEmailError.message}`,
+            );
           }
         }
       }
@@ -1064,12 +1133,12 @@ Deno.serve(async (req) => {
         throw error;
       }
 
-      // @gaiensai.local のドメインを持つユーザーのみを抽出
-      const studentsRemaining = remainingUsers.filter((u) =>
-        u.email?.endsWith('@gaiensai.local'),
+      // accountType に応じた対象ユーザーの残数
+      const usersRemaining = remainingUsers.filter(
+        (u) => resolveAccountType(u.email) === targetType,
       );
 
-      const remaining = studentsRemaining.length;
+      const remaining = usersRemaining.length;
 
       await adminClient
         .from('admin_sessions')
@@ -1079,6 +1148,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           deleted: true,
+          accountType: targetType,
           count: deletedCount,
           remaining, // 残数があることをフロントに伝える
           errors: errors.length > 0 ? errors : undefined,

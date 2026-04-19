@@ -305,6 +305,12 @@
   background-color: var(--error-border-color);
 }
 
+.deleteButtonContainer {
+  display: block;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
 .container {
   padding: 0 1rem 2rem;
 }

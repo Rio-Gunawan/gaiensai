@@ -40,6 +40,11 @@ type BulkCreateResponse = {
   failedUsers?: { id: string; password: string }[];
 };
 
+const isStudentAccountId = (id: string): boolean => {
+  const numericId = Number(id);
+  return Number.isInteger(numericId) && numericId >= 10000 && numericId <= 40000;
+};
+
 const StudentAccountsContent = () => {
   const { config } = useEventConfig();
   const [maxGrade, setMaxGrade] = useState(config.grade_number);
@@ -90,7 +95,10 @@ const StudentAccountsContent = () => {
       if (error) {
         throw error;
       }
-      setExistingUsers(data.users || []);
+      const users = (data?.users || []).filter((user: StudentUser) =>
+        isStudentAccountId(user.studentId),
+      );
+      setExistingUsers(users);
     } catch (err) {
       const errorMsg = await readErrorMessage(err);
       setMessage({

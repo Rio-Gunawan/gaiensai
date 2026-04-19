@@ -137,6 +137,7 @@ type SettingsMessageScope =
   | 'detailSection'
   | 'deletionTool'
   | null;
+type AccountDeletionType = 'student' | 'junior';
 
 const SettingsContent = () => {
   const { config } = useEventConfig();
@@ -276,6 +277,8 @@ const SettingsContent = () => {
 
   const [showDeleteAllAccountsModal, setShowDeleteAllAccountsModal] =
     useState(false);
+  const [pendingDeleteAccountType, setPendingDeleteAccountType] =
+    useState<AccountDeletionType>('student');
   const [isDeletingAllAccounts, setIsDeletingAllAccounts] = useState(false);
 
   const handleDeleteAllAccounts = async () => {
@@ -285,6 +288,9 @@ const SettingsContent = () => {
     setIsDeletingAllAccounts(true);
     setShowDeleteAllAccountsModal(false);
     let totalDeletedSoFar = 0;
+    const accountType = pendingDeleteAccountType;
+    const accountLabel =
+      accountType === 'student' ? '生徒アカウント' : '中学生アカウント';
 
     try {
       const token = getSessionToken();
@@ -294,7 +300,10 @@ const SettingsContent = () => {
 
       while (true) {
         const { data, error } = await supabase.functions.invoke('admin-auth', {
-          body: { action: 'deleteAllStudentAccounts' },
+          body: {
+            action: 'deleteAccountsByType',
+            accountType,
+          },
           headers: {
             'x-admin-session-token': token,
           },
@@ -312,7 +321,7 @@ const SettingsContent = () => {
 
         if (data.remaining > 0) {
           setSettingsSuccess(
-            `現在 ${totalDeletedSoFar} 件を削除しました。5秒後に次のバッチを開始します...`,
+            `${accountLabel}を現在 ${totalDeletedSoFar} 件削除しました。5秒後に次のバッチを開始します...`,
           );
           await new Promise((resolve) => setTimeout(resolve, 5000));
         } else {
@@ -321,11 +330,11 @@ const SettingsContent = () => {
       }
 
       setSettingsSuccess(
-        `合計 ${totalDeletedSoFar} 件の全ての生徒アカウントを削除しました。`,
+        `合計 ${totalDeletedSoFar} 件の${accountLabel}を削除しました。`,
       );
     } catch (error) {
       const message = await readErrorMessage(error);
-      setSettingsError(`全ての生徒アカウントの削除に失敗しました。${message}`);
+      setSettingsError(`${accountLabel}の削除に失敗しました。${message}`);
     } finally {
       setIsDeletingAllAccounts(false);
       // 削除後、生徒アカウント管理ページの一覧を更新する必要があるが、
@@ -1486,14 +1495,30 @@ const SettingsContent = () => {
         <p className={styles.noteText}>
           データの削除は慎重に行う必要があります。削除を行う前に、必ずデータのバックアップを取ってください。
         </p>
-        <div className={styles.saveButtonContainer}>
+        <div className={styles.deleteButtonContainer}>
+          <h3>生徒アカウントの削除</h3>
           <button
             type='button'
             className={`${styles.authButton} ${styles.settingModalConfirmDanger}`}
-            onClick={() => setShowDeleteAllAccountsModal(true)}
+            onClick={() => {
+              setPendingDeleteAccountType('student');
+              setShowDeleteAllAccountsModal(true);
+            }}
             disabled={isDeletingAllAccounts}
           >
             全ての生徒アカウントを削除
+          </button>
+          <h3>中学生アカウントの削除</h3>
+          <button
+            type='button'
+            className={`${styles.authButton} ${styles.settingModalConfirmDanger}`}
+            onClick={() => {
+              setPendingDeleteAccountType('junior');
+              setShowDeleteAllAccountsModal(true);
+            }}
+            disabled={isDeletingAllAccounts}
+          >
+            全ての中学生アカウントを削除
           </button>
         </div>
         {settingsMessageScope === 'deletionTool' && settingsError && (
@@ -1650,11 +1675,16 @@ const SettingsContent = () => {
               id='delete-all-accounts-title'
               className={styles.settingModalTitle}
             >
-              全ての生徒アカウントを削除しますか？
+              {pendingDeleteAccountType === 'student'
+                ? '全ての生徒アカウントを削除しますか？'
+                : '全ての中学生アカウントを削除しますか？'}
             </h3>
             <p>
-              この操作は取り消せません。全ての生徒アカウントがシステムから削除されます。
-              本当に実行しますか？
+              この操作は取り消せません。
+              {pendingDeleteAccountType === 'student'
+                ? '全ての生徒アカウント'
+                : '全ての中学生アカウント'}
+              がAuthとpublic.usersの両方から削除されます。本当に実行しますか？
             </p>
             <div className={styles.settingModalActions}>
               <button
@@ -1680,7 +1710,13 @@ const SettingsContent = () => {
 
       {isDeletingAllAccounts && (
         <div className={styles.settingModalOverlay}>
-          <LoadingSpinner message='全ての生徒アカウントを削除中です...' />
+          <LoadingSpinner
+            message={
+              pendingDeleteAccountType === 'student'
+                ? '全ての生徒アカウントを削除中です...'
+                : '全ての中学生アカウントを削除中です...'
+            }
+          />
         </div>
       )}
     </div>

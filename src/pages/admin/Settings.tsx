@@ -925,6 +925,16 @@ const SettingsContent = () => {
       </NormalSection>
 
       <NormalSection>
+        <h2>中学生アカウント管理</h2>
+        <p className={styles.noteText}>
+          csvファイルから、中学生アカウントのIDとパスワードを一括でAuthへ登録します。
+        </p>
+        <a href='/admin/junior-accounts' className={styles.linkButton}>
+          こちらで変更
+        </a>
+      </NormalSection>
+
+      <NormalSection>
         <h2>公演空き状況</h2>
         <h3>クラス公演</h3>
         <PerformancesTable showToggleRemainingMode={true} />

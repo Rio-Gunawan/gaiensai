@@ -10,6 +10,7 @@ import { ScrollToTop } from './utils/ScrollToTop';
 import { useEffect } from 'preact/hooks';
 import {
   Junior,
+  JuniorAccounts,
   preload,
   ScanHistory,
   Settings,
@@ -68,6 +69,7 @@ const AdminPageLayout = () => (
         <Route path='settings' component={Settings} />
         <Route path='/teachers' component={Teachers} />
         <Route path='/student-accounts' component={StudentAccounts} />
+        <Route path='/junior-accounts' component={JuniorAccounts} />
         <Route default component={NotFound} />
       </Router>
     </div>

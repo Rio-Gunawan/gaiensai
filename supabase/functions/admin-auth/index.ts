@@ -1095,6 +1095,7 @@ Deno.serve(async (req) => {
 
       const results = { created: 0, skipped: 0, errors: [] as string[] };
       const failedUsers: { id: string; password: string }[] = [];
+      const skippedUsers: { id: string; password: string }[] = [];
 
       // バッチ内を並列実行して高速化
       const promises = body.users.map(
@@ -1108,8 +1109,12 @@ Deno.serve(async (req) => {
           });
 
           if (error) {
-            if (error.message.includes('already registered')) {
-              return { type: 'skipped' };
+            const normalizedErrorMessage = error.message.toLowerCase();
+            if (
+              normalizedErrorMessage.includes('already registered') ||
+              normalizedErrorMessage.includes('already been registered')
+            ) {
+              return { type: 'skipped', user };
             }
             return {
               type: 'error',
@@ -1127,6 +1132,7 @@ Deno.serve(async (req) => {
           results.created++;
         } else if (res.type === 'skipped') {
           results.skipped++;
+          skippedUsers.push(res.user!);
         } else if (res.type === 'error') {
           results.errors.push(res.message!);
           failedUsers.push(res.user!);
@@ -1138,7 +1144,7 @@ Deno.serve(async (req) => {
         .update({ last_used_at: new Date().toISOString() })
         .eq('id', session.id);
 
-      return new Response(JSON.stringify({ ...results, failedUsers }), {
+      return new Response(JSON.stringify({ ...results, failedUsers, skippedUsers }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

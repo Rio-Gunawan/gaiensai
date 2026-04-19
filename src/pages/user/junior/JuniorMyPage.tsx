@@ -9,7 +9,8 @@ type JuniorMyPageProps = {
 const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
   useTitle('マイページ - 中学生用ページ');
 
-  const loginId = userData.email.replace('@gaiensai.local', '');
+  const localPart = userData.email.replace('@gaiensai.local', '');
+  const loginId = localPart.match(/^(.*)-\d{8}$/)?.[1] ?? localPart;
 
   return (
     <section>

@@ -219,3 +219,43 @@
 .turnstileOk {
   color: var(--accent-color);
 }
+
+.birthdayFieldset {
+  border: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.birthdayLegend {
+  width: 100%;
+  line-height: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.birthdayLabel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--login-input-text);
+}
+
+.birthdayInput {
+  flex: 1;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px;
+  background-color: var(--url-bg-color);
+  color: var(--login-input-text);
+  text-align: right;
+  font-size: 1rem;
+  box-sizing: border-box;
+}

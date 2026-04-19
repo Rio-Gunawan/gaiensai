@@ -603,7 +603,7 @@ const Issue = () => {
         </div>
 
         <div className={getPanelClassName(3)}>
-          <section className={styles.stepPanel}>
+          <section>
             <h2 className={styles.sectionTitle}>3. 発券内容</h2>
             <ul className={styles.previewList}>
               <li>

@@ -1152,7 +1152,9 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               <span className={styles.detailValue}>
                 {ticket.affiliation === '1600'
                   ? '当日券ゲスト'
-                  : Math.floor(Number(ticket.affiliation) / 10000) +
+                  : Number(ticket.affiliation) > 10000 ?
+                    '中学生 ' + ticket.affiliation :
+                  Math.floor(Number(ticket.affiliation) / 10000) +
                     '-' +
                     Math.floor((Number(ticket.affiliation) % 10000) / 100) +
                     ' ' +

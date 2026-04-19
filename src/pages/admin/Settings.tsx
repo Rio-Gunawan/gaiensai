@@ -816,9 +816,18 @@ const SettingsContent = () => {
         }
       }
 
-      closeNumericEditModal();
       setIsModalSubmitting(true);
+      const success = await handleToggleTableValue(
+        table,
+        id,
+        column,
+        parsed,
+        'detailSection',
+      );
       setIsModalSubmitting(false);
+      if (success) {
+        closeNumericEditModal();
+      }
       return;
     }
 
@@ -826,7 +835,8 @@ const SettingsContent = () => {
       return;
     }
 
-    const meta = NUMERIC_SETTING_META[editingNumericKey];
+    const key = editingNumericKey;
+    const meta = NUMERIC_SETTING_META[key];
     const parsed = Number(editingNumericValue);
     if (!Number.isInteger(parsed) || parsed < meta.min || parsed > meta.max) {
       setSettingsError(
@@ -837,7 +847,7 @@ const SettingsContent = () => {
 
     // 全体デフォルト設定：中学生枠と合計定員の整合性チェック
     if (
-      editingNumericKey === 'defaultClassTotalCapacity' &&
+      key === 'defaultClassTotalCapacity' &&
       parsed < settings.defaultClassJuniorCapacity
     ) {
       setSettingsError(
@@ -846,7 +856,7 @@ const SettingsContent = () => {
       return;
     }
     if (
-      editingNumericKey === 'defaultClassJuniorCapacity' &&
+      key === 'defaultClassJuniorCapacity' &&
       parsed > settings.defaultClassTotalCapacity
     ) {
       setSettingsError(
@@ -854,10 +864,19 @@ const SettingsContent = () => {
       );
       return;
     }
-
-    closeNumericEditModal();
     setIsModalSubmitting(true);
+    const nextSettings = { ...settings, [key]: parsed };
+    const success = await syncSettings(
+      nextSettings,
+      `${meta.label}を更新しました。`,
+      key === 'eventYear' || key === 'showLength'
+        ? 'globalSection'
+        : 'ticketSection',
+    );
     setIsModalSubmitting(false);
+    if (success) {
+      closeNumericEditModal();
+    }
   };
 
   const handleTicketTypeControlChange = (

@@ -352,9 +352,9 @@ const Issue = () => {
       ) {
         setSelectedPerformance({
           performanceId: 0,
-          performanceName: '-',
+          performanceName: '入場専用券',
           scheduleId: 0,
-          scheduleName: '-',
+          scheduleName: '',
           remaining: 0,
         });
       }

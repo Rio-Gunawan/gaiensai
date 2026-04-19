@@ -1009,7 +1009,7 @@ export const handleIssueTicketsRequest = async (
         adminClient: adminClient as unknown as RpcClient,
         userId: issueUserId,
         issueCount: numCodes,
-        issueMode: issueMode === 'gym' ? 'gym' : 'class',
+        issueMode,
         ticketTypeId: body.ticketTypeId,
         relationshipId,
         performanceId: body.performanceId,

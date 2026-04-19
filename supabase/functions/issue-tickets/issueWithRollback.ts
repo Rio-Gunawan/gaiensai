@@ -13,7 +13,7 @@ export type IssueWithRollbackInput = {
   adminClient: RpcClient;
   userId: string;
   issueCount: number;
-  issueMode: 'class' | 'gym';
+  issueMode: 'class' | 'gym' | 'admission';
   ticketTypeId: number;
   relationshipId: number;
   performanceId: number;

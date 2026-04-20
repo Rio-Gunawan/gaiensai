@@ -6,7 +6,7 @@ drop function if exists "public"."reissue_gym_ticket_change_relationship_with_co
 
 drop function if exists "public"."reissue_ticket_change_relationship_with_codes"(p_user_id uuid, p_old_code text, p_ticket_type_id smallint, p_performance_id smallint, p_schedule_id smallint, p_new_relationship_id smallint, p_issue_count integer, p_codes text[], p_signatures text[]);
 
-alter table "public"."tickets" add column "person_count" smallint not null;
+alter table "public"."tickets" add column "person_count" smallint not null default 1;
 
 set check_function_bodies = off;
 
@@ -81,5 +81,3 @@ BEGIN
 END;
 $function$
 ;
-
-

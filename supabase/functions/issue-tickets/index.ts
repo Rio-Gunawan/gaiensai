@@ -927,10 +927,12 @@ export const handleIssueTicketsRequest = async (
     const personCountPerTicket =
       !isDayTicket && isJuniorUser && juniorUsageType === 0 ? 2 : 1;
     const totalPersonCount = numCodes * personCountPerTicket;
+    const maxTicketsPerJuniorUser = juniorUsageType === 0 || juniorUsageType === 1 ?
+      maxTicketsPerUser * 2 : maxTicketsPerUser;
 
     if (
       !isDayTicket &&
-      effectiveExisting + totalPersonCount > maxTicketsPerUser
+      effectiveExisting + totalPersonCount > maxTicketsPerJuniorUser
     ) {
       throw new HttpError(
         409,

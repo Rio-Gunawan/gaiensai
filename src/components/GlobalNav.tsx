@@ -1,4 +1,4 @@
-import { preload, Home, Students, Performances } from '../routes';
+import { preload, Home, Students, Performances, Junior } from '../routes';
 
 const GlobalNav = () => {
   return (
@@ -12,6 +12,11 @@ const GlobalNav = () => {
         <li>
           <a href='/students' onMouseEnter={() => preload(Students)}>
             生徒用ページ
+          </a>
+        </li>
+        <li>
+          <a href='/junior' onMouseEnter={() => preload(Junior)}>
+            中学生用ページ
           </a>
         </li>
         <li>

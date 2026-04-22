@@ -62,7 +62,7 @@ const Junior = () => {
   };
 
   // register_junior直後にusersの行が即時にselectで見えないタイミングがあるため
-  const handleRegistered = async (): Promise<boolean> => {
+  const handleRegistered = async (commit = true): Promise<boolean> => {
     if (!session) {
       return false;
     }
@@ -71,8 +71,10 @@ const Junior = () => {
       const { data, error } = await loadUserProfile(session.user.id);
 
       if (!error && data) {
-        setUserData(data);
-        writeCachedJuniorProfile(session.user.id, data);
+        if (commit) {
+          setUserData(data);
+          writeCachedJuniorProfile(session.user.id, data);
+        }
         return true;
       }
 

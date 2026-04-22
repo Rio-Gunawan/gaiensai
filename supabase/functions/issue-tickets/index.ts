@@ -398,13 +398,6 @@ export const handleIssueTicketsRequest = async (
 
     const isDayTicket = dayTicketTypeIds.has(body.ticketTypeId);
 
-    if (!isDayTicket) {
-      if (!body.turnstileToken) {
-        throw new HttpError(400, 'Turnstileトークンがありません。');
-      }
-      await verifyTurnstileToken(req, body.turnstileToken);
-    }
-
     const relationshipId = isDayTicket
       ? SELF_RELATIONSHIP_ID
       : body.relationshipId;
@@ -480,6 +473,18 @@ export const handleIssueTicketsRequest = async (
 
     const isAuthenticatedStudent = Boolean(user && userRow);
     const isJuniorUser = Boolean(userRow && userRow.role === 'junior');
+    const isJuniorEntryOnlyTicket =
+      juniorEntryOnlyId !== undefined && body.ticketTypeId === juniorEntryOnlyId;
+    const requiresTurnstile =
+      !isDayTicket && !(isJuniorUser && isJuniorEntryOnlyTicket);
+
+    if (requiresTurnstile) {
+      if (!body.turnstileToken) {
+        throw new HttpError(400, 'Turnstileトークンがありません。');
+      }
+      await verifyTurnstileToken(req, body.turnstileToken);
+    }
+
     const affiliation = isAuthenticatedStudent
       ? Number(userRow?.affiliation ?? -1)
       : isDayTicket
@@ -735,6 +740,30 @@ export const handleIssueTicketsRequest = async (
       if (ticketIssueControls.entryOnly === 'off') {
         throw new HttpError(409, '入場専用券の受付は停止中です。');
       }
+
+      if (isJuniorUser && isJuniorEntryOnlyTicket) {
+        const { count: existingJuniorEntryOnlyCount, error: existingJuniorEntryOnlyError } =
+          await adminClient
+            .from('tickets')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', issueUserId)
+            .eq('status', 'valid')
+            .eq('ticket_type', body.ticketTypeId);
+
+        if (existingJuniorEntryOnlyError) {
+          throw new HttpError(
+            500,
+            '入場専用券の発券状況確認に失敗しました。時間をおいて再度お試しください。',
+          );
+        }
+
+        if (Number(existingJuniorEntryOnlyCount ?? 0) > 0 && !body.cancelCode) {
+          throw new HttpError(
+            409,
+            '中学生券の入場専用券は既に発券済みです（1人1枚）。',
+          );
+        }
+      }
     } else if (
       (sameDayClassId !== undefined && body.ticketTypeId === sameDayClassId) ||
       (sameDayGymId !== undefined && body.ticketTypeId === sameDayGymId)
@@ -896,12 +925,21 @@ export const handleIssueTicketsRequest = async (
       replaceTicketOffset = 1;
     }
 
+    let existingCountQuery = adminClient
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', issueUserId)
+      .eq('status', 'valid');
+
+    if (isJuniorUser && juniorEntryOnlyId !== undefined) {
+      existingCountQuery = existingCountQuery.neq(
+        'ticket_type',
+        juniorEntryOnlyId,
+      );
+    }
+
     const { count: existingCount, error: existingCountError } =
-      await adminClient
-        .from('tickets')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', issueUserId)
-        .eq('status', 'valid');
+      await existingCountQuery;
 
     if (existingCountError) {
       throw new HttpError(

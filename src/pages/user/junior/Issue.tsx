@@ -26,6 +26,7 @@ const ADMISSION_ONLY_TICKET_NAME = '入場専用券';
 const GYM_TICKET_KEYWORD = '体育館';
 const SELF_RELATIONSHIP_ID = 1;
 const SELF_RELATIONSHIP_NAME = '本人';
+const JUNIOR_ENTRY_ONLY_TICKET_TYPE_ID = 7;
 
 const readFunctionErrorMessage = async (error: unknown): Promise<string> => {
   const fallback =
@@ -89,6 +90,8 @@ const Issue = () => {
     useState<SelectedPerformance>(null);
   const [isIssuing, setIsIssuing] = useState(false);
   const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
+  const [hasIssuedJuniorEntryOnlyTicket, setHasIssuedJuniorEntryOnlyTicket] =
+    useState(false);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
@@ -140,6 +143,34 @@ const Issue = () => {
   }, []);
 
   useEffect(() => {
+    const loadHasIssuedJuniorEntryOnlyTicket = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        setHasIssuedJuniorEntryOnlyTicket(false);
+        return;
+      }
+
+      const { count, error } = await supabase
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'valid')
+        .eq('ticket_type', JUNIOR_ENTRY_ONLY_TICKET_TYPE_ID);
+
+      if (error) {
+        return;
+      }
+
+      setHasIssuedJuniorEntryOnlyTicket(Number(count ?? 0) > 0);
+    };
+
+    void loadHasIssuedJuniorEntryOnlyTicket();
+  }, []);
+
+  useEffect(() => {
     const loadTicketTypes = async () => {
       const { data, error } = await supabase
         .from('ticket_types')
@@ -168,12 +199,14 @@ const Issue = () => {
         isActive = issueControls.junior_class_mode !== 'off';
       } else if (ticketType.id === 6) {
         isActive = issueControls.junior_gym_mode !== 'off';
-      } else if (ticketType.id === 7) {
-        isActive = issueControls.junior_entry_only_mode !== 'off';
+      } else if (ticketType.id === JUNIOR_ENTRY_ONLY_TICKET_TYPE_ID) {
+        isActive =
+          issueControls.junior_entry_only_mode !== 'off' &&
+          !hasIssuedJuniorEntryOnlyTicket;
       }
       return { ...ticketType, is_active: isActive };
     });
-  }, [ticketTypes, issueControls]);
+  }, [ticketTypes, issueControls, hasIssuedJuniorEntryOnlyTicket]);
 
   useEffect(() => {
     const firstActive = activeTicketTypes.find(

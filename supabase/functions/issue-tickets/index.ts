@@ -364,8 +364,6 @@ export const handleIssueTicketsRequest = async (
     const rehearsalInviteId = findIdByName('クラス公演(リハーサル)', '招待券');
     const gymInviteId = findIdByName('体育館公演', '招待券');
     const entryOnlyId = findIdByName('入場専用券', '招待券');
-    const juniorClassId = findIdByName('クラス公演', '中学生券');
-    const juniorGymId = findIdByName('体育館公演', '中学生券');
     const juniorEntryOnlyId = findIdByName('入場専用券', '中学生券');
     const sameDayClassId = findIdByName('クラス公演', '当日券');
     const sameDayGymId = findIdByName('体育館公演', '当日券');
@@ -474,7 +472,8 @@ export const handleIssueTicketsRequest = async (
     const isAuthenticatedStudent = Boolean(user && userRow);
     const isJuniorUser = Boolean(userRow && userRow.role === 'junior');
     const isJuniorEntryOnlyTicket =
-      juniorEntryOnlyId !== undefined && body.ticketTypeId === juniorEntryOnlyId;
+      juniorEntryOnlyId !== undefined &&
+      body.ticketTypeId === juniorEntryOnlyId;
     const requiresTurnstile =
       !isDayTicket && !(isJuniorUser && isJuniorEntryOnlyTicket);
 
@@ -655,10 +654,7 @@ export const handleIssueTicketsRequest = async (
       adminClient as unknown as TicketIssueControlsReader,
     );
 
-    if (
-      (classInviteId !== undefined && body.ticketTypeId === classInviteId) ||
-      body.ticketTypeId === juniorClassId
-    ) {
+    if (classInviteId !== undefined && body.ticketTypeId === classInviteId) {
       if (ticketIssueControls.classInvite === 'off') {
         throw new HttpError(409, 'クラス公演招待券の受付は停止中です。');
       }
@@ -714,10 +710,7 @@ export const handleIssueTicketsRequest = async (
           );
         }
       }
-    } else if (
-      (gymInviteId !== undefined && body.ticketTypeId === gymInviteId) ||
-      body.ticketTypeId === juniorGymId
-    ) {
+    } else if (gymInviteId !== undefined && body.ticketTypeId === gymInviteId) {
       if (ticketIssueControls.gymInvite === 'off') {
         throw new HttpError(409, '体育館公演招待券の受付は停止中です。');
       }
@@ -742,13 +735,15 @@ export const handleIssueTicketsRequest = async (
       }
 
       if (isJuniorUser && isJuniorEntryOnlyTicket) {
-        const { count: existingJuniorEntryOnlyCount, error: existingJuniorEntryOnlyError } =
-          await adminClient
-            .from('tickets')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', issueUserId)
-            .eq('status', 'valid')
-            .eq('ticket_type', body.ticketTypeId);
+        const {
+          count: existingJuniorEntryOnlyCount,
+          error: existingJuniorEntryOnlyError,
+        } = await adminClient
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', issueUserId)
+          .eq('status', 'valid')
+          .eq('ticket_type', body.ticketTypeId);
 
         if (existingJuniorEntryOnlyError) {
           throw new HttpError(
@@ -965,8 +960,10 @@ export const handleIssueTicketsRequest = async (
     const personCountPerTicket =
       !isDayTicket && isJuniorUser && juniorUsageType === 0 ? 2 : 1;
     const totalPersonCount = numCodes * personCountPerTicket;
-    const maxTicketsPerJuniorUser = juniorUsageType === 0 || juniorUsageType === 1 ?
-      maxTicketsPerUser * 2 : maxTicketsPerUser;
+    const maxTicketsPerJuniorUser =
+      juniorUsageType === 0 || juniorUsageType === 1
+        ? maxTicketsPerUser * 2
+        : maxTicketsPerUser;
 
     if (
       !isDayTicket &&

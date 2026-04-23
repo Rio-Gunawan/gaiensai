@@ -17,6 +17,8 @@ type JuniorRelationshipSeed = {
   relationshipName: string;
 };
 
+const EMPTY_ISSUED_TICKETS: Array<{ code: string; signature: string }> = [];
+
 const resolveJuniorRelationshipByUsageType = (
   juniorUsageType: number,
   index: number,
@@ -125,7 +127,9 @@ const IssueResult = () => {
     }
   }, [juniorUsageType]);
 
-  const issuedTickets = useDecodedSerialTickets(result?.issuedTickets ?? []);
+  const issuedTickets = useDecodedSerialTickets(
+    result?.issuedTickets ?? EMPTY_ISSUED_TICKETS,
+  );
 
   return (
     <div className={styles.issuePage}>

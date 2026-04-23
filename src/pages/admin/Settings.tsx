@@ -1637,15 +1637,6 @@ const SettingsContent = () => {
         )}
       </NormalSection>
       <NormalSection>
-        <h2>担任の先生の名前</h2>
-        <p className={styles.noteText}>
-          ここで設定した名前は、生徒用アカウントの登録時に入力する担任の先生の名前と照合されます。正確に設定してください。
-        </p>
-        <a href='/admin/teachers' className={styles.linkButton}>
-          こちらで変更
-        </a>
-      </NormalSection>
-      <NormalSection>
         <h2>削除ツール</h2>
         <p className={styles.noteText}>
           データの削除は慎重に行う必要があります。削除を行う前に、必ずデータのバックアップを取ってください。

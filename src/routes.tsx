@@ -20,7 +20,6 @@ export const Scan = lazy(() => import('./pages/admin/Scan'));
 export const Register = lazy( () => import('./pages/admin/Register'));
 export const ScanHistory = lazy(() => import('./pages/admin/ScanHistory'));
 export const Settings = lazy(() => import('./pages/admin/Settings'));
-export const Teachers = lazy(() => import('./pages/admin/Teachers'));
 export const StudentAccounts = lazy(() => import('./pages/admin/StudentAccounts'));
 export const JuniorAccounts = lazy(() => import('./pages/admin/JuniorAccounts'));
 export const Junior = lazy(() => import('./pages/user/junior/Junior'));

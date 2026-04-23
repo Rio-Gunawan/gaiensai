@@ -15,7 +15,6 @@ import {
   ScanHistory,
   Settings,
   StudentAccounts,
-  Teachers,
 } from './routes';
 import LineCallback from './features/auth/Line';
 import NotFound from './shared/NotFound';
@@ -67,7 +66,6 @@ const AdminPageLayout = () => (
         <Route path='/register' component={Register} />
         <Route path='/history' component={ScanHistory} />
         <Route path='settings' component={Settings} />
-        <Route path='/teachers' component={Teachers} />
         <Route path='/student-accounts' component={StudentAccounts} />
         <Route path='/junior-accounts' component={JuniorAccounts} />
         <Route default component={NotFound} />

@@ -80,6 +80,7 @@ import Switch from '../../components/ui/Switch';
 import { supabase } from '../../lib/supabase';
 import { IoWarning } from 'react-icons/io5';
 import { useEventConfig } from '../../hooks/useEventConfig';
+import { isJuniorTicketTypeId } from '../../features/tickets/juniorRelationship';
 
 const RESULT_CLEAR_DELAY_MS = 4000;
 const RESULT_EXIT_DURATION_MS = 1000;
@@ -210,6 +211,36 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
   const hasResultContent =
     Boolean(decodedTicket || decodeError) && !autoHideRequested;
+
+  const formatIssuerDisplay = (ticket: TicketDecodedDisplaySeed): string => {
+    if (ticket.affiliation === '1600') {
+      return '当日券ゲスト';
+    }
+
+    const affiliationNumber = Number(ticket.affiliation);
+    if (isJuniorTicketTypeId(ticket.ticketTypeId) && affiliationNumber > 10000) {
+      return `中学生 ${ticket.affiliation}`;
+    }
+
+    return (
+      Math.floor(affiliationNumber / 10000) +
+      '-' +
+      Math.floor((affiliationNumber % 10000) / 100) +
+      ' ' +
+      (affiliationNumber % 100) +
+      '番'
+    );
+  };
+
+  const getDefaultEntryCount = (ticket: TicketDecodedDisplaySeed): number => {
+    if (
+      isJuniorTicketTypeId(ticket.ticketTypeId) &&
+      ticket.relationshipId === 2
+    ) {
+      return 2;
+    }
+    return 1;
+  };
 
   const readTicketStatusCache =
     useCallback((): TicketStatusCachePayload | null => {
@@ -812,8 +843,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
+      const defaultEntryCount = getDefaultEntryCount(decoded);
       const { ticketStatus, ticketUsedAt, lastUsedAt, masterStatus } =
-        await useTicket(code);
+        await useTicket(code, { count: defaultEntryCount });
 
       await processTicketStatus(
         decoded,
@@ -852,13 +884,15 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     masterStatus: string | null,
     code: string,
   ) => {
+    const defaultEntryCount = getDefaultEntryCount(decoded);
+
     if (ticketStatus === 'success') {
       pendingDecodedRef.current = null;
       setDuplicateInfo(null);
       await handleResolvedTicket(decoded);
-      setEntryCountValue(1);
+      setEntryCountValue(defaultEntryCount);
       setCurrentTicketCode(code.split('.')[0]);
-      const logId = await saveScanResult(code, 'success', 1);
+      const logId = await saveScanResult(code, 'success', defaultEntryCount);
       setCurrentLogId(logId);
       queueAudio(
         [
@@ -881,9 +915,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       if (wasBeforeToday) {
         pendingDecodedRef.current = null;
         setDuplicateInfo(null);
-        setEntryCountValue(1);
+        setEntryCountValue(defaultEntryCount);
         setCurrentTicketCode(code.split('.')[0]);
-        const logId = await saveScanResult(code, 'reentry', 1);
+        const logId = await saveScanResult(code, 'reentry', defaultEntryCount);
         setCurrentLogId(logId);
         await handleResolvedTicket(decoded, { reentry: true });
         queueAudio(
@@ -949,11 +983,16 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
     if (!decoded) {
       return;
     }
+    const defaultEntryCount = getDefaultEntryCount(decoded);
     const code = scannedValue?.split('.')[0];
     if (code) {
-      setEntryCountValue(1);
+      setEntryCountValue(defaultEntryCount);
       setCurrentTicketCode(code);
-      const logId = await saveScanResult(scannedValue, 'reentry', 1);
+      const logId = await saveScanResult(
+        scannedValue,
+        'reentry',
+        defaultEntryCount,
+      );
       setCurrentLogId(logId);
     }
     await handleResolvedTicket(decoded, { reentry: true });
@@ -1015,8 +1054,9 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
         return;
       }
 
+      const defaultEntryCount = getDefaultEntryCount(decoded);
       const { ticketStatus, ticketUsedAt, lastUsedAt, masterStatus } =
-        await useTicket(pendingSignatureCode);
+        await useTicket(pendingSignatureCode, { count: defaultEntryCount });
 
       await processTicketStatus(
         decoded,
@@ -1147,7 +1187,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
 
   async function useTicket(
     ticketId: string,
-    options?: { allowUnknown?: boolean },
+    options?: { allowUnknown?: boolean; count?: number },
   ) {
     if (localServerUrl === undefined) {
       setDecodeErrorWithSound({
@@ -1172,7 +1212,11 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       };
     }
     try {
-      const result = await useTicketOnServer(localServerUrl, ticketId, 1, {
+      const result = await useTicketOnServer(
+        localServerUrl,
+        ticketId,
+        options?.count ?? 1,
+        {
         allowUnknown: options?.allowUnknown === true,
       });
       markServerOnline();
@@ -1425,7 +1469,10 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
       return;
     }
 
-    const retried = await useTicket(pending.code, { allowUnknown: true });
+    const retried = await useTicket(pending.code, {
+      allowUnknown: true,
+      count: getDefaultEntryCount(pending.decoded),
+    });
     if (retried.ticketStatus === 'unknown') {
       await saveScanResult(pending.code, 'failed', 1);
       setDecodeErrorWithSound({
@@ -1975,15 +2022,7 @@ const AdminEntryPage = ({ mode }: { mode: EntryMode }) => {
                   </span>
                   <span className={styles.secondaryItem}>
                     発行者:{' '}
-                    {decodedTicket.affiliation === '1600'
-                      ? '当日券ゲスト'
-                      : Math.floor(Number(decodedTicket.affiliation) / 10000) +
-                        '-' +
-                        Math.floor(
-                          (Number(decodedTicket.affiliation) % 10000) / 100,
-                        ) +
-                        ' ' +
-                        (Number(decodedTicket.affiliation) % 100) + '番'}
+                    {formatIssuerDisplay(decodedTicket)}
                   </span>
                 </div>
 

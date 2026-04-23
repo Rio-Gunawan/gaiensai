@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import type { TicketDecodedDisplaySeed } from './ticketCodeDecode';
 import { formatTicketTypeLabel } from './formatTicketTypeLabel';
+import { resolveJuniorRelationshipName } from './juniorRelationship';
 
 const SCAN_TICKET_MASTER_CACHE_KEY = 'scan-ticket-master:v3';
 const SCAN_TICKET_MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -205,6 +206,10 @@ export const resolveScanTicketDisplay = (
   const relationship = master.relationships.find(
     (item) => item.id === decoded.relationshipId,
   );
+  const relationshipName =
+    resolveJuniorRelationshipName(decoded.ticketTypeId, decoded.relationshipId) ??
+    relationship?.name ??
+    '-';
 
   if (isAdmissionOnly) {
     return {
@@ -215,7 +220,7 @@ export const resolveScanTicketDisplay = (
       scheduleTime: '',
       scheduleEndTime: '',
       ticketTypeLabel,
-      relationshipName: relationship?.name ?? '-',
+      relationshipName,
     };
   }
 
@@ -253,7 +258,7 @@ export const resolveScanTicketDisplay = (
           })
         : '-',
       ticketTypeLabel,
-      relationshipName: relationship?.name ?? '-',
+      relationshipName,
     };
   }
 
@@ -288,6 +293,6 @@ export const resolveScanTicketDisplay = (
         })
       : '-',
     ticketTypeLabel,
-    relationshipName: relationship?.name ?? '-',
+    relationshipName,
   };
 };

@@ -808,11 +808,7 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
     !loading && !cancelLoading && ticketStatus === 'valid';
   const isDayTicket = ticket.ticketTypeId === 8 || ticket.ticketTypeId === 9;
   const qrColor =
-    ticket.performanceId > 0 && ticket.scheduleId === 0
-      ? '#d61322'
-      : ticket.relationshipId === 4
-        ? '#1c8723'
-        : undefined;
+    ticket.performanceId > 0 && ticket.scheduleId === 0 ? '#d61322' : undefined;
   const canChangeRelationship =
     !isDayTicket &&
     !loading &&
@@ -1180,13 +1176,13 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
               <span className={styles.detailValue}>
                 {ticket.affiliation === '1600'
                   ? '当日券ゲスト'
-                  : Number(ticket.affiliation) > 10000 ?
-                    '中学生 ' + ticket.affiliation :
-                  Math.floor(Number(ticket.affiliation) / 10000) +
-                    '-' +
-                    Math.floor((Number(ticket.affiliation) % 10000) / 100) +
-                    ' ' +
-                    (Number(ticket.affiliation) % 100)}
+                  : Number(ticket.affiliation) > 10000
+                    ? '中学生 ' + ticket.affiliation
+                    : Math.floor(Number(ticket.affiliation) / 10000) +
+                      '-' +
+                      Math.floor((Number(ticket.affiliation) % 10000) / 100) +
+                      ' ' +
+                      (Number(ticket.affiliation) % 100)}
               </span>
             </div>
             <div className={styles.detailRow}>

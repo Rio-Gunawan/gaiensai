@@ -19,6 +19,7 @@ import GymPerformancesTable from '../../../features/performances/GymPerformances
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 import { supabase } from '../../../lib/supabase';
 import { formatTicketTypeLabel } from '../../../features/tickets/formatTicketTypeLabel';
+import { resolveJuniorRelationshipName } from '../../../features/tickets/juniorRelationship';
 
 type TicketSnapshot = {
   performances?: Array<{
@@ -273,6 +274,12 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
 
       const cards = decodedTickets.map(({ ticket, decoded }) => {
         const relationshipId = decoded?.relationshipId ?? ticket.relationship;
+        const juniorRelationshipName = decoded
+          ? resolveJuniorRelationshipName(
+              decoded.ticketTypeId,
+              decoded.relationshipId,
+            )
+          : null;
         const isGymPerformance =
           (decoded?.performanceId ?? 0) > 0 && (decoded?.scheduleId ?? 0) === 0;
         const classPerformance = decoded
@@ -311,7 +318,8 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
               `券種${decoded.ticketTypeId}`)
             : '-',
           relationshipName: decoded
-            ? (relationshipMap.get(decoded.relationshipId) ??
+            ? (juniorRelationshipName ??
+              relationshipMap.get(decoded.relationshipId) ??
               `間柄${decoded.relationshipId}`)
             : '-',
           status: 'valid' as const,

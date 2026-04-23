@@ -35,6 +35,11 @@
   width: 100%;
 }
 
+.loginButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .loginInput {
   width: calc(100% - 20px);
   height: 40px;

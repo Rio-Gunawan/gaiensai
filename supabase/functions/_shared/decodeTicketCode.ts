@@ -8,6 +8,8 @@ import {
 import {
   AFFILIATION_DATA_MASK,
   AFFILIATION_SHIFT,
+  AFFILIATION_GRADE_MAX,
+  AFFILIATION_GRADE_SHIFT,
   FEISTEL_HALF_BITS,
   FEISTEL_HALF_MASK,
   MAC_BITS,
@@ -39,7 +41,7 @@ export function unpackTicket(packed: bigint): TicketData {
   const schedule = Number((packed >> SCHEDULE_SHIFT) & SCHEDULE_MASK);
   const performance = Number((packed >> PERFORMANCE_SHIFT) & PERFORMANCE_MASK);
   const type = Number((packed >> TYPE_SHIFT) & TYPE_MASK);
-  const relationship = Number(
+  const relationshipBits = Number(
     (packed >> RELATIONSHIP_SHIFT) & RELATIONSHIP_MASK,
   );
   const affiliationBits = Number(
@@ -54,6 +56,17 @@ export function unpackTicket(packed: bigint): TicketData {
     finalAffiliationBits = affiliationBits & ~0x3f;
   }
 
+  const grade =
+    (finalAffiliationBits >> Number(AFFILIATION_GRADE_SHIFT)) &
+    Number(AFFILIATION_GRADE_MAX);
+  const isJuniorAffiliation =
+    finalAffiliationBits !== 0 &&
+    grade === 0 &&
+    !isDayTicketAffiliation(finalAffiliationBits);
+  const relationship = isJuniorAffiliation
+    ? (relationshipBits >> 1) & 0x3
+    : relationshipBits;
+
   const data: TicketData = {
     serial,
     year,
@@ -61,7 +74,7 @@ export function unpackTicket(packed: bigint): TicketData {
     performance,
     type,
     relationship,
-    affiliation: decodeAffiliation(finalAffiliationBits, relationship),
+    affiliation: decodeAffiliation(finalAffiliationBits, relationshipBits),
   };
 
   return data;

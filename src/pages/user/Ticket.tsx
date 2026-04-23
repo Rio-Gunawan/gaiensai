@@ -15,6 +15,7 @@ import {
 } from '../../features/tickets/ticketDisplayCache.ts';
 import { type TicketDecodedDisplaySeed } from '../../features/tickets/ticketCodeDecode.ts';
 import { formatTicketTypeLabel } from '../../features/tickets/formatTicketTypeLabel.ts';
+import { resolveJuniorRelationshipName } from '../../features/tickets/juniorRelationship.ts';
 
 import pageStyles from '../../styles/sub-pages.module.css';
 import styles from './Ticket.module.css';
@@ -442,7 +443,13 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
         ticketTypeId: decoded.ticketTypeId,
         name: snapshotTicketType?.name,
       });
-      const relationshipName = snapshotRelationship?.name ?? '-';
+      const relationshipName =
+        resolveJuniorRelationshipName(
+          decoded.ticketTypeId,
+          decoded.relationshipId,
+        ) ??
+        snapshotRelationship?.name ??
+        '-';
 
       if (isAdmissionOnly) {
         performanceName = '入場専用券';
@@ -540,17 +547,26 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
 
         try {
           if (isAdmissionOnly) {
+            const juniorRelationshipName = resolveJuniorRelationshipName(
+              decoded.ticketTypeId,
+              decoded.relationshipId,
+            );
             const [ticketTypeRes, relationshipRes] = await Promise.all([
               supabase
                 .from('ticket_types')
                 .select('name')
                 .eq('id', decoded.ticketTypeId)
                 .maybeSingle(),
-              supabase
-                .from('relationships')
-                .select('name')
-                .eq('id', decoded.relationshipId)
-                .maybeSingle(),
+              juniorRelationshipName !== null
+                ? Promise.resolve({
+                    data: { name: juniorRelationshipName },
+                    error: null,
+                  })
+                : supabase
+                    .from('relationships')
+                    .select('name')
+                    .eq('id', decoded.relationshipId)
+                    .maybeSingle(),
             ]);
 
             if (
@@ -602,11 +618,23 @@ const Ticket = (props: RoutePropsForPath<'/t/:id'>) => {
                 .select('name')
                 .eq('id', decoded.ticketTypeId)
                 .maybeSingle(),
-              supabase
-                .from('relationships')
-                .select('name')
-                .eq('id', decoded.relationshipId)
-                .maybeSingle(),
+              (() => {
+                const juniorRelationshipName = resolveJuniorRelationshipName(
+                  decoded.ticketTypeId,
+                  decoded.relationshipId,
+                );
+                if (juniorRelationshipName !== null) {
+                  return Promise.resolve({
+                    data: { name: juniorRelationshipName },
+                    error: null,
+                  });
+                }
+                return supabase
+                  .from('relationships')
+                  .select('name')
+                  .eq('id', decoded.relationshipId)
+                  .maybeSingle();
+              })(),
               supabase
                 .from('class_performances')
                 .select('class_name, title')

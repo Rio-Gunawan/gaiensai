@@ -301,6 +301,26 @@ Deno.test({
       },
       {
         source: {
+          affiliation: 100001,
+          relationship: 2,
+          type: 5,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 6,
+        },
+        expected: {
+          affiliation: 100001,
+          relationship: 2,
+          type: 5,
+          performance: 1,
+          schedule: 1,
+          year: 2025,
+          serial: 6,
+        },
+      },
+      {
+        source: {
           affiliation: 101919, // 中学生モード上限
           relationship: 2,
           type: 1,
@@ -311,7 +331,7 @@ Deno.test({
         },
         expected: {
           affiliation: 101919,
-          relationship: 5,
+          relationship: 2,
           type: 1,
           performance: 1,
           schedule: 1,
@@ -331,7 +351,7 @@ Deno.test({
         },
         expected: {
           affiliation: 100257,
-          relationship: 2,
+          relationship: 1,
           type: 1,
           performance: 1,
           schedule: 1,
@@ -351,7 +371,7 @@ Deno.test({
         },
         expected: {
           affiliation: 101025,
-          relationship: 5,
+          relationship: 2,
           type: 1,
           performance: 1,
           schedule: 1,

@@ -1,4 +1,5 @@
 import type { TicketCardStatus } from './IssuedTicketCardList';
+import { resolveJuniorRelationshipName } from './juniorRelationship';
 
 const TICKET_CACHE_PREFIX = 'ticket-display-cache:v1:';
 const TICKET_CACHE_UPDATED_EVENT = 'ticket-display-cache:updated';
@@ -47,9 +48,19 @@ const normalizeCachedTicket = <T>(
     normalizeLastOpenedAt(rawLastOpenedAt),
     normalizeLastOpenedAt(fallbackLastOpenedAt),
   );
+  const ticketObject = normalizedStatusTicket as Record<string, unknown>;
+  const ticketTypeId = Number(ticketObject.ticketTypeId ?? -1);
+  const relationshipId = Number(ticketObject.relationshipId ?? -1);
+  const juniorRelationshipName = resolveJuniorRelationshipName(
+    ticketTypeId,
+    relationshipId,
+  );
 
   return {
-    ...(normalizedStatusTicket as Record<string, unknown>),
+    ...ticketObject,
+    ...(juniorRelationshipName !== null
+      ? { relationshipName: juniorRelationshipName }
+      : {}),
     lastOpenedAt,
   } as T;
 };

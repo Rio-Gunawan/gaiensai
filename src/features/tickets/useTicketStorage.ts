@@ -8,6 +8,7 @@ import {
   readTicketDisplayCache,
   writeTicketDisplayCache,
 } from './ticketDisplayCache';
+import { resolveJuniorRelationshipName } from './juniorRelationship';
 
 export interface TicketStorageMetadata {
   performanceName: string;
@@ -38,6 +39,7 @@ export const useTicketStorage = () => {
         );
 
         const ticketCacheEntry = {
+          relationshipId: decoded?.relationshipId ?? metadata.relationshipId,
           code,
           signature,
           serial: decoded?.serial,
@@ -53,8 +55,11 @@ export const useTicketStorage = () => {
           scheduleTime: metadata.scheduleTime,
           scheduleEndTime: metadata.scheduleEndTime,
           ticketTypeLabel: metadata.ticketTypeLabel,
-          relationshipName: metadata.relationshipName,
-          relationshipId: decoded?.relationshipId ?? metadata.relationshipId,
+          relationshipName:
+            resolveJuniorRelationshipName(
+              decoded?.ticketTypeId ?? 0,
+              decoded?.relationshipId ?? metadata.relationshipId,
+            ) ?? metadata.relationshipName,
           status,
           lastOpenedAt: existing?.lastOpenedAt ?? Date.now(),
         };

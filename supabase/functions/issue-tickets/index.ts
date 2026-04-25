@@ -964,9 +964,12 @@ export const handleIssueTicketsRequest = async (
       juniorUsageType === 0 || juniorUsageType === 1
         ? maxTicketsPerUser * 2
         : maxTicketsPerUser;
+    const isExemptJuniorEntryOnlyLimit =
+      isJuniorUser && isJuniorEntryOnlyTicket;
 
     if (
       !isDayTicket &&
+      !isExemptJuniorEntryOnlyLimit &&
       effectiveExisting + totalPersonCount > maxTicketsPerJuniorUser
     ) {
       throw new HttpError(

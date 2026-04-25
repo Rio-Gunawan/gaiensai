@@ -103,6 +103,9 @@ const Issue = () => {
     number | null
   >(null);
   const [issueCount, setIssueCount] = useState(1);
+  const [remainingIssueCapacity, setRemainingIssueCapacity] = useState<
+    number | null
+  >(null);
   const [isIssuing, setIsIssuing] = useState(false);
   const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
   const [classInviteMode, setClassInviteMode] = useState<
@@ -142,6 +145,49 @@ const Issue = () => {
     };
 
     void loadIssuingState();
+  }, []);
+
+  useEffect(() => {
+    const loadRemainingIssueCapacity = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const [{ data: configData, error: configError }, { count, error: countError }] =
+        await Promise.all([
+          supabase
+            .from('configs')
+            .select('max_tickets_per_user')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('tickets')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('status', 'valid'),
+        ]);
+
+      if (configError || countError) {
+        return;
+      }
+
+      const maxTicketsPerUser = Number(configData?.max_tickets_per_user ?? -1);
+      if (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 0) {
+        return;
+      }
+
+      const existingTicketCount = Number(count ?? 0);
+      setRemainingIssueCapacity(
+        Math.max(0, maxTicketsPerUser - existingTicketCount),
+      );
+    };
+
+    void loadRemainingIssueCapacity();
   }, []);
 
   useEffect(() => {
@@ -573,6 +619,24 @@ const Issue = () => {
     Boolean(selectedPerformance) &&
     selectedRelationshipId !== null &&
     issueCount > 0;
+  const isAtIssueLimit =
+    remainingIssueCapacity !== null && remainingIssueCapacity <= 0;
+  const isOverRemainingIssueCapacity =
+    remainingIssueCapacity !== null && issueCount > remainingIssueCapacity;
+  const maxSelectableIssueCount =
+    remainingIssueCapacity === null
+      ? MAX_ISSUE_COUNT
+      : Math.max(1, Math.min(MAX_ISSUE_COUNT, remainingIssueCapacity));
+
+  useEffect(() => {
+    if (remainingIssueCapacity === null || remainingIssueCapacity <= 0) {
+      return;
+    }
+
+    if (issueCount > maxSelectableIssueCount) {
+      setIssueCount(maxSelectableIssueCount);
+    }
+  }, [issueCount, maxSelectableIssueCount, remainingIssueCapacity]);
 
   const shouldShowOnlyOwnClassAlert = useMemo(() => {
     if (
@@ -920,6 +984,11 @@ const Issue = () => {
           <p>現在自部活のみ発券可能です。</p>
         </Alert>
       )}
+      {isAtIssueLimit && (
+        <Alert type='warning' className={styles.onlyOwnClassAlert}>
+          <p>最大発行可能枚数に達しているため、追加発券はできません。</p>
+        </Alert>
+      )}
 
       <div className={styles.sliderViewport}>
         <div className={getPanelClassName(1)}>
@@ -948,7 +1017,7 @@ const Issue = () => {
             relationshipError={relationshipError}
             selectedRelationshipId={selectedRelationshipId}
             issueCount={issueCount}
-            maxIssueCount={MAX_ISSUE_COUNT}
+            maxIssueCount={maxSelectableIssueCount}
             selectedTicketType={selectedTicketType}
             selectedPerformance={selectedPerformance}
             onSelectRelationshipId={setSelectedRelationshipId}
@@ -1024,7 +1093,9 @@ const Issue = () => {
                 !canSubmit ||
                 isIssuing ||
                 !turnstileToken ||
-                !isTicketIssuingEnabled
+                !isTicketIssuingEnabled ||
+                isAtIssueLimit ||
+                isOverRemainingIssueCapacity
               }
               style={step !== 3 ? { display: 'none' } : undefined}
             >

@@ -51,6 +51,8 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
     useState(true);
   const [myTicketSortMode, setMyTicketSortMode] =
     useState<TicketListSortMode>('recent');
+  const [hasReachedJuniorIssueLimit, setHasReachedJuniorIssueLimit] =
+    useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -60,7 +62,9 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
   const loginId = localPart.match(/^(.*)-\d{8}$/)?.[1] ?? localPart;
   const usageType = userData.junior_usage_type;
   const isIssueReceptionStopped =
-    !isTicketIssuingEnabled || !hasAnyActiveInviteTicketType;
+    !isTicketIssuingEnabled ||
+    !hasAnyActiveInviteTicketType ||
+    hasReachedJuniorIssueLimit;
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -117,6 +121,67 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
 
     void loadInviteTicketTypeState();
   }, []);
+
+  useEffect(() => {
+    const loadJuniorIssueCapacity = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const [
+        { data: configData, error: configError },
+        { count, error: countError },
+        { count: entryOnlyCount, error: entryOnlyCountError },
+      ] = await Promise.all([
+        supabase
+          .from('configs')
+          .select('max_tickets_per_junior_user')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'valid')
+          .neq('ticket_type', 7), // 入場専用券を除外
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'valid')
+          .eq('ticket_type', 7), // 入場専用券のみ
+      ]);
+
+      if (configError || countError || entryOnlyCountError) {
+        return;
+      }
+
+      const maxTicketsPerJuniorUser = Number(
+        configData?.max_tickets_per_junior_user ?? -1,
+      );
+      if (
+        !Number.isInteger(maxTicketsPerJuniorUser) ||
+        maxTicketsPerJuniorUser < 0
+      ) {
+        return;
+      }
+
+      const maxIssueCapacity = usageType === 1
+          ? maxTicketsPerJuniorUser * 2
+          : maxTicketsPerJuniorUser;
+      const existingIssueCapacity = Number(count ?? 0);
+      const hasReachedLimit = existingIssueCapacity >= maxIssueCapacity && entryOnlyCount !== 0;
+
+      setHasReachedJuniorIssueLimit(hasReachedLimit);
+    };
+
+    void loadJuniorIssueCapacity();
+  }, [usageType]);
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -369,7 +434,19 @@ const JuniorMyPage = ({ userData }: JuniorMyPageProps) => {
             オフライン中は新規チケットを発行できません。
           </p>
         )}
-        {isIssueReceptionStopped && (
+        {isTicketIssuingEnabled &&
+          hasAnyActiveInviteTicketType &&
+          hasReachedJuniorIssueLimit && (
+            <p className={dashboardStyles.issueOfflineNote}>
+              最大発行可能枚数に達しているため、追加発券はできません。
+            </p>
+          )}
+        {isTicketIssuingEnabled && !hasAnyActiveInviteTicketType && (
+          <p className={dashboardStyles.issueOfflineNote}>
+            現在チケット発券は受付停止中です。
+          </p>
+        )}
+        {!isTicketIssuingEnabled && (
           <p className={dashboardStyles.issueOfflineNote}>
             現在チケット発券は受付停止中です。
           </p>

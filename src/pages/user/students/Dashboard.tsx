@@ -97,6 +97,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
     'open' | 'only-own' | 'off'
   >('open');
   const [ownClassName, setOwnClassName] = useState<string | null>(null);
+  const [hasReachedIssueLimit, setHasReachedIssueLimit] = useState(false);
 
   useTitle('ダッシュボード - 生徒用ページ');
 
@@ -262,8 +263,55 @@ const Dashboard = ({ userData }: DashboardProps) => {
     void loadClassInviteMode();
   }, []);
 
+  useEffect(() => {
+    const loadIssueCapacity = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const [
+        { data: configData, error: configError },
+        { count, error: countError },
+      ] = await Promise.all([
+        supabase
+          .from('configs')
+          .select('max_tickets_per_user')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'valid'),
+      ]);
+
+      if (configError || countError) {
+        return;
+      }
+
+      const maxTicketsPerUser = Number(configData?.max_tickets_per_user ?? -1);
+      if (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 0) {
+        return;
+      }
+
+      const existingTicketCount = Number(count ?? 0);
+      const hasReachedLimit = existingTicketCount >= maxTicketsPerUser;
+
+      setHasReachedIssueLimit(hasReachedLimit);
+    };
+
+    void loadIssueCapacity();
+  }, []);
+
   const isIssueReceptionStopped =
-    !isTicketIssuingEnabled || !hasAnyActiveInviteTicketType;
+    !isTicketIssuingEnabled ||
+    !hasAnyActiveInviteTicketType ||
+    hasReachedIssueLimit;
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -746,11 +794,20 @@ const Dashboard = ({ userData }: DashboardProps) => {
             オフライン中は新規チケットを発行できません。
           </p>
         )}
-        {isIssueReceptionStopped && (
-          <p className={styles.issueOfflineNote}>
-            現在チケット発券は受付停止中です。
-          </p>
-        )}
+        {isOnline &&
+          isTicketIssuingEnabled &&
+          hasAnyActiveInviteTicketType &&
+          hasReachedIssueLimit && (
+            <p className={styles.issueOfflineNote}>
+              最大発行可能枚数に達しているため、追加発券はできません。
+            </p>
+          )}
+        {isOnline &&
+          (!isTicketIssuingEnabled || !hasAnyActiveInviteTicketType) && (
+            <p className={styles.issueOfflineNote}>
+              現在チケット発券は受付停止中です。
+            </p>
+          )}
       </section>
       {ticketNotice && (
         <Alert type='info'>

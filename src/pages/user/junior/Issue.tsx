@@ -92,6 +92,9 @@ const Issue = () => {
   const [isTicketIssuingEnabled, setIsTicketIssuingEnabled] = useState(true);
   const [hasIssuedJuniorEntryOnlyTicket, setHasIssuedJuniorEntryOnlyTicket] =
     useState(false);
+  const [juniorIssueCost, setJuniorIssueCost] = useState(1);
+  const [remainingJuniorIssueCapacity, setRemainingJuniorIssueCapacity] =
+    useState<number | null>(null);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
   const animationTimerRef = useRef<number | null>(null);
@@ -171,6 +174,71 @@ const Issue = () => {
   }, []);
 
   useEffect(() => {
+    const loadJuniorIssueCapacity = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        return;
+      }
+
+      const [
+        { data: configData, error: configError },
+        { data: userData, error: userError },
+        { count, error: countError },
+      ] = await Promise.all([
+        supabase
+          .from('configs')
+          .select('max_tickets_per_junior_user')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('users')
+          .select('junior_usage_type')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'valid')
+          .neq('ticket_type', JUNIOR_ENTRY_ONLY_TICKET_TYPE_ID),
+      ]);
+
+      if (configError || userError || countError) {
+        return;
+      }
+
+      const maxTicketsPerJuniorUser = Number(
+        configData?.max_tickets_per_junior_user ?? -1,
+      );
+      const juniorUsageType = Number(userData?.junior_usage_type ?? -1);
+      if (
+        !Number.isInteger(maxTicketsPerJuniorUser) ||
+        maxTicketsPerJuniorUser < 0
+      ) {
+        return;
+      }
+
+      const issueCost = juniorUsageType === 0 || juniorUsageType === 1 ? 2 : 1;
+      const maxIssueCapacity =
+        juniorUsageType === 0 || juniorUsageType === 1
+          ? maxTicketsPerJuniorUser * 2
+          : maxTicketsPerJuniorUser;
+      const existingIssueCapacity = Number(count ?? 0);
+
+      setJuniorIssueCost(issueCost);
+      setRemainingJuniorIssueCapacity(
+        Math.max(0, maxIssueCapacity - existingIssueCapacity),
+      );
+    };
+
+    void loadJuniorIssueCapacity();
+  }, []);
+
+  useEffect(() => {
     const loadTicketTypes = async () => {
       const { data, error } = await supabase
         .from('ticket_types')
@@ -193,12 +261,17 @@ const Issue = () => {
     if (!issueControls) {
       return [];
     }
+    const hasReachedCapacity =
+      remainingJuniorIssueCapacity !== null &&
+      remainingJuniorIssueCapacity < juniorIssueCost;
     return ticketTypes.map((ticketType) => {
       let isActive = false;
       if (ticketType.id === 5) {
-        isActive = issueControls.junior_class_mode !== 'off';
+        isActive =
+          issueControls.junior_class_mode !== 'off' && !hasReachedCapacity;
       } else if (ticketType.id === 6) {
-        isActive = issueControls.junior_gym_mode !== 'off';
+        isActive =
+          issueControls.junior_gym_mode !== 'off' && !hasReachedCapacity;
       } else if (ticketType.id === JUNIOR_ENTRY_ONLY_TICKET_TYPE_ID) {
         isActive =
           issueControls.junior_entry_only_mode !== 'off' &&
@@ -206,7 +279,13 @@ const Issue = () => {
       }
       return { ...ticketType, is_active: isActive };
     });
-  }, [ticketTypes, issueControls, hasIssuedJuniorEntryOnlyTicket]);
+  }, [
+    ticketTypes,
+    issueControls,
+    hasIssuedJuniorEntryOnlyTicket,
+    remainingJuniorIssueCapacity,
+    juniorIssueCost,
+  ]);
 
   useEffect(() => {
     const firstActive = activeTicketTypes.find(
@@ -371,6 +450,9 @@ const Issue = () => {
   );
   const isIssueReceptionStopped =
     !isTicketIssuingEnabled || !hasAnyActiveTicketType;
+  const isAtJuniorIssueLimit =
+    remainingJuniorIssueCapacity !== null &&
+    remainingJuniorIssueCapacity < juniorIssueCost;
 
   useEffect(() => {
     if (!selectedTicketType) {
@@ -612,8 +694,13 @@ const Issue = () => {
       <BackButton href='/junior/mypage' />
       <h1 className={styles.pageTitle}>チケット発券</h1>
 
-      {isIssueReceptionStopped ? (
+      {isIssueReceptionStopped && !isAtJuniorIssueLimit ? (
         <Alert type='warning'>現在チケット発券は受付停止中です。</Alert>
+      ) : null}
+      {isAtJuniorIssueLimit ? (
+        <Alert type='warning'>
+          最大発行可能枚数に達しているため、入場専用券のみ発券できます。
+        </Alert>
       ) : null}
 
       <div className={styles.sliderViewport}>

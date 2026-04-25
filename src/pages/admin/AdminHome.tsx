@@ -39,11 +39,6 @@ const adminHome = () => {
               コントロールパネル
             </a>
           </li>
-          <li>
-            <a href='/admin/teachers' onMouseEnter={() => preload(Scan)}>
-              担任の先生設定
-            </a>
-          </li>
         </ul>
       </section>
     </div>

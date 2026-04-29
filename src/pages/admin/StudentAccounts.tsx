@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import NormalSection from '../../components/ui/NormalSection';
 import styles from './Settings.module.css';
 import Alert from '../../components/ui/Alert';
+import Switch from '../../components/ui/Switch';
 
 const BASE58_ALPHABET =
   '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -42,7 +43,9 @@ type BulkCreateResponse = {
 
 const isStudentAccountId = (id: string): boolean => {
   const numericId = Number(id);
-  return Number.isInteger(numericId) && numericId >= 10000 && numericId <= 40000;
+  return (
+    Number.isInteger(numericId) && numericId >= 10000 && numericId <= 40000
+  );
 };
 
 const StudentAccountsContent = () => {
@@ -52,6 +55,7 @@ const StudentAccountsContent = () => {
   const [maxAttendance, setMaxAttendance] = useState(
     config.max_attendance_number,
   );
+  const [useTestPassword, setUseTestPassword] = useState(false);
 
   const [filterGrade, setFilterGrade] = useState('');
   const [filterClass, setFilterClass] = useState('');
@@ -177,7 +181,10 @@ const StudentAccountsContent = () => {
       for (let c = 1; c <= maxClass; c++) {
         for (let n = 1; n <= maxAttendance; n++) {
           const id = `${g}${String(c).padStart(2, '0')}${String(n).padStart(2, '0')}`;
-          accounts.push({ id, password: generateBase58Password() });
+          accounts.push({
+            id,
+            password: useTestPassword ? '0000' : generateBase58Password(),
+          });
         }
       }
     }
@@ -383,6 +390,17 @@ const StudentAccountsContent = () => {
                 }
               />
             </div>
+            <div className={styles.field}>
+              <span className={styles.settingLabel}>
+                テスト用パスワード (0000)
+              </span>
+              <label>
+                <Switch
+                  checked={useTestPassword}
+                  onChange={(checked) => setUseTestPassword(checked)}
+                />
+              </label>
+            </div>
           </div>
 
           <div className={styles.saveButtonContainer}>
@@ -443,9 +461,17 @@ const StudentAccountsContent = () => {
                   </ul>
                 </div>
               )}
-              <Alert type='warning'>
-                パスワードを再度表示することはできません。必ずCSVダウンロードをしてください。
-              </Alert>
+              {useTestPassword && (
+                <Alert type='warning'>
+                  テスト用パスワード (0000)
+                  を使用しています。本番環境では使用しないでください。
+                </Alert>
+              )}
+              {!useTestPassword && (
+                <Alert type='warning'>
+                  パスワードを再度表示することはできません。必ずCSVダウンロードをしてください。
+                </Alert>
+              )}
             </>
           )}
         </NormalSection>

@@ -115,8 +115,10 @@ const Issue = () => {
   const [ownClubs, setOwnClubs] = useState<string[] | null>(null);
   const [leavingStep, setLeavingStep] = useState<Step | null>(null);
   const [isForward, setIsForward] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true); // 初期化フラグを追加
   const animationTimerRef = useRef<number | null>(null);
   const prevSelectedPerformanceRef = useRef<SelectedPerformance>(null);
+  const selectionFromQueryHasRun = useRef(false);
   const turnstileContainerId = 'issue-turnstile-widget';
   const {
     token: turnstileToken,
@@ -157,20 +159,23 @@ const Issue = () => {
         return;
       }
 
-      const [{ data: configData, error: configError }, { count, error: countError }] =
-        await Promise.all([
-          supabase
-            .from('configs')
-            .select('max_tickets_per_user')
-            .order('id', { ascending: true })
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from('tickets')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'valid'),
-        ]);
+      const [
+        { data: configData, error: configError },
+        { count, error: countError },
+      ] = await Promise.all([
+        supabase
+          .from('configs')
+          .select('max_tickets_per_user')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'valid')
+          .neq('ticket_type', 4), // 入場専用券を除外
+      ]);
 
       if (configError || countError) {
         return;
@@ -284,15 +289,20 @@ const Issue = () => {
     if (!issueControls) {
       return [];
     }
+    const hasReachedCapacity =
+      remainingIssueCapacity !== null && remainingIssueCapacity <= 0;
     return ticketTypes.map((t) => {
       let isActive = false;
       if (t.id === 1) {
-        isActive = issueControls.class_invite_mode !== 'off';
+        isActive =
+          issueControls.class_invite_mode !== 'off' && !hasReachedCapacity;
       } else if (t.id === 2) {
-        isActive = issueControls.rehearsal_invite_mode !== 'off';
+        isActive =
+          issueControls.rehearsal_invite_mode !== 'off' && !hasReachedCapacity;
       } else if (t.id === 3) {
         isActive =
           issueControls.gym_invite_mode !== 'off' &&
+          !hasReachedCapacity &&
           (issueControls.gym_invite_mode !== 'only-own' ||
             (ownClubs !== null && ownClubs.length > 0));
       } else if (t.id === 4) {
@@ -300,14 +310,20 @@ const Issue = () => {
       }
       return { ...t, is_active: isActive };
     });
-  }, [ticketTypes, issueControls, ownClubs]);
+  }, [ticketTypes, issueControls, ownClubs, remainingIssueCapacity]);
 
   useEffect(() => {
+    // URLからの初期化中や、既にSTEP 1以外にいる（URLで選択済みなど）場合は
+    // 自動的に券種を切り替えないようにする
+    if (isInitializing || step !== 1) {
+      return;
+    }
+
     const firstActive = activeTicketTypes.find((t) => t.is_active);
     if (firstActive) {
       setSelectedTicketTypeId(firstActive.id);
     }
-  }, [activeTicketTypes]);
+  }, [activeTicketTypes, isInitializing, step]);
 
   useEffect(() => {
     const loadRelationships = async () => {
@@ -342,7 +358,20 @@ const Issue = () => {
   );
 
   useEffect(() => {
+    // 制御情報、発行上限、所属部活などのロードが完了してから実行する
+    // これにより、上限に達している場合に不正な自動選択が行われるのを防ぐ
+    if (
+      issueControls === null ||
+      remainingIssueCapacity === null ||
+      ownClubs === null ||
+      selectionFromQueryHasRun.current
+    ) {
+      return;
+    }
+
     const loadSelectionFromQuery = async () => {
+      selectionFromQueryHasRun.current = true;
+      setIsInitializing(true); // 読み込み開始
       const params = new URLSearchParams(window.location.search);
       const venue = params.get('venue');
       const performanceId = Number(params.get('performanceId'));
@@ -366,23 +395,8 @@ const Issue = () => {
           name: string;
         }>;
 
-        // issueControls の状態と照らし合わせてフィルタリング
+        // 利用可能かどうか（isActive）に関わらず、会場（Venue）に合致する券種を検索する
         const picked = options.find((ticketType) => {
-          let isActive = false;
-          if (ticketType.id === 1) {
-            isActive = issueControls?.class_invite_mode !== 'off';
-          } else if (ticketType.id === 2) {
-            isActive = issueControls?.rehearsal_invite_mode !== 'off';
-          } else if (ticketType.id === 3) {
-            isActive = issueControls?.gym_invite_mode !== 'off';
-          } else if (ticketType.id === 4) {
-            isActive = issueControls?.entry_only_mode !== 'off';
-          }
-
-          if (!isActive) {
-            return false;
-          }
-
           const isAdmissionOnly =
             ticketType.name === ADMISSION_ONLY_TICKET_NAME;
           const isGym = ticketType.name.includes(GYM_TICKET_KEYWORD);
@@ -444,73 +458,72 @@ const Issue = () => {
           remaining,
         });
         setStep(3);
+        setIsInitializing(false);
         return;
-      }
-
-      if (
-        !Number.isInteger(performanceId) ||
-        !Number.isInteger(scheduleId) ||
-        performanceId <= 0 ||
-        scheduleId <= 0
+      } else if (
+        Number.isInteger(performanceId) &&
+        Number.isInteger(scheduleId) &&
+        performanceId > 0 &&
+        scheduleId > 0
       ) {
-        return;
+        const [
+          { data: performanceData, error: performanceError },
+          { data: scheduleData, error: scheduleError },
+          { data: remainingData, error: remainingError },
+        ] = await Promise.all([
+          supabase
+            .from('class_performances')
+            .select('id, class_name')
+            .eq('id', performanceId)
+            .maybeSingle(),
+          supabase
+            .from('performances_schedule')
+            .select('id, round_name')
+            .eq('id', scheduleId)
+            .maybeSingle(),
+          supabase.rpc('get_remaining_seats', {
+            p_performance_id: performanceId,
+            p_schedule_id: scheduleId,
+          }),
+        ]);
+
+        if (
+          !performanceError &&
+          !scheduleError &&
+          !remainingError &&
+          performanceData &&
+          scheduleData
+        ) {
+          const remaining = Number(
+            (
+              remainingData as { remaining_general: number | string }[] | null
+            )?.[0]?.remaining_general ?? 0,
+          );
+
+          if (remaining > 0) {
+            const classTicketTypeId = await pickTicketTypeIdForVenue('class');
+            if (classTicketTypeId !== null) {
+              setSelectedTicketTypeId(classTicketTypeId);
+            }
+
+            setSelectedPerformance({
+              performanceId: performanceData.id,
+              performanceName: performanceData.class_name,
+              scheduleId: scheduleData.id,
+              scheduleName: scheduleData.round_name,
+              remaining,
+            });
+            setStep(3);
+          }
+        }
       }
 
-      const [
-        { data: performanceData, error: performanceError },
-        { data: scheduleData, error: scheduleError },
-        { data: remainingData, error: remainingError },
-      ] = await Promise.all([
-        supabase
-          .from('class_performances')
-          .select('id, class_name')
-          .eq('id', performanceId)
-          .maybeSingle(),
-        supabase
-          .from('performances_schedule')
-          .select('id, round_name')
-          .eq('id', scheduleId)
-          .maybeSingle(),
-        supabase.rpc('get_remaining_seats', {
-          p_performance_id: performanceId,
-          p_schedule_id: scheduleId,
-        }),
-      ]);
-
-      if (performanceError || scheduleError || remainingError) {
-        return;
-      }
-
-      if (!performanceData || !scheduleData) {
-        return;
-      }
-
-      const remaining = Number(
-        (remainingData as { remaining_general: number | string }[] | null)?.[0]
-          ?.remaining_general ?? 0,
-      );
-
-      if (remaining <= 0) {
-        return;
-      }
-
-      const classTicketTypeId = await pickTicketTypeIdForVenue('class');
-      if (classTicketTypeId !== null) {
-        setSelectedTicketTypeId(classTicketTypeId);
-      }
-
-      setSelectedPerformance({
-        performanceId: performanceData.id,
-        performanceName: performanceData.class_name,
-        scheduleId: scheduleData.id,
-        scheduleName: scheduleData.round_name,
-        remaining,
-      });
-      setStep(3);
+      // すべての読み込みが終わってから初期化フラグを下ろす
+      setIsInitializing(false);
     };
 
     void loadSelectionFromQuery();
-  }, []);
+  }, [issueControls, remainingIssueCapacity, ownClubs]);
 
   // selectedPerformance の変更を追跡（アラート表示判定用）
   useEffect(() => {
@@ -619,12 +632,17 @@ const Issue = () => {
     Boolean(selectedPerformance) &&
     selectedRelationshipId !== null &&
     issueCount > 0;
+  const isSelectedEntryOnlyTicket = selectedTicketType?.id === 4;
   const isAtIssueLimit =
-    remainingIssueCapacity !== null && remainingIssueCapacity <= 0;
+    !isSelectedEntryOnlyTicket &&
+    remainingIssueCapacity !== null &&
+    remainingIssueCapacity <= 0;
   const isOverRemainingIssueCapacity =
-    remainingIssueCapacity !== null && issueCount > remainingIssueCapacity;
+    !isSelectedEntryOnlyTicket &&
+    remainingIssueCapacity !== null &&
+    issueCount > remainingIssueCapacity;
   const maxSelectableIssueCount =
-    remainingIssueCapacity === null
+    remainingIssueCapacity === null || isSelectedEntryOnlyTicket
       ? MAX_ISSUE_COUNT
       : Math.max(1, Math.min(MAX_ISSUE_COUNT, remainingIssueCapacity));
 
@@ -986,7 +1004,7 @@ const Issue = () => {
       )}
       {isAtIssueLimit && (
         <Alert type='warning' className={styles.onlyOwnClassAlert}>
-          <p>最大発行可能枚数に達しているため、追加発券はできません。</p>
+          <p>最大発行可能枚数に達しているため、入場専用券のみ発券できます。さらに必要な場合は、不要なチケットをキャンセルするか、友達からもらってください。</p>
         </Alert>
       )}
 

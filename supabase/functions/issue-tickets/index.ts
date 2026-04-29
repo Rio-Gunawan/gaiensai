@@ -394,6 +394,11 @@ export const handleIssueTicketsRequest = async (
       );
     }
 
+    // 入場専用券かどうかの判定
+    const isAdmissionOnlyTicket = admissionOnlyTicketTypeIds.includes(
+      body.ticketTypeId,
+    );
+
     const isDayTicket = dayTicketTypeIds.has(body.ticketTypeId);
 
     const relationshipId = isDayTicket
@@ -926,10 +931,12 @@ export const handleIssueTicketsRequest = async (
       .eq('user_id', issueUserId)
       .eq('status', 'valid');
 
-    if (isJuniorUser && juniorEntryOnlyId !== undefined) {
-      existingCountQuery = existingCountQuery.neq(
+    // 入場専用券は上限カウントの対象外とする
+    if (admissionOnlyTicketTypeIds.length > 0) {
+      existingCountQuery = existingCountQuery.not(
         'ticket_type',
-        juniorEntryOnlyId,
+        'in',
+        `(${admissionOnlyTicketTypeIds.join(',')})`,
       );
     }
 
@@ -964,12 +971,12 @@ export const handleIssueTicketsRequest = async (
       juniorUsageType === 0 || juniorUsageType === 1
         ? maxTicketsPerUser * 2
         : maxTicketsPerUser;
-    const isExemptJuniorEntryOnlyLimit =
-      isJuniorUser && isJuniorEntryOnlyTicket;
+    // 入場専用券のリクエストは制限チェックをスキップする
+    const isExemptLimit = isAdmissionOnlyTicket;
 
     if (
       !isDayTicket &&
-      !isExemptJuniorEntryOnlyLimit &&
+      !isExemptLimit &&
       effectiveExisting + totalPersonCount > maxTicketsPerJuniorUser
     ) {
       throw new HttpError(

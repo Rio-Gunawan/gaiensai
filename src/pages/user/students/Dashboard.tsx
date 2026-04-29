@@ -287,7 +287,8 @@ const Dashboard = ({ userData }: DashboardProps) => {
           .from('tickets')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .eq('status', 'valid'),
+          .eq('status', 'valid')
+          .neq('ticket_type', 4), // 入場専用券を除外
       ]);
 
       if (configError || countError) {
@@ -310,8 +311,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
 
   const isIssueReceptionStopped =
     !isTicketIssuingEnabled ||
-    !hasAnyActiveInviteTicketType ||
-    hasReachedIssueLimit;
+    !hasAnyActiveInviteTicketType;
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -799,7 +799,7 @@ const Dashboard = ({ userData }: DashboardProps) => {
           hasAnyActiveInviteTicketType &&
           hasReachedIssueLimit && (
             <p className={styles.issueOfflineNote}>
-              最大発行可能枚数に達しているため、追加発券はできません。
+              最大発行可能枚数に達しているため、入場専用券のみ発券できます。
             </p>
           )}
         {isOnline &&

@@ -37,3 +37,15 @@
   margin: 0;
   font-size: 0.9rem;
 }
+
+.logo {
+  width: 100%;
+  height: auto;
+}
+
+.logoLink {
+  width: 90vw;
+  max-width: 250px;
+  display: inline-block;
+  margin-top: 1rem;
+}
